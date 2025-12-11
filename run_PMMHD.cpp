@@ -1,6 +1,6 @@
 #include <algorithm> // std::copy
 #include <exception> // std::exception
-#include <fstream>              // std::ifstream
+#include <fstream>   // std::ifstream
 #include <iterator> // std::ostream_iterator
 #include <math.h> // M_PI, exp, cos, sin
 #include <numeric> // std::inner_product
@@ -24,9 +24,9 @@ using std::endl;
 
 namespace pt = boost::property_tree;
 
-#include "Panel.hpp"
+// #include "Panel.hpp"
 #include "AMRStructure.hpp"
-#include "initial_distributions.hpp"
+// #include "initial_distributions.hpp"
 
 // #define DEBUG // for debugging purposes
 // #define DEBUG2
@@ -207,48 +207,50 @@ int main(int argc, char** argv) {
                 do_adaptively_refine_j, amr_epsilons_j};
                 
 
-    amr.init_e();
-    amr.write_to_file();
+    // amr.init_e();
+    // amr.write_to_file();
 
-    for (int ii = 1; ii < num_steps+1; ++ii) {
-        bool get_4th_e = false;
-        auto start = high_resolution_clock::now();
-        amr.step(get_4th_e);
-        auto stop = high_resolution_clock::now();
-        amr.add_time(step_time, duration_cast<duration<double>>(stop - start) );
+    // for (int ii = 1; ii < num_steps+1; ++ii) {
+    //     bool get_4th_e = false;
+    //     auto start = high_resolution_clock::now();
+    //     amr.step(get_4th_e);
+    //     auto stop = high_resolution_clock::now();
+    //     amr.add_time(step_time, duration_cast<duration<double>>(stop - start) );
 
-        if ((ii) % n_steps_remesh == 0) {
+    //     if ((ii) % n_steps_remesh == 0) {
 
-            start = high_resolution_clock::now();
-            amr.remesh();
-            stop = high_resolution_clock::now();
-            amr.add_time(remesh_time, duration_cast<duration<double>>(stop - start) );
+    //         start = high_resolution_clock::now();
+    //         amr.remesh();
+    //         stop = high_resolution_clock::now();
+    //         amr.add_time(remesh_time, duration_cast<duration<double>>(stop - start) );
 
-            amr.init_e();
-        } else {
-            // still need to calculate e
-            auto start = high_resolution_clock::now();
+    //         amr.init_e();
+    //     } else {
+    //         // still need to calculate e
+    //         auto start = high_resolution_clock::now();
             
-            std::vector<double> xs_cpy (amr.xs);
-            std::vector<double> xs_cpy2 (amr.xs);
-            (*calculate_e)(amr.es.data(), xs_cpy.data(), amr.es.size(),
-                            xs_cpy2.data(), amr.q_ws.data(), xs_cpy.size());
-            auto stop = high_resolution_clock::now();
-            amr.add_time(field_time, duration_cast<duration<double>>(stop - start) );
-        }
+    //         std::vector<double> xs_cpy (amr.xs);
+    //         std::vector<double> xs_cpy2 (amr.xs);
+    //         (*calculate_e)(amr.es.data(), xs_cpy.data(), amr.es.size(),
+    //                         xs_cpy2.data(), amr.q_ws.data(), xs_cpy.size());
+    //         auto stop = high_resolution_clock::now();
+    //         amr.add_time(field_time, duration_cast<duration<double>>(stop - start) );
+    //     }
 
-        if ((ii) % n_steps_diag == 0) {
+    //     if ((ii) % n_steps_diag == 0) {
 
-            auto file_start = high_resolution_clock::now();
-            amr.write_to_file();
-            auto file_stop = high_resolution_clock::now();
-            amr.add_time(file_time,  duration_cast<duration<double>>(file_stop - file_start) );
-        }
-    }
-    auto sim_stop = high_resolution_clock::now();
-    amr.add_time(sim_time,  duration_cast<duration<double>>(sim_stop - sim_start) );
-    amr.print_times();
+    //         auto file_start = high_resolution_clock::now();
+    //         amr.write_to_file();
+    //         auto file_stop = high_resolution_clock::now();
+    //         amr.add_time(file_time,  duration_cast<duration<double>>(file_stop - file_start) );
+    //     }
+    // }
+    // auto sim_stop = high_resolution_clock::now();
+    // amr.add_time(sim_time,  duration_cast<duration<double>>(sim_stop - sim_start) );
+    // amr.print_times();
 
-    delete f0;
+    delete w0;
+    delete j0;
     delete calculate_e;
+    return 0;
 }
