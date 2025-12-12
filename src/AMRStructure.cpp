@@ -31,7 +31,7 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
     initial_dy = Ly / npanels_y;
 
     bool is_initial_step = true;
-    generate_mesh([&](double x, double y) { return (*w0)(x,y); }, do_adaptively_refine, is_initial_step);
+    generate_mesh([&](double x, double y) { return (*w0)(x,y); }, [&](double x, double y) { return (*j0)(x,y); },do_adaptively_refine_vorticity, do_adaptively_refine_j, is_initial_step);
     f_beyond_boundary = *std::min_element(fs.begin(), fs.end() );
     cout << "extrapolating value is " << f_beyond_boundary << endl;
 }
