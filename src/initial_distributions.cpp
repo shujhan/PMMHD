@@ -23,3 +23,15 @@ void j0_uniform::print() {
     std::cout << "j0_uniform distribution: constant 1" << std::endl;
 }
 
+// ---- j0_non_uniform ----
+j0_non_uniform::j0_non_uniform() {}
+
+double j0_non_uniform::operator()(double x, double y) {
+    return x * y;
+}
+
+
+void j0_non_uniform::print() {
+    std::cout << "j0_non_uniform distribution: x * y" << std::endl;
+}
+

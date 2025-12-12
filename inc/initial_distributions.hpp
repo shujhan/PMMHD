@@ -25,4 +25,13 @@ class j0_uniform : public distribution {
         void print();
 };
 
+class j0_non_uniform : public distribution {
+    public:
+        j0_non_uniform();
+
+        double operator() (double x, double y);
+        void print();
+};
+
+
 #endif

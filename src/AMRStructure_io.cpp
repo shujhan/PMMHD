@@ -52,20 +52,20 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
         double y = ys[ii];
         double w0 = w0s[ii];
         double j0 = j0s[ii];
-        double weight = weights[ii];
-        double u1 = u1s[ii];
-        double u2 = u2s[ii];
-        double b1 = b1s[ii];
-        double b2 = b2s[ii];
+        // double weight = weights[ii];
+        // double u1 = u1s[ii];
+        // double u2 = u2s[ii];
+        // double b1 = b1s[ii];
+        // double b2 = b2s[ii];
         xs_file.write((char *) &x, sizeof(double));
         ys_file.write((char *) &y, sizeof(double));
         w0s_file.write((char *) &w0, sizeof(double));
         j0s_file.write((char *) &j0, sizeof(double));
-        weights_file.write((char *) &weight, sizeof(double));
-        u1s_file.write((char *) &u1, sizeof(double));
-        u2s_file.write((char *) &u2, sizeof(double));
-        b1s_file.write((char *) &b1, sizeof(double));
-        b2s_file.write((char *) &b2, sizeof(double));
+        // weights_file.write((char *) &weight, sizeof(double));
+        // u1s_file.write((char *) &u1, sizeof(double));
+        // u2s_file.write((char *) &u2, sizeof(double));
+        // b1s_file.write((char *) &b1, sizeof(double));
+        // b2s_file.write((char *) &b2, sizeof(double));
     }
 
     if (!xs_file.good() | !ys_file.good() | !w0s_file.good() | !j0s_file.good() | !weights_file.good() | !u1s_file.good()

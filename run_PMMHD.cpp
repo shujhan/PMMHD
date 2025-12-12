@@ -127,9 +127,14 @@ int main(int argc, char** argv) {
     distribution* j0;
     switch (ics_type_j)
     {
-        case 1: // for vorticity 
+        case 1: // for current density
             j0 = new j0_uniform();
             break;
+
+        case 2: 
+            j0 = new j0_non_uniform();
+            break;
+
         default:
             cout << "Using default initial conditions, all 1s" << endl;
             j0 = new j0_uniform();
@@ -160,6 +165,10 @@ int main(int argc, char** argv) {
             cout << "Using periodic boundary conditions" << endl;
             break;
     }
+
+    cout << "vorticity ics type: " << ics_type_vorticity << endl;
+    cout << "current density ics type: " << ics_type_j << endl;
+
     cout << "height " << initial_height << ", y height " << y_height << ", max height " << max_height << endl;
     switch (quad) {
         case 1 : cout << "Using Simpson's rule" << endl;
