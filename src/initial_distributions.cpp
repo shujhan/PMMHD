@@ -22,3 +22,4 @@ double j0_uniform::operator()(double x, double y) {
 void j0_uniform::print() {
     std::cout << "j0_uniform distribution: constant 1" << std::endl;
 }
+

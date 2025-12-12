@@ -134,7 +134,7 @@ int AMRStructure::create_prerefined_mesh() {
     }
     for (int ii = 0; ii < 2; ++ii) {
         xs.push_back(xs_init[2*ii]); xs.push_back(xs_init[2*ii]);
-        ys.push_back(vs_init[1]); ys.push_back(vs_init[3]);
+        ys.push_back(ys_init[1]); ys.push_back(ys_init[3]);
         for (int jj = 0; jj < 5; ++jj) {
             xs.push_back(xs_init[1 + 2*ii]);
             ys.push_back(ys_init[jj]);
@@ -187,19 +187,20 @@ int AMRStructure::create_prerefined_mesh() {
         for (auto panel_it = panels.begin() + minimum_unrefined_index; panel_it != panels.end(); ++panel_it) {
             panel_it->needs_refinement = true;
         }
-        refine_panels( [] (double x, double y) {return 1.0;} ,  [] (double x, double y) {return 1.0;} ,  false);
+        refine_panels( [] (double x, double y) {return 1.0;} ,  false);
         minimum_unrefined_index = num_panels_pre_refine;
     }
-    for (int level = 0; level < v_height; ++level) {
-        int num_panels_pre_refine = panels.size();
+    // TODO: refine in y 
+    // for (int level = 0; level < y_height; ++level) {
+    //     int num_panels_pre_refine = panels.size();
 
-        for (auto panel_it = panels.begin() + minimum_unrefined_index; panel_it != panels.end(); ++panel_it) {
-            panel_it->needs_refinement = true;
-        }
-        bool do_adaptive_refine = false;
-        refine_panels_refine_v( [] (double x, double v) {return 1.0;} , do_adaptive_refine);
-        minimum_unrefined_index = num_panels_pre_refine;
-    }
+    //     for (auto panel_it = panels.begin() + minimum_unrefined_index; panel_it != panels.end(); ++panel_it) {
+    //         panel_it->needs_refinement = true;
+    //     }
+    //     bool do_adaptive_refine = false;
+    //     refine_panels_refine_y( [] (double x, double y) {return 1.0;} , do_adaptive_refine);
+    //     minimum_unrefined_index = num_panels_pre_refine;
+    // }
 
 
     is_initial_mesh_set = true;
@@ -505,10 +506,10 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
             for (int ii = 0; ii < 9; ++ii) {
                 int point_ind = panel_points[ii];
                 panel_xs.push_back(xs[point_ind]);
-                panel_vs.push_back(ys[point_ind]);
+                panel_ys.push_back(ys[point_ind]);
             }
             dx = panel_xs[3] - panel_xs[0];
-            dy = panel_vs[1] - panel_vs[0];
+            dy = panel_ys[1] - panel_ys[0];
             double sub_dx = 0.5 * dx;
             double sub_dy = 0.5 * dy;
 
@@ -541,7 +542,7 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
                 point_9_ind = new_vert_ind++;
                 point_10_ind = new_vert_ind++;
                 new_xs.push_back(subpanel_xs[0]); new_xs.push_back(subpanel_xs[0]);
-                new_ys.push_back(subpanel_ys[1]); new_vs.push_back(subpanel_ys[3]);
+                new_ys.push_back(subpanel_ys[1]); new_ys.push_back(subpanel_ys[3]);
             } else if (panel->left_nbr_ind == -1) { // parent not determined 
                 panel_parent = &(panels[panel->parent_ind]);
                 Panel* parent_left = &(panels[panel_parent->left_nbr_ind]);
@@ -555,14 +556,14 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
                 point_10_ind = point_9_ind + 1;
                 new_vert_ind += 2;
                 new_xs.push_back(subpanel_xs[0]); new_xs.push_back(subpanel_xs[0]);
-                new_vs.push_back(subpanel_ys[1]); new_vs.push_back(subpanel_ys[3]);
+                new_ys.push_back(subpanel_ys[1]); new_ys.push_back(subpanel_ys[3]);
             } else {
                 Panel* panel_left = &(panels[panel->left_nbr_ind]);
                 if (! panel_left->is_refined_xy) {
                     point_9_ind = new_vert_ind++;
                     point_10_ind = new_vert_ind++;
                     new_xs.push_back(subpanel_xs[0]); new_xs.push_back(subpanel_xs[0]);
-                    new_vs.push_back(subpanel_ys[1]); new_ys.push_back(subpanel_ys[3]);
+                    new_ys.push_back(subpanel_ys[1]); new_ys.push_back(subpanel_ys[3]);
                 }
                 else {
                     child_0_left_nbr_ind = panel_left->child_inds_start +2;
@@ -611,7 +612,7 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
                     point_11_ind = new_vert_ind++;
                     point_18_ind = new_vert_ind++;
                     new_xs.push_back(subpanel_xs[1]); new_xs.push_back(subpanel_xs[3]);
-                    new_ys.push_back(subpanel_ys[0]); new_vs.push_back(subpanel_ys[0]);
+                    new_ys.push_back(subpanel_ys[0]); new_ys.push_back(subpanel_ys[0]);
                 }
                 else {
                     child_0_bottom_nbr_ind = panel_bottom->child_inds_start + 1;
@@ -687,14 +688,14 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
                 point_23_ind = new_vert_ind++;
                 point_24_ind = new_vert_ind++;
                 new_xs.push_back(subpanel_xs[4]); new_xs.push_back(subpanel_xs[4]);
-                new_ys.push_back(subpanel_vs[1]); new_ys.push_back(subpanel_vs[3]);
+                new_ys.push_back(subpanel_ys[1]); new_ys.push_back(subpanel_ys[3]);
             } else {
                 Panel* panel_right = &(panels[panel->right_nbr_ind]);
                 if (! panel_right->is_refined_xy) {
                     point_23_ind = new_vert_ind++;
                     point_24_ind = new_vert_ind++;
                     new_xs.push_back(subpanel_xs[4]); new_xs.push_back(subpanel_xs[4]);
-                    new_vs.push_back(subpanel_vs[1]); new_vs.push_back(subpanel_vs[3]);
+                    new_ys.push_back(subpanel_ys[1]); new_ys.push_back(subpanel_ys[3]);
                     if (panel->right_nbr_ind == jj /* panel_ind = jj */) {
                         child_2_right_nbr_ind = num_new_panels;
                         child_0_left_nbr_ind = num_new_panels + 2;
@@ -714,7 +715,7 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
                         point_23_ind = new_vert_ind++;
                         point_24_ind = new_vert_ind++;
                         new_xs.push_back(subpanel_xs[4]); new_xs.push_back(subpanel_xs[4]);
-                        new_ys.push_back(subpanel_vs[1]); new_ys.push_back(subpanel_vs[3]);
+                        new_ys.push_back(subpanel_ys[1]); new_ys.push_back(subpanel_ys[3]);
                     } else {
                         point_23_ind = child_2_right_nbr->point_inds[1];
                         point_24_ind = child_3_right_nbr->point_inds[1];
@@ -791,13 +792,13 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
     new_w0s.reserve(new_xs.size());
     new_j0s.reserve(new_xs.size());
     for (int ii = 0; ii < new_xs.size(); ++ii) {
-        new_w0s.push_back( f(new_xs.at(ii), new_vs.at(ii)));
-        new_j0s.push_back( f(new_xs.at(ii), new_vs.at(ii)));
+        new_w0s.push_back( f(new_xs.at(ii), new_ys.at(ii)));
+        new_j0s.push_back( f(new_xs.at(ii), new_ys.at(ii)));
     }
 
     for (int ii = 0; ii < new_xs.size(); ++ii) {
         xs.push_back(new_xs[ii]); 
-        vs.push_back(new_vs[ii]); 
+        ys.push_back(new_ys[ii]); 
         w0s.push_back(new_w0s[ii]);
         j0s.push_back(new_j0s[ii]);
     }
@@ -811,10 +812,10 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
     // }
 }
 
-void AMRStructure::generate_mesh(std::function<double (double,double)> w0, std::function<double (double,double)> j0,
+void AMRStructure::generate_mesh(std::function<double (double,double)> f0, std::function<double (double,double)> f1,
                                  bool do_adaptively_refine_vorticity,bool do_adaptively_refine_j, bool is_initial_step) 
 {
-    bool verbose=false;
+    // bool verbose=false;
 
     // auto start = high_resolution_clock::now();
     create_prerefined_mesh();
@@ -823,7 +824,7 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> w0, std::
 
 
 
-    start = high_resolution_clock::now();
+    // start = high_resolution_clock::now();
     if (is_initial_step) {
         for (int ii = 0; ii < xs.size(); ii++) {
             w0s[ii] = (*w0)(xs[ii],ys[ii]);
@@ -897,119 +898,119 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> w0, std::
 
 }
 
-void AMRStructure::test_panel(int panel_ind, bool verbose) {
-    // cout << "testing panel " << panel_ind << endl;
+// void AMRStructure::test_panel(int panel_ind, bool verbose) {
+//     // cout << "testing panel " << panel_ind << endl;
 
-    double panel_fs[9];
-    auto panel_it = panels.begin() + panel_ind;
-    for (int ii = 0; ii < 9; ++ii) {
-        // panel_fs[ii] = particles.at(panel_it->get_vertex_ind(ii)).get_f();
-        panel_fs[ii] = fs[panel_it->point_inds[ii]];
-    }
-    // std::vector<bool> criteria(amr_epsilons.size(), true);
-    bool refine_criteria_met = false;
-    if (amr_epsilons.size() > 0) {
-        double max_f = panel_fs[0];
-        double min_f = panel_fs[0];
-        for (int ii = 1; ii < 9; ++ii) {
-            double fii = panel_fs[ii];
-            if (max_f < fii) { max_f = fii; }
-            if (min_f > fii) { min_f = fii; }
-        }
-        // finding trouble panels in amr
-        if (max_f - min_f >= 800) {
-            cout << "interpolation trouble at panel " << panel_ind << endl;
-            cout << "max f " << max_f << ", min f" << min_f << ", difference= " << max_f - min_f << endl;
-            for (int ii = 0; ii < 9; ++ii) {
-                int pind = panel_it->point_inds[ii];
-                cout << "point " << pind << ": (x,v,f)=(" << xs[pind] << ", " << vs[pind] << ", " << panel_fs[ii] << ")" << endl;
-            }
-            cout << endl;
-        }
-        #ifdef DEBUG
-        // cout << "panel fs: " << endl;
-        // for (int ii = 0; ii < 9; ii++) {
-        //     cout << panel_fs[ii] << " ";
-        // }
-        // cout << "max_f " << max_f << ", min f " << min_f << endl;
-        #endif
-        refine_criteria_met = refine_criteria_met || (max_f - min_f > amr_epsilons[0]);
+//     double panel_fs[9];
+//     auto panel_it = panels.begin() + panel_ind;
+//     for (int ii = 0; ii < 9; ++ii) {
+//         // panel_fs[ii] = particles.at(panel_it->get_vertex_ind(ii)).get_f();
+//         panel_fs[ii] = fs[panel_it->point_inds[ii]];
+//     }
+//     // std::vector<bool> criteria(amr_epsilons.size(), true);
+//     bool refine_criteria_met = false;
+//     if (amr_epsilons.size() > 0) {
+//         double max_f = panel_fs[0];
+//         double min_f = panel_fs[0];
+//         for (int ii = 1; ii < 9; ++ii) {
+//             double fii = panel_fs[ii];
+//             if (max_f < fii) { max_f = fii; }
+//             if (min_f > fii) { min_f = fii; }
+//         }
+//         // finding trouble panels in amr
+//         if (max_f - min_f >= 800) {
+//             cout << "interpolation trouble at panel " << panel_ind << endl;
+//             cout << "max f " << max_f << ", min f" << min_f << ", difference= " << max_f - min_f << endl;
+//             for (int ii = 0; ii < 9; ++ii) {
+//                 int pind = panel_it->point_inds[ii];
+//                 cout << "point " << pind << ": (x,v,f)=(" << xs[pind] << ", " << vs[pind] << ", " << panel_fs[ii] << ")" << endl;
+//             }
+//             cout << endl;
+//         }
+//         #ifdef DEBUG
+//         // cout << "panel fs: " << endl;
+//         // for (int ii = 0; ii < 9; ii++) {
+//         //     cout << panel_fs[ii] << " ";
+//         // }
+//         // cout << "max_f " << max_f << ", min f " << min_f << endl;
+//         #endif
+//         refine_criteria_met = refine_criteria_met || (max_f - min_f > amr_epsilons[0]);
 
-        if (amr_epsilons.size() > 2) {
-            if (min_f > amr_epsilons[1]) {
-                refine_criteria_met = refine_criteria_met || max_f / min_f > amr_epsilons[2];
-            }
-        }
+//         if (amr_epsilons.size() > 2) {
+//             if (min_f > amr_epsilons[1]) {
+//                 refine_criteria_met = refine_criteria_met || max_f / min_f > amr_epsilons[2];
+//             }
+//         }
 
     
-        if (amr_epsilons.size() > 3) {
-            if (min_f > amr_epsilons[1]) {
-                int i0, i3;
-                i0 = panel_it->point_inds[0];
-                i3 = panel_it->point_inds[3];
-                double dx = xs[i3] - xs[i0];
-                double abs_dfdxs[6];
-                for (int ii = 0; ii < 6; ++ii) {
-                    abs_dfdxs[ii] = fabs((panel_fs[3+ii] - panel_fs[ii]) / dx);
-                }
-                double max_dfdx = abs_dfdxs[0];
-                for (int ii = 1; ii < 6; ++ii) {
-                    if (max_dfdx < abs_dfdxs[ii]) { max_dfdx = abs_dfdxs[ii];}
-                }
-        #ifdef DEBUG
-            cout << endl;
-            cout << "dx " << dx << endl;;
-            cout << "max_dfdx at panel " << panel_ind << " is " << max_dfdx << endl;
-        #endif
-                refine_criteria_met = refine_criteria_met || (max_dfdx > amr_epsilons[3]);
-            }
-        }
-        if (amr_epsilons.size() > 4) {
-            if (min_f > amr_epsilons[1]) {
-                int i0, i1;
-                i0 = panel_it->point_inds[0];
-                i1 = panel_it->point_inds[1];
-                double dv = vs[i1] - vs[i0];
-                double abs_dfdvs[6];
-                for (int jj = 0; jj < 3; ++jj) {
-                    for (int ii = 0; ii < 2; ii++) {
-                        abs_dfdvs[ii] = fabs((panel_fs[3*jj + ii + 1] - panel_fs[3*jj + ii]) / dv);
-                    }
-                }
-                double max_dfdv = abs_dfdvs[0];
-                for (int ii = 1; ii < 6; ++ii) {
-                    if (max_dfdv < abs_dfdvs[ii]) { max_dfdv = abs_dfdvs[ii];}
-                }
-    #ifdef DEBUG
-        cout << "dv " << dv << endl;
-        cout << "max_dfdv at panel " << panel_ind << " is " << max_dfdv << endl;
-    #endif
-                refine_criteria_met = refine_criteria_met || (max_dfdv > amr_epsilons[4]);
-            }
-        }
-    }
-    // criteria[0] = (max_f - min_f > 100);
-    // criteria[1] = (max_dfdx > 100);
-    // criteria[2] = (max_dfdv > 100);
-    // bool refine_criteria_met = std::accumulate(criteria.begin(), criteria.end(), true, std::logical_and<bool>() );
+//         if (amr_epsilons.size() > 3) {
+//             if (min_f > amr_epsilons[1]) {
+//                 int i0, i3;
+//                 i0 = panel_it->point_inds[0];
+//                 i3 = panel_it->point_inds[3];
+//                 double dx = xs[i3] - xs[i0];
+//                 double abs_dfdxs[6];
+//                 for (int ii = 0; ii < 6; ++ii) {
+//                     abs_dfdxs[ii] = fabs((panel_fs[3+ii] - panel_fs[ii]) / dx);
+//                 }
+//                 double max_dfdx = abs_dfdxs[0];
+//                 for (int ii = 1; ii < 6; ++ii) {
+//                     if (max_dfdx < abs_dfdxs[ii]) { max_dfdx = abs_dfdxs[ii];}
+//                 }
+//         #ifdef DEBUG
+//             cout << endl;
+//             cout << "dx " << dx << endl;;
+//             cout << "max_dfdx at panel " << panel_ind << " is " << max_dfdx << endl;
+//         #endif
+//                 refine_criteria_met = refine_criteria_met || (max_dfdx > amr_epsilons[3]);
+//             }
+//         }
+//         if (amr_epsilons.size() > 4) {
+//             if (min_f > amr_epsilons[1]) {
+//                 int i0, i1;
+//                 i0 = panel_it->point_inds[0];
+//                 i1 = panel_it->point_inds[1];
+//                 double dv = vs[i1] - vs[i0];
+//                 double abs_dfdvs[6];
+//                 for (int jj = 0; jj < 3; ++jj) {
+//                     for (int ii = 0; ii < 2; ii++) {
+//                         abs_dfdvs[ii] = fabs((panel_fs[3*jj + ii + 1] - panel_fs[3*jj + ii]) / dv);
+//                     }
+//                 }
+//                 double max_dfdv = abs_dfdvs[0];
+//                 for (int ii = 1; ii < 6; ++ii) {
+//                     if (max_dfdv < abs_dfdvs[ii]) { max_dfdv = abs_dfdvs[ii];}
+//                 }
+//     #ifdef DEBUG
+//         cout << "dv " << dv << endl;
+//         cout << "max_dfdv at panel " << panel_ind << " is " << max_dfdv << endl;
+//     #endif
+//                 refine_criteria_met = refine_criteria_met || (max_dfdv > amr_epsilons[4]);
+//             }
+//         }
+//     }
+//     // criteria[0] = (max_f - min_f > 100);
+//     // criteria[1] = (max_dfdx > 100);
+//     // criteria[2] = (max_dfdv > 100);
+//     // bool refine_criteria_met = std::accumulate(criteria.begin(), criteria.end(), true, std::logical_and<bool>() );
 
-    if (panel_it->level < max_height && refine_criteria_met) { 
-        panel_it->needs_refinement = true; 
-        need_further_refinement = true;
-        if (verbose) {
-            cout << "panel " << panel_ind << " is level " << panel_it->level << ", max height " << max_height << ", and is flagged for refinement" << endl;
-        }
-    }
-    else if (verbose)
-    {
-        cout << "panel " << panel_ind << " is level " << panel_it->level << ", max height " << max_height;
-        if (refine_criteria_met) {
-            cout << ", and is flagged for refinement" << endl;
-        } else {
-            cout << ", and is not flagged for refinement" << endl;
-        }
-    }
-}
+//     if (panel_it->level < max_height && refine_criteria_met) { 
+//         panel_it->needs_refinement = true; 
+//         need_further_refinement = true;
+//         if (verbose) {
+//             cout << "panel " << panel_ind << " is level " << panel_it->level << ", max height " << max_height << ", and is flagged for refinement" << endl;
+//         }
+//     }
+//     else if (verbose)
+//     {
+//         cout << "panel " << panel_ind << " is level " << panel_it->level << ", max height " << max_height;
+//         if (refine_criteria_met) {
+//             cout << ", and is flagged for refinement" << endl;
+//         } else {
+//             cout << ", and is not flagged for refinement" << endl;
+//         }
+//     }
+// }
 
 
 // void AMRStructure::set_leaves_weights() {
@@ -1122,3 +1123,4 @@ void AMRStructure::test_panel(int panel_ind, bool verbose) {
 //         }
 //     }
 // }
+

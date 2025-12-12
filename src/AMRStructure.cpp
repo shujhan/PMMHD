@@ -4,13 +4,15 @@ AMRStructure::AMRStructure() {}
 AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* j0, 
                             int initial_height, int y_height, int max_height, 
                             double x_min, double x_max, double y_min, double y_max, 
-                            int bcs, int quad, int num_steps, double dt, 
+                            int bcs, ElectricField* calculate_e,
+                            int quad, int num_steps, double dt, 
                             bool do_adaptively_refine_vorticity, double amr_epsilons_vorticity,
                             bool do_adaptively_refine_j, double amr_epsilons_j)
                            : w0(w0), j0(j0),
                            initial_height(initial_height), y_height(y_height),
                            height(initial_height), max_height(max_height), 
                            x_min(x_min), x_max(x_max), y_min(y_min), y_max(y_max), bcs(bcs),
+                           calculate_e(calculate_e),
                            iter_num(0), num_steps(num_steps), dt(dt), quad(quad),
                            is_initial_mesh_set(false), minimum_unrefined_index(0), need_further_refinement(false),
                            do_adaptively_refine_vorticity(do_adaptively_refine_vorticity),
@@ -19,8 +21,8 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
                            do_adaptively_refine_j(do_adaptively_refine_j),
                            use_limiter(false), limit_val(0.0)
 {
-    time_operations = std::vector<duration<double>>(last_time);
-    num_operations = std::vector<int> (last_time);
+    // time_operations = std::vector<duration<double>>(last_time);
+    // num_operations = std::vector<int> (last_time);
 
     this->sim_dir = sim_dir;
     Lx = x_max - x_min;
@@ -32,8 +34,8 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
 
     bool is_initial_step = true;
     generate_mesh([&](double x, double y) { return (*w0)(x,y); }, [&](double x, double y) { return (*j0)(x,y); },do_adaptively_refine_vorticity, do_adaptively_refine_j, is_initial_step);
-    f_beyond_boundary = *std::min_element(fs.begin(), fs.end() );
-    cout << "extrapolating value is " << f_beyond_boundary << endl;
+    // f_beyond_boundary = *std::min_element(fs.begin(), fs.end() );
+    // cout << "extrapolating value is " << f_beyond_boundary << endl;
 }
 
 
@@ -112,7 +114,7 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
 AMRStructure::~AMRStructure() = default;
 
 // getters
-std::vector<double> AMRStructure::get_e() { return es; };
+// std::vector<double> AMRStructure::get_e() { return es; };
 std::string AMRStructure::get_sim_dir() const { return sim_dir; }
 // end getters
 
@@ -120,7 +122,8 @@ std::string AMRStructure::get_sim_dir() const { return sim_dir; }
 
 // end setters
 
-void AMRStructure::add_time(ProfileTypes prof_type, duration<double> op_time) {
-    num_operations[prof_type] ++;
-    time_operations[prof_type] += op_time;
-}
+// void AMRStructure::add_time(ProfileTypes prof_type, duration<double> op_time) {
+//     num_operations[prof_type] ++;
+//     time_operations[prof_type] += op_time;
+// }
+

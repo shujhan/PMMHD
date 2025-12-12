@@ -88,30 +88,27 @@ int main(int argc, char** argv) {
     double dt = deck.get<double> ("dt", 0.5); //atof(argv[22]);//0.5;
 
     // get vorticity and current density distribution parameters 
-    try {
-        pt::ptree &initial_list_deck = deck.get_child("initial_list");
-        auto it = initial_list_deck.begin();
 
-        // get vorticity
-        pt::ptree &vorticity = it->second;
-        double kx_vorticity = 2.0 * M_PI / Lx * deck.get<double>("normalized_wavenumber",1.0);
-        double amp_vorticity = deck.get<double>("amp", 0.0);
-        int ics_type_vorticity = deck.get<int>("ics_type", 1);
-        bool do_adaptively_refine_vorticity = deck.get<bool> ("adaptively_refine", false);
-        double amr_epsilons_vorticity = deck.get<double>("amr_epsilons",0.1);
-        // get current density 
-        ++it; 
-        pt::ptree &current_density = it->second;
-        double kx_j = 2.0 * M_PI / Lx * deck.get<double>("normalized_wavenumber",1.0);
-        double amp_j = deck.get<double>("amp", 0.0);
-        int ics_type_j = deck.get<int>("ics_type", 1);
-        bool do_adaptively_refine_j = deck.get<bool> ("adaptively_refine", false);
-        double amr_epsilons_j = deck.get<double>("amr_epsilons",0.1);
+    pt::ptree &initial_list_deck = deck.get_child("initial_list");
+    auto it = initial_list_deck.begin();
 
-    } catch(std::exception& e) {
-        cout << "Invalid deck format.  No vorticity or current density" << endl;
-        return;
-    }
+    // get vorticity
+    pt::ptree &vorticity = it->second;
+    double kx_vorticity = 2.0 * M_PI / Lx * deck.get<double>("normalized_wavenumber",1.0);
+    double amp_vorticity = deck.get<double>("amp", 0.0);
+    int ics_type_vorticity = deck.get<int>("ics_type", 1);
+    bool do_adaptively_refine_vorticity = deck.get<bool> ("adaptively_refine", false);
+    double amr_epsilons_vorticity = deck.get<double>("amr_epsilons",0.1);
+    // get current density 
+    ++it; 
+    pt::ptree &current_density = it->second;
+    double kx_j = 2.0 * M_PI / Lx * deck.get<double>("normalized_wavenumber",1.0);
+    double amp_j = deck.get<double>("amp", 0.0);
+    int ics_type_j = deck.get<int>("ics_type", 1);
+    bool do_adaptively_refine_j = deck.get<bool> ("adaptively_refine", false);
+    double amr_epsilons_j = deck.get<double>("amr_epsilons",0.1);
+
+
 
     // create distribution for vorticity 
     distribution* w0;
@@ -208,7 +205,10 @@ int main(int argc, char** argv) {
                 
 
     // amr.init_e();
-    // amr.write_to_file();
+    amr.write_to_file();
+
+    // print AMR structure info 
+    cout << amr << endl;
 
     // for (int ii = 1; ii < num_steps+1; ++ii) {
     //     bool get_4th_e = false;

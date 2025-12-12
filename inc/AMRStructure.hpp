@@ -106,7 +106,8 @@ struct AMRStructure {
         AMRStructure(std::string sim_dir, distribution* w0, distribution* j0,  
                 int initial_height, int y_height, int max_height, 
                 double x_min, double x_max, double y_min, double y_max, 
-                int bcs, int quad, int num_steps, double dt, 
+                int bcs, ElectricField* calculate_e,
+                int quad, int num_steps, double dt, 
                 bool do_adaptively_refine_vorticity, double amr_epsilons_vorticity,
                 bool do_adaptively_refine_j, double amr_epsilons_j);
 
@@ -144,8 +145,8 @@ struct AMRStructure {
         // void remesh();
 
         // // interpolation functions
-        // bool use_limiter;
-        // double limit_val;
+        bool use_limiter;
+        double limit_val;
         // void shift_xs(std::vector<double>& shifted_xs, const std::vector<double>& xs, const std::vector<double>& vs);
         // int find_leaf_containing_xv_recursively(double &x, const double &v, bool& beyond_boundary, int panel_ind, bool verbose);
         // int find_leaf_containing_point_from_neighbor(double& tx, double& tv, bool& beyond_boundary, int leaf_ind, std::set<int>& history, bool verbose);
@@ -169,11 +170,11 @@ struct AMRStructure {
         void print_amr();
         int write_to_file();
         int write_to_file(bool pre_remesh);
-        void print_panel_points();
+        // void print_panel_points();
 
         // profiling
-        void add_time(ProfileTypes prof_type, duration<double> op_time);
-        void print_times();
+        // void add_time(ProfileTypes prof_type, duration<double> op_time);
+        // void print_times();
 };
 
 
