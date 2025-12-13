@@ -58,7 +58,7 @@ def plot_species(ax, x, y, f, species, time):
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     cbar = plt.colorbar(sc, ax=ax)
-    cbar.set_label("f")
+    # cbar.set_label("f")
 
 def main():
     p = argparse.ArgumentParser(description="Read PMMHD particle dumps and plot x–y colored by f.")
@@ -92,10 +92,10 @@ def main():
     j0 = read_bin_doubles(j0s_path)
 
     # === Write xs and ys to text files ===
-    out_x_file = os.path.join(base_dir, f"xs_{time}.txt")
-    out_y_file = os.path.join(base_dir, f"ys_{time}.txt")
-    np.savetxt(out_x_file, x, fmt="%.6e")
-    np.savetxt(out_y_file, y, fmt="%.6e")
+    # out_x_file = os.path.join(base_dir, f"xs_{time}.txt")
+    # out_y_file = os.path.join(base_dir, f"ys_{time}.txt")
+    # np.savetxt(out_x_file, x, fmt="%.6e")
+    # np.savetxt(out_y_file, y, fmt="%.6e")
 
     plot_species(ax_left, x, y, w0, species_list[0], time)
     plot_species(ax_right, x, y, j0, species_list[1], time)

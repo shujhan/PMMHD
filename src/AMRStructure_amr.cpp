@@ -894,7 +894,7 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0, std::
     //     add_time(tree_build_time,  duration_cast<duration<double>>(stop - start) );
     // }
 
-    // set_leaves_weights();
+    set_leaves_weights();
 
 }
 
@@ -1013,67 +1013,61 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0, std::
 // }
 
 
-// void AMRStructure::set_leaves_weights() {
-//     leaf_inds = std::vector<int> ();
-//     // for (int ii = 0; ii < particles.size(); ++ii) {
-//     //     // particles[ii].q_w = 0;
-//     // }
-//     q_ws = std::vector<double> (xs.size());
-//     recursively_set_leaves_weights(0);
+void AMRStructure::set_leaves_weights() {
+    leaf_inds = std::vector<int> ();
+    weights = std::vector<double> (xs.size());
+    recursively_set_leaves_weights(0);
 
-//     // for (int ii = 0; ii < particles.size(); ++ii) {
-//     //     particles[ii].q_w *= particles[ii].f;
-//     // }
-//     for (int ii = 0; ii < xs.size(); ++ii) {
-//         q_ws[ii] *= fs[ii];
-//     }
+    u_weights = std::vector<double> (weights.size());
+    b_weights = std::vector<double> (weights.size());
 
-// }
+    for (int ii = 0; ii < weights.size(); ++ii) {
+        u_weights[ii] *= w0s[ii];
+        b_weights[ii] *= j0s[ii];
+    }
 
-// void AMRStructure::recursively_set_leaves_weights(int panel_ind) {
-//     auto panel_it = panels.begin() + panel_ind;
-//     if (panel_it->is_refined_v) {
-//         int child_start = panel_it->child_inds_start;
-//         for (int ii = 0; ii < 2; ii++) {
-//             recursively_set_leaves_weights(child_start + ii);
-//         }
+}
 
-//     } else if (panel_it->is_refined_xv) {
-//         int child_start = panel_it->child_inds_start;
-//         for (int ii = 0; ii < 4; ii++) {
-//             recursively_set_leaves_weights(child_start + ii);
-//         }
-//     }
-//     else {
-//         leaf_inds.push_back(panel_ind);
-//         double dx = xs[panel_it->point_inds[3]] - xs[panel_it->point_inds[0]];
-//         // double v0 = particles[panel_it->vertex_inds[0]].v;
-//         // double v1 = particles[panel_it->vertex_inds[1]].v;
-//         double v0 = vs[panel_it->point_inds[0]];
-//         double v1 = vs[panel_it->point_inds[1]];
-//         double dv = v1 - v0;
-//         switch (quad) {
-//             case simpsons : {
-//                 double qdxdv9 = q*dx * dv / 9.0;
-//                 double weights[9] = {1.0,4.0,1.0, 4.0, 16.0,4.0,1.0,4.0,1.0};
-//                 for (int ii = 0; ii < 9; ii++) {
-//                     q_ws[panel_it->point_inds[ii]] += qdxdv9 * weights[ii];
-//                 }
-//                 break;
-//             }
-//             default : {// trap 
-//                 double qdxdv4 = q*dx * dv / 4.0;
-//                 // cout << "area factor " << qdxdv4 << endl;
-//                 double weights[9] = {1.0,2.0,1.0,2.0,4.0,2.0,1.0, 2.0, 1.0};
-//                 for (int ii = 0; ii < 9; ii++) {
-//                     q_ws[panel_it->point_inds[ii]] += qdxdv4 * weights[ii];
-//                     // q_ws[panel_it->point_inds[ii]] += weights[ii];
-//                 }
-//                 break;
-//             }
-//         }
-//     }
-// }
+void AMRStructure::recursively_set_leaves_weights(int panel_ind) {
+    auto panel_it = panels.begin() + panel_ind;
+    if (panel_it->is_refined_y) {
+        int child_start = panel_it->child_inds_start;
+        for (int ii = 0; ii < 2; ii++) {
+            recursively_set_leaves_weights(child_start + ii);
+        }
+
+    } else if (panel_it->is_refined_xy) {
+        int child_start = panel_it->child_inds_start;
+        for (int ii = 0; ii < 4; ii++) {
+            recursively_set_leaves_weights(child_start + ii);
+        }
+    }
+    else {
+        leaf_inds.push_back(panel_ind);
+        double dx = xs[panel_it->point_inds[3]] - xs[panel_it->point_inds[0]];
+        double y0 = vs[panel_it->point_inds[0]];
+        double y1 = vs[panel_it->point_inds[1]];
+        double dy = y1 - y0;
+        switch (quad) {
+            case 1 : { // simpsons
+                double dxdv9 = dx * dy / 9.0;
+                double quad_weights[9] = {1.0,4.0,1.0, 4.0, 16.0,4.0,1.0,4.0,1.0};
+                for (int ii = 0; ii < 9; ii++) {
+                    weights[panel_it->point_inds[ii]] += dxdv9 * quad_weights[ii];
+                }
+                break;
+            }
+            default : {// trap 
+                double dxdv4 = dx * dy / 4.0;
+                double quad_weights[9] = {1.0,2.0,1.0,2.0,4.0,2.0,1.0, 2.0, 1.0};
+                for (int ii = 0; ii < 9; ii++) {
+                    weights[panel_it->point_inds[ii]] += dxdv4 * quad_weights[ii];
+                }
+                break;
+            }
+        }
+    }
+}
 
 
 

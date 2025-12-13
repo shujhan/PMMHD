@@ -15,11 +15,11 @@ using std::endl;
 
 
 
-//#include "boost/property_tree/ptree.hpp"        //property_tree::ptree, property_tree::read_json
-//#include "boost/property_tree/json_parser.hpp"
+#include "boost/property_tree/ptree.hpp"        //property_tree::ptree, property_tree::read_json
+#include "boost/property_tree/json_parser.hpp"
 
-#include "/sw/pkgs/arc/stacks/gcc/10.3.0/boost/1.78.0/include/boost/property_tree/ptree.hpp"
-#include "/sw/pkgs/arc/stacks/gcc/10.3.0/boost/1.78.0/include/boost/property_tree/json_parser.hpp"
+// #include "/sw/pkgs/arc/stacks/gcc/10.3.0/boost/1.78.0/include/boost/property_tree/ptree.hpp"
+// #include "/sw/pkgs/arc/stacks/gcc/10.3.0/boost/1.78.0/include/boost/property_tree/json_parser.hpp"
 //#include "/sw/pkgs/arc/stacks/gcc/10.3.0/boost/1.78.0/include/boost/property_tree/ptree_fwd.hpp"
 
 namespace pt = boost::property_tree;
@@ -93,20 +93,20 @@ int main(int argc, char** argv) {
     auto it = initial_list_deck.begin();
 
     // get vorticity
-    pt::ptree &vorticity = it->second;
-    double kx_vorticity = 2.0 * M_PI / Lx * deck.get<double>("normalized_wavenumber",1.0);
-    double amp_vorticity = deck.get<double>("amp", 0.0);
-    int ics_type_vorticity = deck.get<int>("ics_type", 1);
-    bool do_adaptively_refine_vorticity = deck.get<bool> ("adaptively_refine", false);
-    double amr_epsilons_vorticity = deck.get<double>("amr_epsilons",0.1);
+    pt::ptree &vorticity_dk = it->second;
+    double kx_vorticity = 2.0 * M_PI / Lx * vorticity_dk.get<double>("normalized_wavenumber",1.0);
+    double amp_vorticity = vorticity_dk.get<double>("amp", 0.0);
+    int ics_type_vorticity = vorticity_dk.get<int>("ics_type", 1);
+    bool do_adaptively_refine_vorticity = vorticity_dk.get<bool> ("adaptively_refine", false);
+    double amr_epsilons_vorticity = vorticity_dk.get<double>("amr_epsilons",0.1);
     // get current density 
     ++it; 
-    pt::ptree &current_density = it->second;
-    double kx_j = 2.0 * M_PI / Lx * deck.get<double>("normalized_wavenumber",1.0);
-    double amp_j = deck.get<double>("amp", 0.0);
-    int ics_type_j = deck.get<int>("ics_type", 1);
-    bool do_adaptively_refine_j = deck.get<bool> ("adaptively_refine", false);
-    double amr_epsilons_j = deck.get<double>("amr_epsilons",0.1);
+    pt::ptree &current_density_dk = it->second;
+    double kx_j = 2.0 * M_PI / Lx * current_density_dk.get<double>("normalized_wavenumber",1.0);
+    double amp_j = current_density_dk.get<double>("amp", 0.0);
+    int ics_type_j = current_density_dk.get<int>("ics_type", 1);
+    bool do_adaptively_refine_j = current_density_dk.get<bool> ("adaptively_refine", false);
+    double amr_epsilons_j = current_density_dk.get<double>("amr_epsilons",0.1);
 
 
 
@@ -219,6 +219,15 @@ int main(int argc, char** argv) {
     // print AMR structure info 
     cout << amr << endl;
 
+    // run simulation
+    amr.run();
+
+
+
+
+
+
+
     // for (int ii = 1; ii < num_steps+1; ++ii) {
     //     bool get_4th_e = false;
     //     auto start = high_resolution_clock::now();
@@ -263,3 +272,4 @@ int main(int argc, char** argv) {
     delete calculate_e;
     return 0;
 }
+

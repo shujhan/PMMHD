@@ -63,6 +63,7 @@ struct AMRStructure {
     std::vector <Panel> panels;
     std::vector <int> leaf_inds;
     std::vector<double> xs, ys, w0s, j0s, weights;
+    std::vector<double> u_weights, b_weights;
     std::vector<double> u1s, u2s, b1s, b2s; // u1 velocity in x, u2 velocity in y; b1, b2: magnetic field in x,y
 
     std::vector <Panel> old_panels;
@@ -136,8 +137,8 @@ struct AMRStructure {
         // amr
         void generate_mesh(std::function<double (double,double)> w0, std::function<double (double,double)> j0,
                         bool do_adaptively_refine_vorticity, bool do_adaptively_refine_j, bool is_initial_step);
-        // void set_leaves_weights();
-        // void recursively_set_leaves_weights(int panel_ind);
+        void set_leaves_weights();
+        void recursively_set_leaves_weights(int panel_ind);
 
         // // remesh
         // void copy_to_old();
@@ -159,11 +160,25 @@ struct AMRStructure {
         // void interpolate_from_panel_to_points(std::vector<double>& values, std::vector<double>& xs, std::vector<double>& vs,
         //                                         std::vector<int>& point_inds, int panel_ind, bool use_limiter, double limit_val);
 
-        // // field functions
+        // field functions
         // void init_e();
 
-        // // step functions
+        
+        // u1 and u2, use u_weights
+        int evaluate_u_field(std::vector<double>& u1s_local, std::vector<double>& u2s_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        // int evaluate_u2_field(std::vector<double>& u2s_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        // b1 and b2, use b_weights 
+        int evaluate_b_field(std::vector<double>& b1s_local, std::vector<double>& b2s_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        // int evaluate_b2_field(std::vector<double>& b2s_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+
+
+
+        // run step functions, all in run.cpp
+        int run();
+        int step();
+        int euler();
         // void step(bool get_4th_e);
+        // int rk4();
 
         // io
         friend std::ostream& operator<<(std::ostream& os, const AMRStructure& amr);
