@@ -20,8 +20,8 @@ add_library(PanelObj Panel.cpp)
 add_library(AMRObj_cpu  AMRStructure.cpp 
                     AMRStructure_io.cpp
                     AMRStructure_amr.cpp
-                    # AMRStructure_field.cpp
-                    # AMRStructure_step.cpp
+                    AMRStructure_field.cpp
+                    AMRStructure_run.cpp
                     # AMRStructure_interp.cpp
                     )
 

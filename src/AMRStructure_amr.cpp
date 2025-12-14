@@ -1045,8 +1045,8 @@ void AMRStructure::recursively_set_leaves_weights(int panel_ind) {
     else {
         leaf_inds.push_back(panel_ind);
         double dx = xs[panel_it->point_inds[3]] - xs[panel_it->point_inds[0]];
-        double y0 = vs[panel_it->point_inds[0]];
-        double y1 = vs[panel_it->point_inds[1]];
+        double y0 = ys[panel_it->point_inds[0]];
+        double y1 = ys[panel_it->point_inds[1]];
         double dy = y1 - y0;
         switch (quad) {
             case 1 : { // simpsons

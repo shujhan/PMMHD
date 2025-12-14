@@ -17,10 +17,17 @@ E_MQ_DirectSum::E_MQ_DirectSum() {}
 E_MQ_DirectSum::E_MQ_DirectSum(double L, double epsilon) : L(L), epsilon(epsilon) {}
 E_MQ_DirectSum::~E_MQ_DirectSum() = default;
 
-void E_MQ_DirectSum::operator() (double* es, double* targets, int nt, 
+void E_MQ_DirectSum::operator() (double* e1s, double* e2s, double* targets, int nt, 
                         double* sources, double* q_ws, int ns)
 {    
-    double epsLsq = epsilon * epsilon;
+    // double epsLsq = epsilon * epsilon;
+    for (int i = 0; i < nt; i++) {
+        // e1s[i] = 0.1 * q_ws[i];
+        // e2s[i] = 0.2 * q_ws[i];
+        e1s[i] = 0.1 * q_ws[i];
+        e2s[i] = 0.2 * q_ws[i];
+    }
+
 
 }
 

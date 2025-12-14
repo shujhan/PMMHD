@@ -209,6 +209,7 @@ int main(int argc, char** argv) {
                 initial_height, y_height, max_height,
                 x_min, x_max, y_min, y_max, bcs,
                 calculate_e, quad, num_steps, dt,
+                n_steps_remesh, n_steps_diag,
                 do_adaptively_refine_vorticity, amr_epsilons_vorticity,
                 do_adaptively_refine_j, amr_epsilons_j};
                 

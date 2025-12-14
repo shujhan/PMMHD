@@ -7,7 +7,7 @@ int AMRStructure::run() {
     return 0;
 }
 
-int AMRSimulation::step() {
+int AMRStructure::step() {
     iter_num += 1;
     std::cout << "step " << iter_num << std::endl;
 
@@ -36,15 +36,20 @@ int AMRSimulation::step() {
 }
 
 
-int AMRSimulation::euler() {
-    evaluate_u_field();
-    evaluate_b_field();
+int AMRStructure::euler() {
+    // std::vector<double> u1s_local (xs.size());
+    // std::vector<double> u2s_local (xs.size());
+    // std::vector<double> b1s_local (xs.size());
+    // std::vector<double> b2s_local (xs.size());
+
+    evaluate_u_field(u1s, u2s, xs, ys, u_weights, t);
+    evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
     for (int i = 0; i < xs.size(); i++) {
-        xs[i] += dt * u1_s[i];
+        xs[i] += dt * u1s[i];
     }
 
     for (int i = 0; i < ys.size(); i++) {
-        ys[i] += dt * u2_s[i];
+        ys[i] += dt * u2s[i];
     }
 
     return 0;

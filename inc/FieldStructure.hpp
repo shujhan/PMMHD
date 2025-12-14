@@ -6,7 +6,7 @@ using namespace std;
 
 class ElectricField {
     public: 
-        virtual void operator()     (double* es, double* targets, int nt, 
+        virtual void operator()     (double* e1s, double* e2s, double* targets, int nt, 
                                     double* sources, double* q_ws, int ns) = 0;
         virtual void print_field_obj() = 0;
         virtual ~ElectricField();
@@ -18,7 +18,7 @@ class E_MQ_DirectSum : public ElectricField {
         E_MQ_DirectSum(double L, double epsilon);
         double epsilon;
         double L;
-        void operator() (double* es, double* targets, int nt, 
+        void operator() (double* e1s, double* e2s, double* targets, int nt, 
                         double* sources, double* q_ws, int ns);
         void print_field_obj();
         ~E_MQ_DirectSum();

@@ -78,6 +78,9 @@ struct AMRStructure {
     int iter_num;
     int num_steps;
     double dt;
+    double t;
+    int n_steps_remesh;
+    int n_steps_diag;
 
     //field parameters
 
@@ -109,6 +112,8 @@ struct AMRStructure {
                 double x_min, double x_max, double y_min, double y_max, 
                 int bcs, ElectricField* calculate_e,
                 int quad, int num_steps, double dt, 
+                int n_steps_remesh,
+                int n_steps_diag,
                 bool do_adaptively_refine_vorticity, double amr_epsilons_vorticity,
                 bool do_adaptively_refine_j, double amr_epsilons_j);
 
