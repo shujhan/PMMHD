@@ -1018,12 +1018,12 @@ void AMRStructure::set_leaves_weights() {
     weights = std::vector<double> (xs.size());
     recursively_set_leaves_weights(0);
 
-    u_weights = std::vector<double> (weights.size());
-    b_weights = std::vector<double> (weights.size());
+    u_weights = std::vector<double> (weights.size(), 1.0);
+    b_weights = std::vector<double> (weights.size(), 1.0);
 
     for (int ii = 0; ii < weights.size(); ++ii) {
-        u_weights[ii] *= w0s[ii];
-        b_weights[ii] *= j0s[ii];
+        u_weights[ii] *= weights[ii] * w0s[ii];
+        b_weights[ii] *= weights[ii] * j0s[ii];
     }
 
 }

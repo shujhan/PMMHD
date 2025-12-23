@@ -10,29 +10,28 @@ using namespace std;
 #include <accelmath.h>
 #endif
 
-ElectricField::~ElectricField() = default;
+Field::~Field() = default;
 
 
-E_MQ_DirectSum::E_MQ_DirectSum() {}
-E_MQ_DirectSum::E_MQ_DirectSum(double L, double epsilon) : L(L), epsilon(epsilon) {}
-E_MQ_DirectSum::~E_MQ_DirectSum() = default;
+U_DirectSum::U_DirectSum() {}
+U_DirectSum::U_DirectSum(double L, double epsilon) : L(L), epsilon(epsilon) {}
+U_DirectSum::~U_DirectSum() = default;
 
-void E_MQ_DirectSum::operator() (double* e1s, double* e2s, double* targets, int nt, 
-                        double* sources, double* q_ws, int ns)
+void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx, 
+                        double* y_vals, double* q_ws, int ny)
 {    
-    // double epsLsq = epsilon * epsilon;
-    for (int i = 0; i < nt; i++) {
-        // e1s[i] = 0.1 * q_ws[i];
-        // e2s[i] = 0.2 * q_ws[i];
-        e1s[i] = 0.1 * q_ws[i];
-        e2s[i] = 0.2 * q_ws[i];
+    const double pi = M_PI;
+    for (int i = 0; i < nx; i++) {
+        for(int k = 0; k < ny; k++) {
+            double denom = cosh(2* pi * (y_vals[i] - y_vals[k])) - cos(2* pi * (x_vals[i] - x_vals[k])) + epsilon * epsilon;
+            u1s[i] += -0.5 * sinh(2 * pi * (y_vals[i] - y_vals[k])) / denom * q_ws[i];
+            u2s[i] += 0.5 * sin(2 * pi * (x_vals[i] - x_vals[k])) / denom * q_ws[i];
+        }
     }
-
-
 }
 
 
-void E_MQ_DirectSum::print_field_obj() {
+void U_DirectSum::print_field_obj() {
     cout << "-------------" << endl;
     cout << "Field object: " << endl;
 }

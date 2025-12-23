@@ -4,7 +4,7 @@ AMRStructure::AMRStructure() {}
 AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* j0, 
                             int initial_height, int y_height, int max_height, 
                             double x_min, double x_max, double y_min, double y_max, 
-                            int bcs, ElectricField* calculate_e,
+                            int bcs, Field* calculate_e,
                             int quad, int num_steps, double dt, 
                             int n_steps_remesh,
                             int n_steps_diag,
@@ -39,6 +39,10 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
     generate_mesh([&](double x, double y) { return (*w0)(x,y); }, [&](double x, double y) { return (*j0)(x,y); },do_adaptively_refine_vorticity, do_adaptively_refine_j, is_initial_step);
     // f_beyond_boundary = *std::min_element(fs.begin(), fs.end() );
     // cout << "extrapolating value is " << f_beyond_boundary << endl;
+    u1s.assign(xs.size(), 0.0);
+    u2s.assign(xs.size(), 0.0);
+    b1s.assign(xs.size(), 0.0);
+    b2s.assign(xs.size(), 0.0);
 }
 
 

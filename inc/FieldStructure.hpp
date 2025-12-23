@@ -4,24 +4,24 @@
 
 using namespace std;
 
-class ElectricField {
+class Field {
     public: 
-        virtual void operator()     (double* e1s, double* e2s, double* targets, int nt, 
-                                    double* sources, double* q_ws, int ns) = 0;
+        virtual void operator()     (double* e1s, double* e2s, double* x_vals, int nx, 
+                                    double* y_vals, double* q_ws, int ny) = 0;
         virtual void print_field_obj() = 0;
-        virtual ~ElectricField();
+        virtual ~Field();
 };
 
-class E_MQ_DirectSum : public ElectricField {
+class U_DirectSum : public Field {
     public:
-        E_MQ_DirectSum();
-        E_MQ_DirectSum(double L, double epsilon);
+        U_DirectSum();
+        U_DirectSum(double L, double epsilon);
         double epsilon;
         double L;
-        void operator() (double* e1s, double* e2s, double* targets, int nt, 
-                        double* sources, double* q_ws, int ns);
+        void operator() (double* e1s, double* e2s, double* x_vals, int nx, 
+                        double* y_vals, double* q_ws, int ny);
         void print_field_obj();
-        ~E_MQ_DirectSum();
+        ~U_DirectSum();
 };
 
 

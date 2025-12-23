@@ -86,7 +86,7 @@ struct AMRStructure {
 
     int quad; // 0 for trap; 1 for simpsons
 
-    ElectricField* calculate_e;
+    Field* calculate_e;
 
     //profile parameters
     bool do_profile;
@@ -110,7 +110,7 @@ struct AMRStructure {
         AMRStructure(std::string sim_dir, distribution* w0, distribution* j0,  
                 int initial_height, int y_height, int max_height, 
                 double x_min, double x_max, double y_min, double y_max, 
-                int bcs, ElectricField* calculate_e,
+                int bcs, Field* calculate_e,
                 int quad, int num_steps, double dt, 
                 int n_steps_remesh,
                 int n_steps_diag,

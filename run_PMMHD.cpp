@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
     int max_height = deck.get<int>("max_height", initial_height);
 
     // get treecode parameters
-    double greens_epsilon = deck.get<double>("greens_epsilon", 0.1);
+    double greens_epsilon = deck.get<double>("greens_epsilon", 0.5);
     int use_treecode = deck.get<int>("use_treecode", 0); 
     double mac = deck.get<double>("mac", -1.0);
     int degree = deck.get<int>("degree", -1); 
@@ -143,13 +143,13 @@ int main(int argc, char** argv) {
 
 
     // create field solver 
-    ElectricField* calculate_e;
+    Field* calculate_e;
     if (use_treecode > 0) {
         // calculate_e = new E_MQ_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
-        calculate_e = new E_MQ_DirectSum(Lx, greens_epsilon);
+        calculate_e = new U_DirectSum(Lx, greens_epsilon);
     }
     else {
-        calculate_e = new E_MQ_DirectSum(Lx, greens_epsilon);
+        calculate_e = new U_DirectSum(Lx, greens_epsilon);
     }
 
     cout << "============================" << endl;
@@ -223,50 +223,6 @@ int main(int argc, char** argv) {
     // run simulation
     amr.run();
 
-
-
-
-
-
-
-    // for (int ii = 1; ii < num_steps+1; ++ii) {
-    //     bool get_4th_e = false;
-    //     auto start = high_resolution_clock::now();
-    //     amr.step(get_4th_e);
-    //     auto stop = high_resolution_clock::now();
-    //     amr.add_time(step_time, duration_cast<duration<double>>(stop - start) );
-
-    //     if ((ii) % n_steps_remesh == 0) {
-
-    //         start = high_resolution_clock::now();
-    //         amr.remesh();
-    //         stop = high_resolution_clock::now();
-    //         amr.add_time(remesh_time, duration_cast<duration<double>>(stop - start) );
-
-    //         amr.init_e();
-    //     } else {
-    //         // still need to calculate e
-    //         auto start = high_resolution_clock::now();
-            
-    //         std::vector<double> xs_cpy (amr.xs);
-    //         std::vector<double> xs_cpy2 (amr.xs);
-    //         (*calculate_e)(amr.es.data(), xs_cpy.data(), amr.es.size(),
-    //                         xs_cpy2.data(), amr.q_ws.data(), xs_cpy.size());
-    //         auto stop = high_resolution_clock::now();
-    //         amr.add_time(field_time, duration_cast<duration<double>>(stop - start) );
-    //     }
-
-    //     if ((ii) % n_steps_diag == 0) {
-
-    //         auto file_start = high_resolution_clock::now();
-    //         amr.write_to_file();
-    //         auto file_stop = high_resolution_clock::now();
-    //         amr.add_time(file_time,  duration_cast<duration<double>>(file_stop - file_start) );
-    //     }
-    // }
-    // auto sim_stop = high_resolution_clock::now();
-    // amr.add_time(sim_time,  duration_cast<duration<double>>(sim_stop - sim_start) );
-    // amr.print_times();
 
     delete w0;
     delete j0;

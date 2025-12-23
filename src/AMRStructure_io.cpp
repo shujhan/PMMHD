@@ -10,7 +10,7 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
     std::ofstream ys_file;
     std::ofstream w0s_file;
     std::ofstream j0s_file;
-    std::ofstream weights_file;
+    std::ofstream uweights_file;
     std::ofstream u1s_file;
     std::ofstream u2s_file;
     std::ofstream b1s_file;
@@ -25,7 +25,7 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
     ys_file.open(sim_dir + "simulation_output/ys/ys_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary); 
     w0s_file.open(sim_dir + "simulation_output/w0s/w0s_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary); 
     j0s_file.open(sim_dir + "simulation_output/j0s/j0s_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary);
-    weights_file.open(sim_dir + "simulation_output/weights/weights_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary); 
+    uweights_file.open(sim_dir + "simulation_output/uweights/uweights_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary); 
     u1s_file.open(sim_dir + "simulation_output/u1s/u1s_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary); 
     u2s_file.open(sim_dir + "simulation_output/u2s/u2s_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary); 
     b1s_file.open(sim_dir + "simulation_output/b1s/b1s_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary); 
@@ -35,13 +35,13 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
     std::cout << "#ys " << ys.size() << std::endl;
     std::cout << "#w0s " << w0s.size() << std::endl;
     std::cout << "#j0s " << j0s.size() << std::endl;
-    std::cout << "#weights " << weights.size() << std::endl;
+    std::cout << "#uweights " << u_weights.size() << std::endl;
     std::cout << "#u1s " << u1s.size() << std::endl;
     std::cout << "#u2s " << u2s.size() << std::endl;
     std::cout << "#b1s " << b1s.size() << std::endl;
     std::cout << "#b2s " << b2s.size() << std::endl;
 
-    if (!xs_file | !ys_file | !w0s_file | !j0s_file | !weights_file | !u1s_file | !u2s_file | !b1s_file | !b2s_file) {
+    if (!xs_file | !ys_file | !w0s_file | !j0s_file | !uweights_file | !u1s_file | !u2s_file | !b1s_file | !b2s_file) {
         cout << "Unable to open step " << iter_num << " particle data files" << endl;
         return 1;
     }
@@ -52,23 +52,23 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
         double y = ys[ii];
         double w0 = w0s[ii];
         double j0 = j0s[ii];
-        // double weight = weights[ii];
-        // double u1 = u1s[ii];
-        // double u2 = u2s[ii];
-        // double b1 = b1s[ii];
-        // double b2 = b2s[ii];
+        double uweight = u_weights[ii];
+        double u1 = u1s[ii];
+        double u2 = u2s[ii];
+        double b1 = b1s[ii];
+        double b2 = b2s[ii];
         xs_file.write((char *) &x, sizeof(double));
         ys_file.write((char *) &y, sizeof(double));
         w0s_file.write((char *) &w0, sizeof(double));
         j0s_file.write((char *) &j0, sizeof(double));
-        // weights_file.write((char *) &weight, sizeof(double));
-        // u1s_file.write((char *) &u1, sizeof(double));
-        // u2s_file.write((char *) &u2, sizeof(double));
-        // b1s_file.write((char *) &b1, sizeof(double));
-        // b2s_file.write((char *) &b2, sizeof(double));
+        uweights_file.write((char *) &uweight, sizeof(double));
+        u1s_file.write((char *) &u1, sizeof(double));
+        u2s_file.write((char *) &u2, sizeof(double));
+        b1s_file.write((char *) &b1, sizeof(double));
+        b2s_file.write((char *) &b2, sizeof(double));
     }
 
-    if (!xs_file.good() | !ys_file.good() | !w0s_file.good() | !j0s_file.good() | !weights_file.good() | !u1s_file.good()
+    if (!xs_file.good() | !ys_file.good() | !w0s_file.good() | !j0s_file.good() | !uweights_file.good() | !u1s_file.good()
         | !u2s_file.good() | !b1s_file.good() | !b2s_file.good()) {
         cout << "Error occurred writing step " << iter_num << " particle data files." << endl;
         return 1;
@@ -77,7 +77,7 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
     ys_file.close();
     w0s_file.close();
     j0s_file.close();
-    weights_file.close();
+    uweights_file.close();
     u1s_file.close();
     u2s_file.close();
     b1s_file.close();

@@ -37,13 +37,15 @@ int AMRStructure::step() {
 
 
 int AMRStructure::euler() {
-    // std::vector<double> u1s_local (xs.size());
-    // std::vector<double> u2s_local (xs.size());
-    // std::vector<double> b1s_local (xs.size());
-    // std::vector<double> b2s_local (xs.size());
-
+    cout << "enter euler" << endl;
     evaluate_u_field(u1s, u2s, xs, ys, u_weights, t);
+    cout << "after u field evaluation" << endl;
+    cout << "u1s/u2s first 5:" << endl;
+    for (int i = 0; i < std::min<int>(5, (int)u1s.size()); ++i) {
+        cout << i << " u1=" << u1s[i] << " u2=" << u2s[i] << endl;
+    }
     evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
+    cout << "after b field evaluation" << endl;
     for (int i = 0; i < xs.size(); i++) {
         xs[i] += dt * u1s[i];
     }
