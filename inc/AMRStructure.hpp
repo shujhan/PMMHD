@@ -153,11 +153,11 @@ struct AMRStructure {
         // // interpolation functions
         bool use_limiter;
         double limit_val;
-        // void shift_xs(std::vector<double>& shifted_xs, const std::vector<double>& xs, const std::vector<double>& vs);
-        // int find_leaf_containing_xv_recursively(double &x, const double &v, bool& beyond_boundary, int panel_ind, bool verbose);
+        void shift_xs(std::vector<double>& shifted_xs, const std::vector<double>& xs, const std::vector<double>& ys);
+        int find_leaf_containing_xy_recursively(double &x, const double &v, bool& beyond_boundary, int panel_ind, bool verbose);
         // int find_leaf_containing_point_from_neighbor(double& tx, double& tv, bool& beyond_boundary, int leaf_ind, std::set<int>& history, bool verbose);
         // // int find_leaf_containing();
-        // void interpolate_to_initial_xvs(std::vector<double>& fs, std::vector<double>& xs, std::vector<double>& vs, int nx, int nv,bool verbose);
+        void interpolate_to_initial_xys(std::vector<double>& fs, std::vector<double>& xs, std::vector<double>& vs, int nx, int nv,bool verbose);
         // double interpolate_from_mesh(double xs, double vs, bool verbose);
         // void interpolate_from_mesh(std::vector<double> &values, std::vector<double>& x, std::vector<double>& v, bool verbose);
         // void interpolate_from_mesh_slow(std::vector<double> &values, std::vector<double>& x, std::vector<double>& v, bool verbose);

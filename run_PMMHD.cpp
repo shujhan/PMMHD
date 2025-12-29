@@ -143,13 +143,13 @@ int main(int argc, char** argv) {
 
 
     // create field solver 
-    Field* calculate_e;
+    Field* calculate_field;
     if (use_treecode > 0) {
         // calculate_e = new E_MQ_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
-        calculate_e = new U_DirectSum(Lx, greens_epsilon);
+        calculate_field = new U_DirectSum(Lx, greens_epsilon);
     }
     else {
-        calculate_e = new U_DirectSum(Lx, greens_epsilon);
+        calculate_field = new U_DirectSum(Lx, greens_epsilon);
     }
 
     cout << "============================" << endl;
@@ -208,7 +208,7 @@ int main(int argc, char** argv) {
     AMRStructure amr{sim_dir, w0, j0,
                 initial_height, y_height, max_height,
                 x_min, x_max, y_min, y_max, bcs,
-                calculate_e, quad, num_steps, dt,
+                calculate_field, quad, num_steps, dt,
                 n_steps_remesh, n_steps_diag,
                 do_adaptively_refine_vorticity, amr_epsilons_vorticity,
                 do_adaptively_refine_j, amr_epsilons_j};
@@ -226,7 +226,7 @@ int main(int argc, char** argv) {
 
     delete w0;
     delete j0;
-    delete calculate_e;
+    delete calculate_field;
     return 0;
 }
 

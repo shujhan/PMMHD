@@ -830,22 +830,18 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0, std::
             w0s[ii] = (*w0)(xs[ii],ys[ii]);
             j0s[ii] = (*j0)(xs[ii],ys[ii]);
         }
-    // } else {
-    //     int nx_points = 2*npanels_x + 1;
-    //     int ny_points = 2*npanels_y + 1;
+    } else {
+        int nx_points = 2*npanels_x + 1;
+        int ny_points = 2*npanels_y + 1;
 
-    //     #ifdef DEBUG
-    //     cout << "interpolating to grid " << endl;
-    //     #endif
-    //     #ifdef DEBUG_L2
-    //     cout << "xs size " << xs.size() << endl;
-    //     cout << "vs size " << vs.size() << endl;
-    //     #endif
+        #ifdef DEBUG
+        cout << "interpolating to grid " << endl;
+        #endif
 
-    //     interpolate_to_initial_xvs(fs,xs,vs, nx_points, nv_points,verbose);
-    //     #ifdef DEBUG
-    //     cout << "done interpolating to grid" << endl;
-    //     #endif
+        interpolate_to_initial_xvs(fs,xs,ys, nx_points, ny_points,verbose);
+        #ifdef DEBUG
+        cout << "done interpolating to grid" << endl;
+        #endif
     }
     // stop = high_resolution_clock::now();
     // add_time(interp_time, duration_cast<duration<double>>(stop - start) );
@@ -1071,50 +1067,28 @@ void AMRStructure::recursively_set_leaves_weights(int panel_ind) {
 
 
 
-// void AMRStructure::remesh() {
+void AMRStructure::remesh() {
 
-//     if (sqrt_f) {
-//         // std::transform(fs.begin(), fs.end(), fs.begin(), mysqrt);
-//         for (int ii = 0; ii < fs.size(); ++ii) {
-//             fs[ii] = 2 * fs[ii];//sqrt(fs[ii]);
-//         }
-//     }
-//     // create copy of current panels and particle data
+    // create copy of current panels and particle data
+    old_panels = std::vector<Panel> (); old_panels.reserve(panels.size() );
+    old_xs = std::vector<double> (xs); //old_xs.reserve(xs.size());
+    old_ys = std::vector<double> (ys); //old_vs.reserve(xs.size());
+    // old_fs = std::vector<double> (fs); //old_fs.reserve(xs.size());
+    old_w0s = std::vector<double> (w0s);
+    old_j0s = std::vector<double> (j0s);
 
-//     // auto start = high_resolution_clock::now();
-//     old_panels = std::vector<Panel> (); old_panels.reserve(panels.size() );
-//     old_xs = std::vector<double> (xs); //old_xs.reserve(xs.size());
-//     old_vs = std::vector<double> (vs); //old_vs.reserve(xs.size());
-//     old_fs = std::vector<double> (fs); //old_fs.reserve(xs.size());
-
-
-//     for (const auto& panel : panels) {
-//         old_panels.push_back(Panel (panel));
-//     }
+    for (const auto& panel : panels) {
+        old_panels.push_back(Panel (panel));
+    }
     
-//     // for (int ii = 0; ii < xs.size(); ++ii ) {
-//     //     old_xs.push_back(xs[ii]);
-//     //     old_vs.push_back(vs[ii]);
-//     //     old_fs.push_back(fs[ii]);
-//     // }
-
-//     // auto stop = high_resolution_clock::now();
-//     // auto duration = duration_cast<microseconds>(stop - start);
-
-//     // cout << "Old data copy time " << duration.count() << " microseconds." << endl << endl;
-
-//     bool is_initial_step = false;
-//     #ifdef DEBUG
-//     cout << "Generating mesh" << endl;
-//     #endif
-//     generate_mesh([&] (double x, double v) { return interpolate_from_mesh(x,v,false);} , do_adaptively_refine, is_initial_step);
+    bool is_initial_step = false;
+    #ifdef DEBUG
+    cout << "Generating mesh" << endl;
+    #endif
+    generate_mesh([&] (double x, double v) { return interpolate_from_mesh(x,v,false);} , do_adaptively_refine, is_initial_step);
+    
+    // generate_mesh([&](double x, double y) { return (*w0)(x,y); }, [&](double x, double y) { return (*j0)(x,y); },do_adaptively_refine_vorticity, do_adaptively_refine_j, is_initial_step);
     
 
-//     if (sqrt_f) {
-//         // std::transform(fs.begin(), fs.end(), fs.begin(), mysqr);
-//         for (int ii = 0; ii < fs.size(); ++ii) {
-//             fs[ii] = 0.5 * fs[ii];// * fs[ii];
-//         }
-//     }
-// }
+}
 
