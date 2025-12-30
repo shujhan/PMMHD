@@ -838,7 +838,7 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0, std::
         cout << "interpolating to grid " << endl;
         #endif
 
-        interpolate_to_initial_xvs(fs,xs,ys, nx_points, ny_points,verbose);
+        interpolate_to_initial_xys(fs,xs,ys, nx_points, ny_points,verbose);
         #ifdef DEBUG
         cout << "done interpolating to grid" << endl;
         #endif
@@ -1085,9 +1085,10 @@ void AMRStructure::remesh() {
     #ifdef DEBUG
     cout << "Generating mesh" << endl;
     #endif
-    generate_mesh([&] (double x, double v) { return interpolate_from_mesh(x,v,false);} , do_adaptively_refine, is_initial_step);
-    
-    // generate_mesh([&](double x, double y) { return (*w0)(x,y); }, [&](double x, double y) { return (*j0)(x,y); },do_adaptively_refine_vorticity, do_adaptively_refine_j, is_initial_step);
+    // return interpolate_from_mesh or return (*w0)(x,y); }, [&](double x, double y etc seems not matter here 
+    // just need call generate_mesh, interpolate_from_panel_to_points does all stuff 
+    // generate_mesh([&] (double x, double y) { return interpolate_from_mesh(x,y,false);} , do_adaptively_refine, is_initial_step);
+    generate_mesh([&](double x, double y) { return (*w0)(x,y); }, [&](double x, double y) { return (*j0)(x,y); },do_adaptively_refine_vorticity, do_adaptively_refine_j, is_initial_step);
     
 
 }

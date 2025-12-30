@@ -4,12 +4,8 @@ void AMRStructure::interpolate_to_initial_xys(
     std::vector<double>& fs, std::vector<double>& xs, std::vector<double>& ys, 
     int nx, int ny, bool verbose) 
 {
-
     std::vector<double> shifted_xs(xs.size() );
-    shift_xs(shifted_xs, xs, ys);
-    // cout << "shift xs" << endl;
-    // std::copy(shifted_xs.begin(), shifted_xs.end(), std::ostream_iterator<double>(cout, ", "));
-    // cout << endl;
+    shift_xs(shifted_xs, xs, ys); // shift xs to the bounded domain 
 
 #ifdef DEBUG
 cout << "sorting " << endl;
@@ -45,8 +41,62 @@ cout << "Done sorting" << endl;
     std::vector<std::vector<int> > point_in_leaf_panels_by_inds(old_panels.size() );
 
     bool beyond_boundary = false;
+    // find the leaf index for the first point first 
     int leaf_ind = find_leaf_containing_xy_recursively(sortxs[0], sortys[0], beyond_boundary, 0, verbose);
     std::vector<int> first_column_leaf_inds(ny);
+
+    // utilize periodic bc in x, find leaf index for the first point in each row from the previous first point 
+    for (int ii = 0; ii < ny; ++ii) {
+        beyond_boundary = false;
+        int point_ind = ii * nx;
+        std::set<int> history;
+        history.emplace(leaf_ind);
+
+        leaf_ind = find_leaf_containing_point_from_neighbor(sortxs[point_ind], sortys[point_ind], beyond_boundary, 
+                                                                leaf_ind, history, verbose);
+        first_column_leaf_inds[ii] = leaf_ind;
+        if (beyond_boundary) {
+            leaf_panel_of_points[point_ind] = 0;
+        } 
+        else {
+            leaf_panel_of_points[point_ind] = leaf_ind;
+        }
+    }
+
+    // find leaf index for each row, and since we know all leaf index for the first point in each row, we can use neighbor to speed up searching 
+    for (int ii = 0; ii < ny; ++ii) {
+        int jj0 = 0;
+        int point_ind = ii * nx + jj0;
+        int leaf_ind_c = first_column_leaf_inds[ii];
+        for (int jj = jj0+1; jj < nx; ++jj) {
+            beyond_boundary = false;
+            point_ind++;
+            std::set<int> history;
+            history.emplace(leaf_ind_c);
+            leaf_ind_c = find_leaf_containing_point_from_neighbor(sortxs[point_ind], sortys[point_ind], beyond_boundary, leaf_ind_c, history, verbose);
+            if (beyond_boundary) {
+                leaf_panel_of_points[point_ind] = 0;
+            } else {
+                leaf_panel_of_points[point_ind] = leaf_ind_c;
+            }
+        }
+    }    
+
+    for (int ii = 0; ii < leaf_panel_of_points.size(); ++ii) {
+        point_in_leaf_panels_by_inds[leaf_panel_of_points[ii]].push_back(ii);
+    }
+
+    // eval interpolant 
+
+    for (int panel_ind = 0; panel_ind < old_panels.size(); panel_ind++) {
+        if (point_in_leaf_panels_by_inds[panel_ind].size() > 0) {
+            interpolate_from_panel_to_points(sortfs,sortxs,sortys,point_in_leaf_panels_by_inds[panel_ind], panel_ind, use_limiter, limit_val);
+        }
+    }
+    for (int ii = 0; ii < fs.size(); ii++) {
+        fs[sort_indices[ii]] = sortfs[ii];
+    }
+
 
 
 
@@ -316,3 +366,320 @@ int AMRStructure::find_leaf_containing_xy_recursively(double  &x, const double &
     return leaf_ind;
 }
 
+
+
+int AMRStructure::find_leaf_containing_point_from_neighbor(double& tx, double& ty, bool& beyond_boundary, int leaf_ind, std::set<int>& history, bool verbose) {
+
+    if (leaf_ind == 0) {
+        history.emplace(leaf_ind);
+        cout << "If you see this then you are sending in a leaf ind 0 somewhere you hoped not to." << endl;
+        return leaf_ind;
+    } else {
+        Panel* panel = &(old_panels[leaf_ind]);
+        double x_bl = old_xs[panel->point_inds[0]]; double y_bl = old_ys[panel->point_inds[0]];
+        double x_tl = old_xs[panel->point_inds[2]]; double y_tl = old_ys[panel->point_inds[2]];
+        double x_mid = old_xs[panel->point_inds[4]];
+        double x_br = old_xs[panel->point_inds[6]]; double y_br = old_ys[panel->point_inds[6]];
+        double x_tr = old_xs[panel->point_inds[8]]; double y_tr = old_ys[panel->point_inds[8]];
+        if (verbose) {
+            cout << "(x,y)_bl = (" << x_bl << ", " << y_bl << ")" << endl;
+            cout << "(x,y)_tl = (" << x_tl << ", " << y_tl << ")" << endl;
+            cout << "(x,y)_br = (" << x_br << ", " << y_br << ")" << endl;
+            cout << "(x,y)_tr = (" << x_tr << ", " << y_tr << ")" << endl;
+        }
+        // need to correct periodic distance
+        if (tx - x_mid >= Lx/2 && bcs == 0) { 
+            tx -= Lx; 
+            if (verbose) {
+                cout << "shifting across boundary, tx= " << tx << endl;
+            }
+        }
+        if (tx - x_mid < -Lx/2 && bcs ==0) { 
+            tx += Lx; 
+            if (verbose) {
+                cout << "shifting across boundary, tx= " << tx << endl;
+            }
+        }
+
+
+        bool ineq_right = (x_tr - x_br) * (ty - y_br) > (y_tr - y_br) * (tx - (x_br));
+        bool ineq_left = (x_tl - x_bl) * (ty - y_bl) <= (y_tl - y_bl) * (tx - x_bl);
+        bool ineq_top = (x_tr - x_tl) * (ty - y_tl) < (y_tr - y_tl) * (tx - x_tl);
+        bool ineq_bottom = (x_br - x_bl) * (ty - y_bl) >= (y_br - y_bl) * (tx - x_bl);
+        int new_leaf_ind = leaf_ind;
+        if (verbose) {
+            cout << "(tx,ty) = (" << tx << ", " << ty << ")" << endl;
+            cout << "testing leaf panel " << leaf_ind << " for containment" << endl;
+            cout << "ineq_right " << ineq_right << endl;
+            cout << "(x_tr - x_tl) * (tv - v_tl)" << (x_tr - x_tl) * (ty - y_tl) << endl;
+            cout << "(v_tr - v_tl) * (tx - x_tl)" << (y_tr - y_tl) * (tx - x_tl) << endl;
+            cout << "ineq_top " << ineq_top << endl;
+            cout << "ineq_bottom " << ineq_bottom << endl;
+            cout << "ineq_left " << ineq_left << endl;
+        }
+        if (! ineq_right && panel->right_nbr_ind != -2) {
+            if (panel->is_right_bdry && bcs == 0) { 
+                tx -= Lx; 
+                if (verbose) {
+                    cout << "shifting across boundary, tx= " << tx << endl;
+                }
+            }
+
+            if (panel->right_nbr_ind == -1) {
+                new_leaf_ind = old_panels[panel->parent_ind].right_nbr_ind;
+                if (verbose) {
+                    cout << "in parent right" << endl;
+                    cout << "next leaf test " << new_leaf_ind << endl;
+                }
+            } else {
+                Panel* panel_right = &old_panels[panel->right_nbr_ind];
+                if (panel_right->is_refined_xy) { 
+                    new_leaf_ind = panel_right->child_inds_start; 
+                    if (verbose) {
+                        cout << "in panel right children" << endl;
+                        cout << "next leaf test " << new_leaf_ind << endl;
+                    }
+                }
+                else { 
+                    new_leaf_ind = panel->right_nbr_ind; 
+                    if (verbose) {
+                        cout << "in panel right" << endl;
+                        cout << "next leaf test " << new_leaf_ind << endl;
+                    }
+                }
+            }
+        } else {
+            if (!ineq_top && panel->top_nbr_ind != -2) {
+                if (panel->top_nbr_ind == -1) {
+                    new_leaf_ind = old_panels[panel->parent_ind].top_nbr_ind;
+                    if (verbose) {
+                        cout << "in parent top" << endl;
+                        cout << "next leaf test " << new_leaf_ind << endl;
+                    }
+                } else {
+                    Panel* panel_top = &old_panels[panel->top_nbr_ind];
+                    if (panel_top->is_refined_xy) {
+                        new_leaf_ind = panel_top->child_inds_start;
+                        if (verbose) {
+                            cout << "in top children" << endl;
+                            cout << "next leaf test " << new_leaf_ind << endl;
+                        }
+                    } else {
+                        new_leaf_ind = panel->top_nbr_ind;
+                        if (verbose) {
+                            cout << "in panel top" << endl;
+                            cout << "next leaf test " << new_leaf_ind << endl;
+                        }
+                    }
+                }
+            } // end if checking top boundary 
+            else {
+                if (!ineq_bottom && panel->bottom_nbr_ind != -2) {
+                    if (panel->bottom_nbr_ind == -1) {
+                        new_leaf_ind = old_panels[panel->parent_ind].bottom_nbr_ind;
+                        if (verbose) {
+                            cout << "in parent bottom" << endl;
+                            cout << "next leaf test " << new_leaf_ind << endl;
+                        }
+                    } else {
+                        Panel* panel_bottom = &old_panels[panel->bottom_nbr_ind];
+                        if (panel_bottom -> is_refined_xy) {
+                            new_leaf_ind = panel_bottom->child_inds_start + 1;
+                            if (verbose) {
+                                cout << "in parent bottom children" << endl;
+                                cout << "next leaf test " << new_leaf_ind << endl;
+                            }
+                        } else {
+                            new_leaf_ind = panel->bottom_nbr_ind;
+                            if (verbose) {
+                                cout << "in parent bottom" << endl;
+                                cout << "next leaf test " << new_leaf_ind << endl;
+                            }
+                        }
+                    }
+                } // end if checking bottom boundary 
+                else {
+                    if (! ineq_left && panel->left_nbr_ind != -2) {
+                        if (panel->is_left_bdry && bcs == 0) { 
+                            tx += Lx; 
+                            if (verbose) {
+                                cout << "shifting across boundary, now tx= " << tx << endl;
+                            }
+                        }
+                        if (panel->left_nbr_ind == -1) {
+#ifdef DEBUG
+cout << "panel left: " << panel->left_nbr_ind << endl;
+cout <<"length of panels_list " << old_panels.size() << endl;
+#endif
+                            new_leaf_ind = old_panels[panel->parent_ind].left_nbr_ind;
+                            if (verbose) {
+                                cout << "in parent left" << endl;
+                                cout << "next leaf test " << new_leaf_ind << endl;
+                            }
+                        } else {
+                            Panel* panel_left = &old_panels[panel->left_nbr_ind];
+                            if (panel_left->is_refined_xy) {
+                                new_leaf_ind = panel_left->child_inds_start+2;
+                                if (verbose) {
+                                    cout << "in left children" << endl;
+                                    cout << "next leaf test " << new_leaf_ind << endl;
+                                }
+                            }
+                            else {
+                                new_leaf_ind = panel->left_nbr_ind;
+                                if (verbose) {
+                                    cout << "in panel left" << endl;
+                                    cout << "next leaf test " << new_leaf_ind << endl;
+                                }
+                            }
+                        }
+                    } // end if checking left boundary
+                } // end else for left
+            } //end else for bottom/left
+        } // end else for top/bottom/left
+        if (verbose) {
+            cout << "History" << endl;
+            for (std::set<int>::iterator it = history.begin(); it != history.end(); ++it) {
+                cout << *it << " ";
+            }
+            cout << endl;
+        }
+        if (history.find(new_leaf_ind) == history.end()) {
+            history.emplace(new_leaf_ind);
+            if (verbose) {
+                cout << "running find_leaf again for (x,y)=(" << tx << ", " << ty << ")" << endl;
+            }
+            new_leaf_ind = find_leaf_containing_point_from_neighbor(tx,tv,beyond_boundary, new_leaf_ind, history, verbose);
+        } else if (verbose)
+        {
+            cout << "done searching." << endl;
+        }
+        if (!allow_boundary_extrapolation) {
+            bool boundary_extrapolating_right = !ineq_right && panel->right_nbr_ind==-2;
+            bool boundary_extrapolating_left = !ineq_left && panel->left_nbr_ind==-2;
+            bool boundary_extrapolating_top = !ineq_top && panel->top_nbr_ind==-2;
+            bool boundary_extrapolating_bottom = !ineq_bottom && panel->bottom_nbr_ind==-2;
+            if (boundary_extrapolating_left || boundary_extrapolating_right || 
+                boundary_extrapolating_top || boundary_extrapolating_bottom) {
+                if (verbose) {
+                    cout << "Not allowing boundary extrapolation and this point is flagged as beyond the boundary" << endl;
+                }
+                beyond_boundary = true;
+            }
+        }
+        if (verbose) {
+            cout << "Point (" << tx << ", " << tv << ") is in panel " << new_leaf_ind << endl;
+        }
+        return new_leaf_ind;
+    }
+}
+
+
+void AMRStructure::interpolate_from_panel_to_points(
+    std::vector<double>& values, std::vector<double>& xs, std::vector<double>& ys,
+    std::vector<int>& point_inds, int panel_ind, bool use_limiter, double limit_val) 
+{
+    if (panel_ind == 0) { // if we are extrapolating beyond boundaries; assume 0
+        for (int ii = 0; ii < point_inds.size(); ++ii) {
+            values[point_inds[ii]] = f_beyond_boundary;
+        }
+    }
+    else {
+        bool verbose = false;
+        Panel* panel = &(old_panels[panel_ind]);
+        const int* panel_point_inds = panel->point_inds;
+        double panel_xs[9], panel_ys[9];
+        // , panel_fs[9];
+        double panel_w0s[9], panel_j0s[9];
+
+        for (int ii = 0; ii < 9; ++ii) {
+            int pind = panel_point_inds[ii];
+            panel_xs[ii] = old_xs[pind];
+            panel_ys[ii] = old_ys[pind];
+            // panel_fs[ii] = old_fs[pind];
+            panel_w0s[ii] = old_w0s[pind];
+            panel_j0s[ii] = old_j0s[pind];
+
+        }
+
+        if (do_unshear) {
+            for (int ii = 0; ii < 9; ++ii) {
+                panel_xs[ii] -= dt * (panel_ys[ii] - panel_ys[4]); // assumes remesh frequency = 1
+            }
+            for (int ii = 0; ii < xs.size(); ++ii) {
+                xs[ii] -= dt * (ys[ii] - panel_ys[4]);
+
+            }
+        }
+
+        double panel_dx[9], panel_dy[9];
+        std::vector<double> dxs(point_inds.size()), dys(point_inds.size());
+        for (int ii = 0; ii < point_inds.size(); ++ii) {
+            int pind = point_inds[ii];
+            dxs[ii] = xs[pind] - panel_xs[4];
+            dys[ii] = ys[pind] - panel_ys[4];
+        }
+        for (int ii = 0; ii < 9; ii ++) {
+            panel_dx[ii] = panel_xs[ii] - panel_xs[4];
+            panel_dy[ii] = panel_ys[ii] - panel_ys[4];
+        }
+
+        if (verbose) {
+            std::cout << "test point distance from midpoint:" << std::endl;
+            for (int ii = 0; ii < point_inds.size(); ++ii) {
+                std::cout << ii <<": dx=" << dxs[ii] <<", dy=" << dys[ii] << std::endl;
+            } 
+            std::cout << "panel vertex distances from midpoint:" << std::endl;
+            for (int ii = 0; ii < 9; ii++ ) {
+                std::cout << ii << ": " << panel_dx[ii] << ", " << panel_dy[ii] << std::endl;
+            }
+        }
+
+        Eigen::Matrix<double,9,9> A;
+        for (int ii = 0; ii < 9; ++ii) {
+            A(ii,0) = 1; A(ii,1) = panel_dx[ii];
+            A(ii,2) = panel_dx[ii] * panel_dy[ii];
+            A(ii,3) = panel_dy[ii];
+            A(ii,4) = panel_dy[ii] * panel_dy[ii];
+            A(ii,5) =  panel_dy[ii] * panel_dy[ii] * panel_dy[ii];
+            A(ii,6) = panel_dy[ii] * panel_dy[ii] * panel_dy[ii] * panel_dy[ii];
+            A(ii,7) = panel_dy[ii] * panel_dy[ii] * panel_dy[ii];
+            A(ii,8) = panel_dy[ii] * panel_dy[ii];
+        }
+        Eigen::Map<Eigen::Matrix<double,9,1>> b(panel_fs);
+        Eigen::Matrix<double,9,1> c = A.lu().solve(b);
+
+
+        if (verbose) {
+            std::cout << "Here is the matrix A:\n" << A << std::endl;
+            std::cout << "Here is the f vector b:\n" << b << std::endl;
+            std::cout << "Here is the coefficient vector c:\n" << c << std::endl;
+        }
+        Eigen::Matrix<double, Dynamic, Dynamic> Dx(point_inds.size(),9);
+        for (int ii = 0; ii < point_inds.size(); ++ii) {
+            double dxsq = dxs[ii] * dxs[ii];
+            double dysq = dys[ii] * dys[ii];
+            Dx(ii,0) = 1; Dx(ii,1) = dxs[ii];
+            Dx(ii,2) = dxs[ii] * dys[ii];
+            Dx(ii,3) = dys[ii];
+            Dx(ii,4) = dxsq;
+            Dx(ii,5) =  dxsq * dys[ii];
+            Dx(ii,6) = dxsq * dysq;
+            Dx(ii,7) = dxs[ii] * dysq;
+            Dx(ii,8) = dysq;
+        }
+        Eigen::Matrix<double, Dynamic,1> interp_vals = Dx * c;
+        if (verbose) {
+            std::cout << "Here is the result:" << std::endl << interp_vals << std::endl;
+        }
+        for (int ii = 0; ii < point_inds.size(); ++ii) {
+            values[point_inds[ii]] = interp_vals(ii);
+        }
+
+        if (use_limiter) {
+            for (int ii = 0; ii < values.size(); ++ii) {
+                if (values[ii] < 0) { values[ii] = 0; } //min_f; }
+            }
+        }
+    }
+}
