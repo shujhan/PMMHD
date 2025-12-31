@@ -1,7 +1,7 @@
 #include "AMRStructure.hpp"
 
 void AMRStructure::interpolate_to_initial_xys(
-    std::vector<double>& fs, std::vector<double>& xs, std::vector<double>& ys, 
+    std::vector<double>& w0s, std::vector<double>& j0s, std::vector<double>& xs, std::vector<double>& ys, 
     int nx, int ny, bool verbose) 
 {
     std::vector<double> shifted_xs(xs.size() );
@@ -35,7 +35,8 @@ cout << "Done sorting" << endl;
     }
 
 
-    std::vector<double> sortfs(xs.size() );
+    std::vector<double> sortw0s(xs.size());
+    std::vector<double> sortj0s(xs.size());
 
     std::vector<int> leaf_panel_of_points(xs.size() );
     std::vector<std::vector<int> > point_in_leaf_panels_by_inds(old_panels.size() );
@@ -90,14 +91,16 @@ cout << "Done sorting" << endl;
 
     for (int panel_ind = 0; panel_ind < old_panels.size(); panel_ind++) {
         if (point_in_leaf_panels_by_inds[panel_ind].size() > 0) {
-            interpolate_from_panel_to_points(sortfs,sortxs,sortys,point_in_leaf_panels_by_inds[panel_ind], panel_ind, use_limiter, limit_val);
+            interpolate_from_panel_to_points(sortw0s,sortj0s,sortxs,sortys,point_in_leaf_panels_by_inds[panel_ind], panel_ind, use_limiter, limit_val);
         }
     }
-    for (int ii = 0; ii < fs.size(); ii++) {
-        fs[sort_indices[ii]] = sortfs[ii];
+    for (int ii = 0; ii < w0s.size(); ii++) {
+        w0s[sort_indices[ii]] = sortw0s[ii];
     }
 
-
+    for (int ii = 0; ii < j0s.size(); ii++) {
+        j0s[sort_indices[ii]] = sortj0s[ii];
+    }
 
 
 
@@ -576,12 +579,13 @@ cout <<"length of panels_list " << old_panels.size() << endl;
 
 
 void AMRStructure::interpolate_from_panel_to_points(
-    std::vector<double>& values, std::vector<double>& xs, std::vector<double>& ys,
+    std::vector<double>& values_w0, std::vector<double>& values_j0, std::vector<double>& xs, std::vector<double>& ys,
     std::vector<int>& point_inds, int panel_ind, bool use_limiter, double limit_val) 
 {
     if (panel_ind == 0) { // if we are extrapolating beyond boundaries; assume 0
         for (int ii = 0; ii < point_inds.size(); ++ii) {
-            values[point_inds[ii]] = f_beyond_boundary;
+            values_w0[point_inds[ii]] = f_beyond_boundary;
+            values_j0[point_inds[ii]] = f_beyond_boundary;
         }
     }
     else {
@@ -646,9 +650,12 @@ void AMRStructure::interpolate_from_panel_to_points(
             A(ii,7) = panel_dy[ii] * panel_dy[ii] * panel_dy[ii];
             A(ii,8) = panel_dy[ii] * panel_dy[ii];
         }
-        Eigen::Map<Eigen::Matrix<double,9,1>> b(panel_fs);
-        Eigen::Matrix<double,9,1> c = A.lu().solve(b);
-
+        // create RHS vector for both w0 and j0
+        Eigen::Map<Eigen::Matrix<double,9,1>> b_w0(panel_w0s);
+        Eigen::Map<Eigen::Matrix<double,9,1>> b_j0(panel_j0s);
+        // sove for both w0 and j0 
+        Eigen::Matrix<double,9,1> c_w0 = A.lu().solve(b_w0);
+        Eigen::Matrix<double,9,1> c_j0 = A.lu().solve(b_j0);
 
         if (verbose) {
             std::cout << "Here is the matrix A:\n" << A << std::endl;
@@ -668,17 +675,21 @@ void AMRStructure::interpolate_from_panel_to_points(
             Dx(ii,7) = dxs[ii] * dysq;
             Dx(ii,8) = dysq;
         }
-        Eigen::Matrix<double, Dynamic,1> interp_vals = Dx * c;
-        if (verbose) {
-            std::cout << "Here is the result:" << std::endl << interp_vals << std::endl;
-        }
+
+        Eigen::Matrix<double, Dynamic,1> interp_vals_w0 = Dx * c_w0;
+        Eigen::Matrix<double, Dynamic,1> interp_vals_j0 = Dx * c_j0;
+
+
         for (int ii = 0; ii < point_inds.size(); ++ii) {
-            values[point_inds[ii]] = interp_vals(ii);
+            values_w0[point_inds[ii]] = interp_vals_w0(ii);
+            values_j0[point_inds[ii]] = interp_vals_j0(ii);
         }
 
         if (use_limiter) {
-            for (int ii = 0; ii < values.size(); ++ii) {
-                if (values[ii] < 0) { values[ii] = 0; } //min_f; }
+            for (int ii = 0; ii < values_w0.size(); ++ii) {
+                // if (values[ii] < 0) { values[ii] = 0; } //min_f; }
+                if (values_w0[ii] < 0.0) values_w0[ii] = 0.0; //min_w0;
+                if (values_j0[ii] < 0.0) values_j0[ii] = 0.0; // //min_j0;
             }
         }
     }

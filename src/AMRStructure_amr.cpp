@@ -838,7 +838,8 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0, std::
         cout << "interpolating to grid " << endl;
         #endif
 
-        interpolate_to_initial_xys(fs,xs,ys, nx_points, ny_points,verbose);
+        bool verbose = false;
+        interpolate_to_initial_xys(w0s,j0s,xs,ys, nx_points, ny_points,verbose);
         #ifdef DEBUG
         cout << "done interpolating to grid" << endl;
         #endif
