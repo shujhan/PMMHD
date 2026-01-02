@@ -552,7 +552,7 @@ cout <<"length of panels_list " << old_panels.size() << endl;
             if (verbose) {
                 cout << "running find_leaf again for (x,y)=(" << tx << ", " << ty << ")" << endl;
             }
-            new_leaf_ind = find_leaf_containing_point_from_neighbor(tx,tv,beyond_boundary, new_leaf_ind, history, verbose);
+            new_leaf_ind = find_leaf_containing_point_from_neighbor(tx,ty,beyond_boundary, new_leaf_ind, history, verbose);
         } else if (verbose)
         {
             cout << "done searching." << endl;
@@ -571,7 +571,7 @@ cout <<"length of panels_list " << old_panels.size() << endl;
             }
         }
         if (verbose) {
-            cout << "Point (" << tx << ", " << tv << ") is in panel " << new_leaf_ind << endl;
+            cout << "Point (" << tx << ", " << ty << ") is in panel " << new_leaf_ind << endl;
         }
         return new_leaf_ind;
     }
@@ -657,11 +657,12 @@ void AMRStructure::interpolate_from_panel_to_points(
         Eigen::Matrix<double,9,1> c_w0 = A.lu().solve(b_w0);
         Eigen::Matrix<double,9,1> c_j0 = A.lu().solve(b_j0);
 
-        if (verbose) {
-            std::cout << "Here is the matrix A:\n" << A << std::endl;
-            std::cout << "Here is the f vector b:\n" << b << std::endl;
-            std::cout << "Here is the coefficient vector c:\n" << c << std::endl;
-        }
+        // if (verbose) {
+        //     std::cout << "Here is the matrix A:\n" << A << std::endl;
+        //     std::cout << "Here is the f vector b:\n" << b << std::endl;
+        //     std::cout << "Here is the coefficient vector c:\n" << c << std::endl;
+        // }
+
         Eigen::Matrix<double, Dynamic, Dynamic> Dx(point_inds.size(),9);
         for (int ii = 0; ii < point_inds.size(); ++ii) {
             double dxsq = dxs[ii] * dxs[ii];
