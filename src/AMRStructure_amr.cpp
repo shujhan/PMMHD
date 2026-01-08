@@ -830,6 +830,71 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0, std::
             w0s[ii] = (*w0)(xs[ii],ys[ii]);
             j0s[ii] = (*j0)(xs[ii],ys[ii]);
         }
+
+        // only for kelvin helmholz test, set vorticity for each point at initial step:
+        // find points of vortex sheet at middle
+        int vortex_size = int(pow(2, initial_height + 1)) + 1;
+        std::vector<double> vortex_sheet_x(vortex_size, 0.0);
+        std::vector<double> vortex_sheet_y(vortex_size, 0.0);
+        double middle = (y_min + y_max) / 2;
+        int count = 0;
+        for (int i = 0; i < ys.size(); i++) {
+            if(std::abs(ys[i] - middle) < 0.01 * initial_dy) {
+                vortex_sheet_x[count] = xs[i];
+                vortex_sheet_y[count] = ys[i];
+                w0s[i] = 0.0;
+                count++;
+            }
+            else {
+                // not at vortex sheet, set to be 0 
+                w0s[i] = 0.0;
+            }
+        }
+        cout << "vortex_sheet size = " << count << endl;
+
+        for (int i = 0; i < vortex_sheet_x.size(); i++) {
+            cout << "vortex_sheet[" << i << "] = ("
+            << vortex_sheet_x[i] << ", "
+            << vortex_sheet_y[i] << ")\n";
+        }
+
+        // set all other points' vorticity 
+        double reg_delta = 0.5;
+        const double pi = std::atan(1.0) * 4.0;
+        for (int i = 0; i < xs.size(); i++) {
+            for (int k = 0; k < vortex_sheet_x.size(); k++) {
+                // skip the last point at vortex sheet
+                if (abs(vortex_sheet_x[k] - x_max) < 1e-7) {
+                    continue;
+                }
+                double y_diff = ys[i] - vortex_sheet_y[k];
+                double x_diff = xs[i] - vortex_sheet_x[k];
+                //  k != i 
+                if (abs(y_diff) < 1e-7 && abs(x_diff) < 1e-7) {
+                    continue;
+                }
+                double cst_period = 2*pi/Lx;
+                w0s[i] += pi * reg_delta * reg_delta  /  vortex_sheet_x.size() * 
+                        (cosh(cst_period * y_diff) + cos(cst_period * x_diff)) / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + reg_delta * reg_delta) / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + reg_delta * reg_delta);           
+            }
+        }
+
+        // set the last column equal to first column vorticity 
+        for (int i = 0; i < xs.size(); i++) {
+            if (abs(xs[i] - x_max) < 1e-7 && abs(ys[i]) < 1e-7) {
+                for (int j = 0; j < xs.size(); j++) {
+                    if (abs(xs[j]) < 1e-7  && abs(ys[j]) < 1e-7) {
+                        w0s[i] = w0s[j];
+                    }
+                }
+            }
+        }
+
+        // give a perturbation to the vortex sheet 
+
+
+
+
     } else {
         int nx_points = 2*npanels_x + 1;
         int ny_points = 2*npanels_y + 1;
@@ -1047,18 +1112,18 @@ void AMRStructure::recursively_set_leaves_weights(int panel_ind) {
         double dy = y1 - y0;
         switch (quad) {
             case 1 : { // simpsons
-                double dxdv9 = dx * dy / 9.0;
+                double dxdy9 = dx * dy / 9.0;
                 double quad_weights[9] = {1.0,4.0,1.0, 4.0, 16.0,4.0,1.0,4.0,1.0};
                 for (int ii = 0; ii < 9; ii++) {
-                    weights[panel_it->point_inds[ii]] += dxdv9 * quad_weights[ii];
+                    weights[panel_it->point_inds[ii]] += dxdy9 * quad_weights[ii];
                 }
                 break;
             }
             default : {// trap 
-                double dxdv4 = dx * dy / 4.0;
+                double dxdy4 = dx * dy / 4.0;
                 double quad_weights[9] = {1.0,2.0,1.0,2.0,4.0,2.0,1.0, 2.0, 1.0};
                 for (int ii = 0; ii < 9; ii++) {
-                    weights[panel_it->point_inds[ii]] += dxdv4 * quad_weights[ii];
+                    weights[panel_it->point_inds[ii]] += dxdy4 * quad_weights[ii];
                 }
                 break;
             }

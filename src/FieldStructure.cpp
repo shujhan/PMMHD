@@ -20,12 +20,12 @@ U_DirectSum::~U_DirectSum() = default;
 void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx, 
                         double* y_vals, double* q_ws, int ny)
 {    
-    const double pi = M_PI;
+    const double pi = std::atan(1.0) * 4.0;
     for (int i = 0; i < nx; i++) {
         for(int k = 0; k < ny; k++) {
-            double denom = cosh(2* pi * (y_vals[i] - y_vals[k])) - cos(2* pi * (x_vals[i] - x_vals[k])) + epsilon * epsilon;
-            u1s[i] += -0.5 * sinh(2 * pi * (y_vals[i] - y_vals[k])) / denom * q_ws[i];
-            u2s[i] += 0.5 * sin(2 * pi * (x_vals[i] - x_vals[k])) / denom * q_ws[i];
+            double denom = cosh(2* pi / L * (y_vals[i] - y_vals[k])) - cos(2* pi / L * (x_vals[i] - x_vals[k])) + epsilon * epsilon;
+            u1s[i] -= 0.5/L * sinh(2 * pi / L * (y_vals[i] - y_vals[k])) / denom * q_ws[k];
+            u2s[i] += 0.5/L * sin(2 * pi / L * (x_vals[i] - x_vals[k])) / denom * q_ws[k];
         }
     }
 }

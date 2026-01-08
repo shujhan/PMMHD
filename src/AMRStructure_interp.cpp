@@ -644,10 +644,10 @@ void AMRStructure::interpolate_from_panel_to_points(
             A(ii,0) = 1; A(ii,1) = panel_dx[ii];
             A(ii,2) = panel_dx[ii] * panel_dy[ii];
             A(ii,3) = panel_dy[ii];
-            A(ii,4) = panel_dy[ii] * panel_dy[ii];
-            A(ii,5) =  panel_dy[ii] * panel_dy[ii] * panel_dy[ii];
-            A(ii,6) = panel_dy[ii] * panel_dy[ii] * panel_dy[ii] * panel_dy[ii];
-            A(ii,7) = panel_dy[ii] * panel_dy[ii] * panel_dy[ii];
+            A(ii,4) = panel_dx[ii] * panel_dx[ii];
+            A(ii,5) =  panel_dx[ii] * panel_dx[ii] * panel_dy[ii];
+            A(ii,6) = panel_dx[ii] * panel_dx[ii] * panel_dy[ii] * panel_dy[ii];
+            A(ii,7) = panel_dx[ii] * panel_dy[ii] * panel_dy[ii];
             A(ii,8) = panel_dy[ii] * panel_dy[ii];
         }
         // create RHS vector for both w0 and j0
