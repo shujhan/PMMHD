@@ -9,7 +9,7 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
                             int n_steps_remesh,
                             int n_steps_diag,
                             bool do_adaptively_refine_vorticity, double amr_epsilons_vorticity,
-                            bool do_adaptively_refine_j, double amr_epsilons_j)
+                            bool do_adaptively_refine_j, double amr_epsilons_j, double greens_epsilon)
                            : w0(w0), j0(j0), 
                            initial_height(initial_height), y_height(y_height),
                            height(initial_height), max_height(max_height), 
@@ -21,7 +21,7 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
                            do_adaptively_refine_vorticity(do_adaptively_refine_vorticity),
                            amr_epsilons_vorticity(amr_epsilons_vorticity),
                            amr_epsilons_j(amr_epsilons_j),
-                           do_adaptively_refine_j(do_adaptively_refine_j),
+                           do_adaptively_refine_j(do_adaptively_refine_j), greens_epsilon(greens_epsilon),
                            use_limiter(false), limit_val(0.0)
 {
     // time_operations = std::vector<duration<double>>(last_time);

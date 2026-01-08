@@ -211,7 +211,7 @@ int main(int argc, char** argv) {
                 calculate_field, quad, num_steps, dt,
                 n_steps_remesh, n_steps_diag,
                 do_adaptively_refine_vorticity, amr_epsilons_vorticity,
-                do_adaptively_refine_j, amr_epsilons_j};
+                do_adaptively_refine_j, amr_epsilons_j,greens_epsilon};
                 
 
     // amr.init_e();

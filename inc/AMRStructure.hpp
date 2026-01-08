@@ -87,6 +87,7 @@ struct AMRStructure {
     int quad; // 0 for trap; 1 for simpsons
 
     Field* calculate_e;
+    double greens_epsilon;
 
     //profile parameters
     bool do_profile;
@@ -115,7 +116,7 @@ struct AMRStructure {
                 int n_steps_remesh,
                 int n_steps_diag,
                 bool do_adaptively_refine_vorticity, double amr_epsilons_vorticity,
-                bool do_adaptively_refine_j, double amr_epsilons_j);
+                bool do_adaptively_refine_j, double amr_epsilons_j, double greens_epsilon);
 
 
         // AMRStructure(std::string sim_dir, distribution* f0, 
