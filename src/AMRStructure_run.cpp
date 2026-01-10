@@ -46,10 +46,13 @@ int AMRStructure::euler() {
     for (int i = 0; i < std::min<int>(5, (int)u1s.size()); ++i) {
         cout << i << " u1=" << u1s[i] << " u2=" << u2s[i] << endl;
     }
-    b1s.assign(b1s.size(), 0.0);
-    b2s.assign(b2s.size(), 0.0);
-    evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
-    cout << "after b field evaluation" << endl;
+    // // later for b evaluation
+    // b1s.assign(b1s.size(), 0.0);
+    // b2s.assign(b2s.size(), 0.0);
+    // evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
+    // cout << "after b field evaluation" << endl;
+
+
     for (int i = 0; i < xs.size(); i++) {
         xs[i] += dt * u1s[i];
     }

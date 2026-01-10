@@ -832,9 +832,9 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0, std::
         }
 
         // only for kelvin helmholz test, set vorticity for each point at initial step:
-        // int vortex_size = int(pow(2, initial_height + 1));
-        // const double pi = std::atan(1.0) * 4.0;
-        // double cst_period = 2*pi/Lx;
+        int vortex_size = int(pow(2, initial_height + 1));
+        const double pi = std::atan(1.0) * 4.0;
+        double cst_period = 2*pi/Lx;
         // cout << "vortex_size: " << vortex_size << endl;
         //     for (int k = 0; k < vortex_size; k++) {
         //         double alpha = k * Lx / vortex_size + x_min;
@@ -844,94 +844,25 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0, std::
         //     }
 
 
-        // for (int i = 0; i < xs.size(); i++) {
-        //     w0s[i] = 0.0;
-        //     for (int k = 0; k < vortex_size; k++) {
-        //         double alpha = k * Lx / vortex_size + x_min;
-        //         double x_pt = alpha;
-        //         double y_pt = 0.0; 
-        //         double gamma_prime = 1.0;
-        //         double y_diff = ys[i] - y_pt;
-        //         double x_diff = xs[i] - x_pt;
-        //         if (abs(y_diff) < 1e-7 && abs(x_diff) < 1e-7) {
-        //             continue;
-        //         }
-        //             w0s[i] += gamma_prime * pi * greens_epsilon * greens_epsilon / (vortex_size+1) * 
-        //                 (cosh(cst_period * y_diff) + cos(cst_period * x_diff)) / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + greens_epsilon * greens_epsilon) / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + greens_epsilon * greens_epsilon);           
-
-        //     }
-        // }
-
-
-
-
-
-        // find points of vortex sheet at middle
-        // double reg_delta = 0.5;
-        const double pi = std::atan(1.0) * 4.0;
-        int vortex_size = int(pow(2, initial_height + 1)) + 1;
-        std::vector<double> vortex_sheet_x(vortex_size, 0.0);
-        std::vector<double> vortex_sheet_y(vortex_size, 0.0);
-        double middle = (y_min + y_max) / 2;
-        int count = 0;
-        for (int i = 0; i < ys.size(); i++) {
-            if(std::abs(ys[i] - middle) < 0.01 * initial_dy) {
-                // give a perturbation to the vortex sheet here if needed
-                vortex_sheet_x[count] = xs[i] + 0.05 * sin(2 * pi /Lx * (xs[i] - x_min));
-                vortex_sheet_y[count] = ys[i] - 0.05 * sin(2 * pi /Lx * (xs[i] - x_min));
-                w0s[i] = 0.0;
-                count++;
-            }
-            else {
-                // not at vortex sheet, set to be 0 
-                w0s[i] = 0.0;
-            }
-        }
-        cout << "vortex_sheet size = " << count << endl;
-
-        // for (int i = 0; i < vortex_sheet_x.size(); i++) {
-        //     cout << "vortex_sheet[" << i << "] = ("
-        //     << vortex_sheet_x[i] << ", "
-        //     << vortex_sheet_y[i] << ")\n";
-        // }
-
-        // set all other points' vorticity 
         for (int i = 0; i < xs.size(); i++) {
-            for (int k = 0; k < vortex_sheet_x.size(); k++) {
-                // skip the last point at vortex sheet
-                if (abs(vortex_sheet_x[k] - x_max) < 1e-7) {
-                    continue;
-                }
-                double y_diff = ys[i] - vortex_sheet_y[k];
-                double x_diff = xs[i] - vortex_sheet_x[k];
-                //  k != i 
-                if (abs(y_diff) < 1e-7 && abs(x_diff) < 1e-7) {
-                    continue;
-                }
-                double cst_period = 2*pi/Lx;
-                w0s[i] += pi * greens_epsilon * greens_epsilon  /  vortex_sheet_x.size() * 
-                        (cosh(cst_period * y_diff) + cos(cst_period * x_diff)) / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + greens_epsilon * greens_epsilon) / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + greens_epsilon * greens_epsilon);           
+            w0s[i] = 0.0;
+            double gamma_prime = 1.0;
+            for (int k = 0; k < vortex_size; k++) {
+                double alpha = k * Lx / vortex_size + x_min;
+                double x_pt = alpha;
+                double y_pt = 0.0 ; 
+                // double x_pt = alpha + 0.01 * sin(2 * pi /Lx * (alpha - x_min));
+                // double y_pt = 0.0 - 0.01 * sin(2 * pi /Lx * (alpha - x_min)); 
+                double y_diff = ys[i] - y_pt;
+                double x_diff = xs[i] - x_pt;
+                // if (abs(y_diff) < 1e-16 && abs(x_diff) < 1e-16) {
+                //     continue;
+                // }
+                    w0s[i] += (cosh(cst_period * y_diff) + cos(cst_period * x_diff)) / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + greens_epsilon * greens_epsilon) 
+                            / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + greens_epsilon * greens_epsilon);              
             }
+             w0s[i] *= gamma_prime * pi * greens_epsilon * greens_epsilon / vortex_size; 
         }
-
-        // set the last column equal to first column vorticity 
-        for (int i = 0; i < xs.size(); i++) {
-            if (abs(xs[i] - x_max) < 1e-7 && abs(ys[i]) < 1e-7) {
-                for (int j = 0; j < xs.size(); j++) {
-                    if (abs(xs[j]) < 1e-7  && abs(ys[j]) < 1e-7) {
-                        w0s[i] = w0s[j];
-                    }
-                }
-            }
-        }
-
-
-
-
-
-
-
-
 
     } else {
         int nx_points = 2*npanels_x + 1;
