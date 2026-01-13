@@ -849,10 +849,10 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0, std::
             double gamma_prime = 1.0;
             for (int k = 0; k < vortex_size; k++) {
                 double alpha = k * Lx / vortex_size + x_min;
-                double x_pt = alpha;
-                double y_pt = 0.0 ; 
-                // double x_pt = alpha + 0.01 * sin(2 * pi /Lx * (alpha - x_min));
-                // double y_pt = 0.0 - 0.01 * sin(2 * pi /Lx * (alpha - x_min)); 
+                // double x_pt = alpha;
+                // double y_pt = 0.0 ; 
+                double x_pt = alpha + 0.01 * sin(2 * pi /Lx * (alpha - x_min));
+                double y_pt = 0.0 - 0.01 * sin(2 * pi /Lx * (alpha - x_min)); 
                 double y_diff = ys[i] - y_pt;
                 double x_diff = xs[i] - x_pt;
                 // if (abs(y_diff) < 1e-16 && abs(x_diff) < 1e-16) {

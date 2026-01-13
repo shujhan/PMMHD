@@ -12,10 +12,11 @@ int AMRStructure::step() {
     std::cout << "step " << iter_num << std::endl;
 
     // rk4 step
-    // rk4_step(false);
+    rk4();
 
     // euler 
-    euler();
+    // euler();
+
     t += dt;
 
     // if remesh:
@@ -59,6 +60,89 @@ int AMRStructure::euler() {
 
     for (int i = 0; i < ys.size(); i++) {
         ys[i] += dt * u2s[i];
+    }
+
+    return 0;
+}
+
+
+
+
+int AMRStructure::rk4() {
+    std::cout << "enter rk4" << std::endl;
+
+    const int xs_size = (int)xs.size();
+
+    // Stage storage: k1, k2, k3, k4 for x and y
+    std::vector<double> k1x(xs_size, 0.0), k1y(xs_size, 0.0);
+    std::vector<double> k2x(xs_size, 0.0), k2y(xs_size, 0.0);
+    std::vector<double> k3x(xs_size, 0.0), k3y(xs_size, 0.0);
+    std::vector<double> k4x(xs_size, 0.0), k4y(xs_size, 0.0);
+
+    // Temporary positions
+    std::vector<double> x2(xs_size), y2(xs_size);
+    std::vector<double> x3(xs_size), y3(xs_size);
+    std::vector<double> x4(xs_size), y4(xs_size);
+
+    // -------------------------
+    // k1 = u(x_n, t_n)
+    // -------------------------
+
+    evaluate_u_field(k1x, k1y, xs, ys, u_weights, t);
+    for (int i = 0; i < xs_size; ++i) {
+        // k1x[i] = u1s[i];
+        // k1y[i] = u2s[i];
+        x2[i]  = xs[i] + 0.5 * dt * k1x[i];
+        y2[i]  = ys[i] + 0.5 * dt * k1y[i];
+    }
+
+    // -------------------------
+    // k2 = u(x_n + dt/2*k1, t_n + dt/2)
+    // -------------------------
+
+    evaluate_u_field(k2x, k2y, x2, y2, u_weights, t + 0.5 * dt);
+    for (int i = 0; i < xs_size; ++i) {
+        x3[i]  = xs[i] + 0.5 * dt * k2x[i];
+        y3[i]  = ys[i] + 0.5 * dt * k2y[i];
+    }
+
+    // -------------------------
+    // k3 = u(x_n + dt/2*k2, t_n + dt/2)
+    // -------------------------
+    evaluate_u_field(k3x, k3y, x3, y3, u_weights, t + 0.5 * dt);
+    for (int i = 0; i < xs_size; ++i) {
+        x4[i]  = xs[i] + dt * k3x[i];
+        y4[i]  = ys[i] + dt * k3y[i];
+    }
+
+    // -------------------------
+    // k4 = u(x_n + dt*k3, t_n + dt)
+    // -------------------------
+    evaluate_u_field(k4x, k4y, x4, y4, u_weights, t + dt);
+
+    // -------------------------
+    // Combine to update positions
+    // x_{n+1} = x_n + dt/6*(k1 + 2k2 + 2k3 + k4)
+    // -------------------------
+    for (int i = 0; i < xs_size; ++i) {
+        xs[i] += (dt / 6.0) * (k1x[i] + 2.0 * k2x[i] + 2.0 * k3x[i] + k4x[i]);
+        ys[i] += (dt / 6.0) * (k1y[i] + 2.0 * k2y[i] + 2.0 * k3y[i] + k4y[i]);
+    }
+
+
+    // Debug print
+    std::cout << "after rk4 u field evaluation (combined) - first 5:" << std::endl;
+    for (int i = 0; i < std::min(5, xs_size); ++i) {
+        // std::cout << i
+        //           << " k1=(" << k1x[i] << "," << k1y[i] << ")"
+        //           << " k2=(" << k2x[i] << "," << k2y[i] << ")"
+        //           << " k3=(" << k3x[i] << "," << k3y[i] << ")"
+        //           << " k4=(" << k4x[i] << "," << k4y[i] << ")"
+        //           << std::endl;
+        std::cout << i
+                  << " xs=(" << xs[i] << ")"
+                  << " ys=(" << ys[i] << ")"
+                  << std::endl;
     }
 
     return 0;

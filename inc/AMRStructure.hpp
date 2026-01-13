@@ -184,7 +184,7 @@ struct AMRStructure {
         int step();
         int euler();
         // void step(bool get_4th_e);
-        // int rk4();
+        int rk4();
 
         // io
         friend std::ostream& operator<<(std::ostream& os, const AMRStructure& amr);
