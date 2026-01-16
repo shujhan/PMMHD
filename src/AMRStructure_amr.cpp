@@ -861,7 +861,7 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0, std::
                     w0s[i] += (cosh(cst_period * y_diff) + cos(cst_period * x_diff)) / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + greens_epsilon * greens_epsilon) 
                             / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + greens_epsilon * greens_epsilon);              
             }
-             w0s[i] *= gamma_prime * pi * greens_epsilon * greens_epsilon / vortex_size; 
+             w0s[i] *= gamma_prime * pi * greens_epsilon * greens_epsilon / vortex_size / Lx;  
         }
 
     } else {
