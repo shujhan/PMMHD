@@ -2,6 +2,7 @@
 #define FIELD_STRUCTURE_HPP
 #include <math.h>
 #include <vector>
+#include <cstring>
 using namespace std;
 
 class Field {
@@ -28,8 +29,7 @@ class U_Treecode : public Field {
     public:
         U_Treecode();
         U_Treecode(double L, double epsilon,
-                double mac, int degree, int max_source, int max_target,
-                int verbosity);
+                double mac, int degree, int max_source, int max_target);
         void operator() (double* e1s, double* e2s, double* x_vals, int nx, 
                         double* y_vals, double* q_ws, int ny);
         void print_field_obj();
@@ -144,7 +144,6 @@ class U_Treecode : public Field {
         // =========================
         // Parameters
         // =========================
-        double beta;
         double L;
         double epsilon;
 
@@ -152,14 +151,9 @@ class U_Treecode : public Field {
         int degree;
         int max_source;
         int max_target;
-        int verbosity;
-
-        // Smoothing / kernel parameters
-        double delta;
-        double delta2;
 
         // Tree parameters
-        size_t N0;
+        size_t N0; //max_
 
         // Chebyshev / interpolation
         int P;
@@ -208,26 +202,7 @@ class U_Treecode : public Field {
 
         // bounding box
         double xyminmax[4];
-
-
-
-
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #endif /* FIELD_STRUCTURE_HPP */

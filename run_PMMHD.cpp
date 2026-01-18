@@ -145,8 +145,8 @@ int main(int argc, char** argv) {
     // create field solver 
     Field* calculate_field;
     if (use_treecode > 0) {
-        // calculate_e = new E_MQ_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
-        calculate_field = new U_DirectSum(Lx, greens_epsilon);
+        calculate_field = new U_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
+        // calculate_field = new U_DirectSum(Lx, greens_epsilon);
     }
     else {
         calculate_field = new U_DirectSum(Lx, greens_epsilon);
@@ -221,8 +221,16 @@ int main(int argc, char** argv) {
     cout << amr << endl;
 
     // run simulation
+    auto pusher_start = high_resolution_clock::now();
     amr.run();
+    auto pusher_end = high_resolution_clock::now();
 
+    duration<double> pusher_time = pusher_end - pusher_start;
+    std::cout << "Field evaluation time: " << pusher_time.count() << " seconds\n";
+
+    auto sim_end = high_resolution_clock::now();
+    duration<double> elapsed = sim_end - sim_start;
+    std::cout << "Total Runtime: " << elapsed.count() << " seconds\n";
 
     delete w0;
     delete j0;
