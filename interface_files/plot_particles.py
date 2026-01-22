@@ -77,7 +77,7 @@ def plot_phase_space(ax, xs, ys, fs, panels, species, step_ii, symmetric=False, 
     panels = np.asarray(panels)
 
     # simtime = step_ii * sd["dt"]
-    simtime = int(step_ii) * 0.1
+    simtime = int(step_ii) * 0.25
     
     num_panels = int(panels.size/9)
     panels = np.reshape(panels, (num_panels,9))
@@ -117,7 +117,10 @@ def plot_phase_space(ax, xs, ys, fs, panels, species, step_ii, symmetric=False, 
                 m = np.max(np.abs(panels_fs)) if np.max(np.abs(panels_fs)) > 0 else 1.0
             clim = (-m, m)
         else:
-            vmin, vmax = np.percentile(panels_fs, [5, 95])
+            # vmin = np.nanmin(panels_fs)
+            # vmax = np.nanmax(panels_fs)
+            vmin = np.nanmin(fs)
+            vmax = np.nanmax(fs)
             if vmin == vmax:
                 vmin, vmax = float(np.min(panels_fs)), float(np.max(panels_fs))
                 if vmin == vmax:

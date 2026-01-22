@@ -12,10 +12,10 @@ int AMRStructure::step() {
     std::cout << "step " << iter_num << std::endl;
 
     // rk4 step
-    rk4();
+    // rk4();
 
     // euler 
-    // euler();
+    euler();
 
     t += dt;
 
@@ -57,13 +57,51 @@ int AMRStructure::euler() {
 
     // u1s_grad, u2s_grad, b1s_grad, b2s_grad evaluation
 
+    u1s_grad_x.assign(xs.size(), 0.0);
+    u1s_grad_y.assign(xs.size(), 0.0);
 
+    evaluate_u1s_grad(u1s_grad_x, u1s_grad_y, xs, ys, u_weights, t);
+
+    u2s_grad_x.assign(xs.size(), 0.0);
+    u2s_grad_y.assign(xs.size(), 0.0);
+
+    evaluate_u2s_grad(u2s_grad_x, u2s_grad_y, xs, ys, u_weights, t);
+
+    b1s_grad_x.assign(xs.size(), 0.0);
+    b1s_grad_y.assign(xs.size(), 0.0);
+
+    evaluate_b1s_grad(b1s_grad_x, b1s_grad_y, xs, ys, b_weights, t);
+
+    b2s_grad_x.assign(xs.size(), 0.0);
+    b2s_grad_y.assign(xs.size(), 0.0);
+
+    evaluate_b2s_grad(b2s_grad_x, b2s_grad_y, xs, ys, b_weights, t);
 
     // vortex_grad, j_grad evaluation
+    vorticity_grad_x.assign(xs.size(), 0.0);
+    vorticity_grad_y.assign(xs.size(), 0.0);
 
+    evaluate_vorticity_grad(vorticity_grad_x, vorticity_grad_y, xs, ys, u_weights, t);
 
+    j_grad_x.assign(xs.size(), 0.0);
+    j_grad_y.assign(xs.size(), 0.0);
+
+    evaluate_j_grad(j_grad_x, j_grad_y, xs, ys, b_weights, t);
 
     // vortex_laplacian, j_laplacian evaluation
+
+    vorticity_laplacian.assign(xs.size(), 0.0);
+    j_laplacian.assign(xs.size(), 0.0);
+
+    std::vector<double> vorticity_none_local(xs.size(), 0.0);
+    std::vector<double> j_none_local(xs.size(), 0.0);
+
+    evaluate_vorticity_laplacian(vorticity_laplacian, vorticity_none_local, xs, ys, u_weights, t);
+    evaluate_j_laplacian(j_laplacian, j_none_local, xs, ys, b_weights, t);
+
+
+
+
 
 
     for (int i = 0; i < xs.size(); i++) {

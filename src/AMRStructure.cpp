@@ -43,6 +43,24 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
     u2s.assign(xs.size(), 0.0);
     b1s.assign(xs.size(), 0.0);
     b2s.assign(xs.size(), 0.0);
+
+    u1s_grad_x.assign(xs.size(), 0.0);
+    u1s_grad_y.assign(xs.size(), 0.0);
+    u2s_grad_x.assign(xs.size(), 0.0);
+    u2s_grad_y.assign(xs.size(), 0.0);
+    b1s_grad_x.assign(xs.size(), 0.0);
+    b1s_grad_y.assign(xs.size(), 0.0);
+    b2s_grad_x.assign(xs.size(), 0.0);
+    b2s_grad_y.assign(xs.size(), 0.0);
+
+    vorticity_grad_x.assign(xs.size(), 0.0);
+    vorticity_grad_y.assign(xs.size(), 0.0);
+    j_grad_x.assign(xs.size(), 0.0);
+    j_grad_y.assign(xs.size(), 0.0);
+
+    vorticity_laplacian.assign(xs.size(), 0.0);
+    j_laplacian.assign(xs.size(), 0.0);
+
 }
 
 

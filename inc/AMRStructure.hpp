@@ -65,6 +65,17 @@ struct AMRStructure {
     std::vector<double> xs, ys, w0s, j0s, weights;
     std::vector<double> u_weights, b_weights;
     std::vector<double> u1s, u2s, b1s, b2s; // u1 velocity in x, u2 velocity in y; b1, b2: magnetic field in x,y
+    std::vector<double> u1s_grad_x, u1s_grad_y;
+    std::vector<double> u2s_grad_x, u2s_grad_y;
+    std::vector<double> b1s_grad_x, b1s_grad_y;
+    std::vector<double> b2s_grad_x, b2s_grad_y;
+    std::vector<double> vorticity_grad_x, vorticity_grad_y;
+    std::vector<double> j_grad_x, j_grad_y;
+    std::vector<double> vorticity_laplacian;
+    std::vector<double> j_laplacian;
+
+
+
 
     std::vector <Panel> old_panels;
     std::vector<double> old_xs, old_ys, old_w0s, old_j0s;
@@ -172,10 +183,23 @@ struct AMRStructure {
         
         // u1 and u2, use u_weights
         int evaluate_u_field(std::vector<double>& u1s_local, std::vector<double>& u2s_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
-        // int evaluate_u2_field(std::vector<double>& u2s_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
         // b1 and b2, use b_weights 
         int evaluate_b_field(std::vector<double>& b1s_local, std::vector<double>& b2s_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
-        // int evaluate_b2_field(std::vector<double>& b2s_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        
+        // gradients evaluation
+        int evaluate_u1s_grad(std::vector<double>& u1s_grad_x_local, std::vector<double>& u1s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        int evaluate_u2s_grad(std::vector<double>& u2s_grad_x_local, std::vector<double>& u2s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        int evaluate_b1s_grad(std::vector<double>& b1s_grad_x_local, std::vector<double>& b1s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        int evaluate_b2s_grad(std::vector<double>& b2s_grad_x_local, std::vector<double>& b2s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        
+        // vorticity_gradient and j_gradient
+        int evaluate_vorticity_grad(std::vector<double>& vorticity_grad_x_local, std::vector<double>& vorticity_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        int evaluate_j_grad(std::vector<double>& j_grad_x_local, std::vector<double>& j_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        
+        // vorticity_laplacian and j_laplacian
+        int evaluate_vorticity_laplacian(std::vector<double>& vorticity_laplacian_local, std::vector<double>& vorticity_none_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        int evaluate_j_laplacian(std::vector<double>& j_laplacian_local, std::vector<double>& j_none_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        
 
 
 
