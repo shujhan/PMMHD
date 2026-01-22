@@ -42,16 +42,28 @@ int AMRStructure::euler() {
     u1s.assign(u1s.size(), 0.0);
     u2s.assign(u2s.size(), 0.0);
     evaluate_u_field(u1s, u2s, xs, ys, u_weights, t);
-    cout << "after u field evaluation" << endl;
-    cout << "u1s/u2s first 5:" << endl;
-    for (int i = 0; i < std::min<int>(5, (int)u1s.size()); ++i) {
-        cout << i << " u1=" << u1s[i] << " u2=" << u2s[i] << endl;
-    }
-    // // later for b evaluation
-    // b1s.assign(b1s.size(), 0.0);
-    // b2s.assign(b2s.size(), 0.0);
-    // evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
-    // cout << "after b field evaluation" << endl;
+
+    #ifdef DEBUG
+        cout << "u1s/u2s first 5:" << endl;
+        for (int i = 0; i < std::min<int>(5, (int)u1s.size()); ++i) {
+            cout << i << " u1=" << u1s[i] << " u2=" << u2s[i] << endl;
+        }
+    #endif
+
+    // B evaluation
+    b1s.assign(b1s.size(), 0.0);
+    b2s.assign(b2s.size(), 0.0);
+    evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
+
+    // u1s_grad, u2s_grad, b1s_grad, b2s_grad evaluation
+
+
+
+    // vortex_grad, j_grad evaluation
+
+
+
+    // vortex_laplacian, j_laplacian evaluation
 
 
     for (int i = 0; i < xs.size(); i++) {

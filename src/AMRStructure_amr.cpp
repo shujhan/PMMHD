@@ -831,38 +831,29 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0, std::
             j0s[ii] = (*j0)(xs[ii],ys[ii]);
         }
 
-        // only for kelvin helmholz test, set vorticity for each point at initial step:
-        int vortex_size = int(pow(2, initial_height + 1));
-        const double pi = std::atan(1.0) * 4.0;
-        double cst_period = 2*pi/Lx;
-        // cout << "vortex_size: " << vortex_size << endl;
+    ///////////////////////////////////////////////////////////////////////////////////
+        // // only for kelvin helmholz test, set vorticity for each point at initial step:
+        // int vortex_size = int(pow(2, initial_height + 1));
+        // const double pi = std::atan(1.0) * 4.0;
+        // double cst_period = 2*pi/Lx;
+
+        // for (int i = 0; i < xs.size(); i++) {
+        //     w0s[i] = 0.0;
+        //     double gamma_prime = 1.0;
         //     for (int k = 0; k < vortex_size; k++) {
         //         double alpha = k * Lx / vortex_size + x_min;
-        //         double x_pt = alpha;
-        //         double y_pt = 0.0; 
-        //         cout << "x_pt: " << x_pt << endl;
+        //         // double x_pt = alpha;
+        //         // double y_pt = 0.0 ; 
+        //         double x_pt = alpha + 0.1 * sin(2 * pi /Lx * (alpha - x_min));
+        //         double y_pt = 0.0 - 0.1 * sin(2 * pi /Lx * (alpha - x_min)); 
+        //         double y_diff = ys[i] - y_pt;
+        //         double x_diff = xs[i] - x_pt;
+        //             w0s[i] += (cosh(cst_period * y_diff) + cos(cst_period * x_diff)) / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + greens_epsilon * greens_epsilon) 
+        //                     / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + greens_epsilon * greens_epsilon);              
         //     }
-
-
-        for (int i = 0; i < xs.size(); i++) {
-            w0s[i] = 0.0;
-            double gamma_prime = 1.0;
-            for (int k = 0; k < vortex_size; k++) {
-                double alpha = k * Lx / vortex_size + x_min;
-                // double x_pt = alpha;
-                // double y_pt = 0.0 ; 
-                double x_pt = alpha + 0.01 * sin(2 * pi /Lx * (alpha - x_min));
-                double y_pt = 0.0 - 0.01 * sin(2 * pi /Lx * (alpha - x_min)); 
-                double y_diff = ys[i] - y_pt;
-                double x_diff = xs[i] - x_pt;
-                // if (abs(y_diff) < 1e-16 && abs(x_diff) < 1e-16) {
-                //     continue;
-                // }
-                    w0s[i] += (cosh(cst_period * y_diff) + cos(cst_period * x_diff)) / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + greens_epsilon * greens_epsilon) 
-                            / (cosh(cst_period * y_diff) - cos(cst_period * x_diff) + greens_epsilon * greens_epsilon);              
-            }
-             w0s[i] *= gamma_prime * pi * greens_epsilon * greens_epsilon / vortex_size / Lx;  
-        }
+        //      w0s[i] *= gamma_prime * pi * greens_epsilon * greens_epsilon / vortex_size / Lx;  
+        // }
+    ///////////////////////////////////////////////////////////////////////////////////
 
     } else {
         int nx_points = 2*npanels_x + 1;
