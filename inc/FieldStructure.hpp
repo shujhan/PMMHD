@@ -5,11 +5,21 @@
 #include <cstring>
 using namespace std;
 
+enum KernelMode {
+    // origianl for u1s, u2s, b1s, b2s
+    // u1_grad for u1s_grad_x, u1s_grad_y, b1s_grad_x, b1s_grad_y
+    // u2_grad for u2s_grad_x, u2s_grad_y, b2s_grad_x, b2s_grad_y
+    // vorticity_grad for vorticity_grad_x, vorticity_grad_x, j_grad_x, j_grad_y
+    // laplacian  vorticity_laplacian, j_laplacian
+    original, u1_grad, u2_grad, vorticity_grad, laplacian
+};
+
 class Field {
     public: 
         virtual void operator()     (double* e1s, double* e2s, double* x_vals, int nx, 
                                     double* y_vals, double* q_ws, int ny) = 0;
         virtual void print_field_obj() = 0;
+        virtual void set_mode(KernelMode) {}
         virtual ~Field();
 };
 
@@ -35,6 +45,8 @@ class U_Treecode : public Field {
         void print_field_obj();
         ~U_Treecode();
 
+    public:
+        void set_mode(KernelMode m) override;
 
     private:
         struct panel
@@ -133,13 +145,26 @@ class U_Treecode : public Field {
         void alloc_set_cluster_list(double* pt_x, double* pt_y);
         void free_cluster_list();
 
+
+
         // =========================
-        // summation kernels (same math as your code)
+        // summation kernels 
         // =========================
         void Compute_SUM();
         void Call_BL(); // far field
         void Call_Ds(); // near field direct
 
+        void Call_BL_u1_grad(); 
+        void Call_DS_u1_grad(); 
+
+        void Call_BL_u2_grad();
+        void Call_DS_u2_grad();
+
+        void Call_BL_vorticity_grad(); 
+        void Call_DS_vorticity_grad(); 
+
+        void Call_BL_laplacian();
+        void Call_DS_laplacian();
 
         // =========================
         // Parameters
@@ -151,6 +176,9 @@ class U_Treecode : public Field {
         int degree;
         int max_source;
         int max_target;
+
+        // Kernel mode
+        KernelMode mode;
 
         // Tree parameters
         size_t N0; //max_

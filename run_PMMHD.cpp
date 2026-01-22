@@ -99,6 +99,7 @@ int main(int argc, char** argv) {
     int ics_type_vorticity = vorticity_dk.get<int>("ics_type", 1);
     bool do_adaptively_refine_vorticity = vorticity_dk.get<bool> ("adaptively_refine", false);
     double amr_epsilons_vorticity = vorticity_dk.get<double>("amr_epsilons",0.1);
+    double nu = vorticity_dk.get<double>("viscosity",1e-5);
     // get current density 
     ++it; 
     pt::ptree &current_density_dk = it->second;
@@ -107,7 +108,7 @@ int main(int argc, char** argv) {
     int ics_type_j = current_density_dk.get<int>("ics_type", 1);
     bool do_adaptively_refine_j = current_density_dk.get<bool> ("adaptively_refine", false);
     double amr_epsilons_j = current_density_dk.get<double>("amr_epsilons",0.1);
-
+    double mu = current_density_dk.get<double>("resistivity",1e-5);
 
 
     // create distribution for vorticity 
@@ -188,6 +189,7 @@ int main(int argc, char** argv) {
 
     cout << "k_vorticity = " << kx_vorticity << ", amp_vorticity = " << amp_vorticity <<  endl;
     cout << "k_current_density = " << kx_j << ", amp_current_density = " << amp_j <<  endl;
+    cout << "viscosity = " << nu << ", resistivity = " << mu <<  endl;
 
     if (do_adaptively_refine_vorticity) {
         cout << "Adaptively refining for vorticity, to height at most " << max_height << endl;
@@ -205,7 +207,7 @@ int main(int argc, char** argv) {
 
     auto sim_start = high_resolution_clock::now();
 
-    AMRStructure amr{sim_dir, w0, j0,
+    AMRStructure amr{sim_dir, w0, j0, nu, mu,
                 initial_height, y_height, max_height,
                 x_min, x_max, y_min, y_max, bcs,
                 calculate_field, quad, num_steps, dt,

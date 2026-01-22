@@ -62,6 +62,8 @@ struct AMRStructure {
 
     std::vector <Panel> panels;
     std::vector <int> leaf_inds;
+
+    //source terms
     std::vector<double> xs, ys, w0s, j0s, weights;
     std::vector<double> u_weights, b_weights;
     std::vector<double> u1s, u2s, b1s, b2s; // u1 velocity in x, u2 velocity in y; b1, b2: magnetic field in x,y
@@ -75,6 +77,13 @@ struct AMRStructure {
     std::vector<double> j_laplacian;
 
 
+    //source terms calculation
+    double nu,mu; // nu: fluid viscosity, mu: resistivity
+    std::vector<double> B_dot_grad_j;
+    std::vector<double> B_dot_grad_vorticity;
+
+    std::vector<double> B_grad_x_dot_u2_grad;
+    std::vector<double> B_grad_y_dot_u1_grad;
 
 
     std::vector <Panel> old_panels;
@@ -119,7 +128,7 @@ struct AMRStructure {
 
     public:
         AMRStructure();
-        AMRStructure(std::string sim_dir, distribution* w0, distribution* j0,  
+        AMRStructure(std::string sim_dir, distribution* w0, distribution* j0, double nu, double mu,
                 int initial_height, int y_height, int max_height, 
                 double x_min, double x_max, double y_min, double y_max, 
                 int bcs, Field* calculate_e,

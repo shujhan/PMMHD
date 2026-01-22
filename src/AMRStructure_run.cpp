@@ -100,16 +100,45 @@ int AMRStructure::euler() {
     evaluate_j_laplacian(j_laplacian, j_none_local, xs, ys, b_weights, t);
 
 
+    // calculate source terms
+    B_dot_grad_j.assign(xs.size(), 0.0);
+    for (int i = 0; i < xs.size(); ++i) {
+        B_dot_grad_j[i] = b1s[i] * j_grad_x[i] + b2s[i] * j_grad_y[i];
+    }
+
+    B_dot_grad_vorticity.assign(xs.size(), 0.0);
+    for (int i = 0; i < xs.size(); ++i) {
+        B_dot_grad_vorticity[i] = b1s[i] * vorticity_grad_x[i] + b2s[i] * vorticity_grad_y[i];
+    }
+
+    B_grad_x_dot_u2_grad.assign(xs.size(), 0.0);
+    for (int i = 0; i < xs.size(); ++i) {
+        B_grad_x_dot_u2_grad[i] = b1s_grad_x[i] * u2s_grad_x[i] + b2s_grad_x[i] * u2s_grad_y[i];
+    }
+
+    B_grad_y_dot_u1_grad.assign(xs.size(), 0.0);
+    for (int i = 0; i < xs.size(); ++i) {
+        B_grad_y_dot_u1_grad[i] = b1s_grad_y[i] * u1s_grad_x[i] + b2s_grad_y[i] * u1s_grad_y[i];
+    }
 
 
 
 
+    // start pushing, particle position, vorticity and current density 
     for (int i = 0; i < xs.size(); i++) {
         xs[i] += dt * u1s[i];
     }
 
     for (int i = 0; i < ys.size(); i++) {
         ys[i] += dt * u2s[i];
+    }
+
+    for (int i = 0; i < xs.size(); i++) {
+        w0s[i] += dt * (nu * vorticity_laplacian[i] + B_dot_grad_j[i]);
+    }
+
+    for (int i = 0; i < xs.size(); i++) {
+        j0s[i] += dt * (mu * j_laplacian[i] + B_dot_grad_vorticity[i] + 2 * B_grad_x_dot_u2_grad[i] - 2 * B_grad_y_dot_u1_grad[i]);
     }
 
     return 0;

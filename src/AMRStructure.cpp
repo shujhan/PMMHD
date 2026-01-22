@@ -1,7 +1,7 @@
 #include "AMRStructure.hpp"
 
 AMRStructure::AMRStructure() {}
-AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* j0, 
+AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* j0, double nu, double mu,
                             int initial_height, int y_height, int max_height, 
                             double x_min, double x_max, double y_min, double y_max, 
                             int bcs, Field* calculate_e,
@@ -10,7 +10,7 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
                             int n_steps_diag,
                             bool do_adaptively_refine_vorticity, double amr_epsilons_vorticity,
                             bool do_adaptively_refine_j, double amr_epsilons_j, double greens_epsilon)
-                           : w0(w0), j0(j0), 
+                           : w0(w0), j0(j0), nu(nu),mu(mu),
                            initial_height(initial_height), y_height(y_height),
                            height(initial_height), max_height(max_height), 
                            x_min(x_min), x_max(x_max), y_min(y_min), y_max(y_max), bcs(bcs),
