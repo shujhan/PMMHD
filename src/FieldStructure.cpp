@@ -1600,37 +1600,37 @@ void U_Treecode::Compute_SUM()
     switch (mode)
     {
         case original:
-            cout << "orginal kernel: " <<endl;
+            // cout << "orginal kernel: " <<endl;
             Call_BL();
             Call_Ds();
             break;
 
         case u1_grad: // for u1s_grad_x, u1s_grad_y, b1s_grad_x, b1s_grad_y
-            cout << "u1_grad kernel: " <<endl;
+            // cout << "u1_grad kernel: " <<endl;
             Call_BL_u1_grad();
             Call_DS_u1_grad();
             break;
 
         case u2_grad: // for u2s_grad_x, u2s_grad_y, b2s_grad_x, b2s_grad_y
-            cout << "u2_grad kernel: " <<endl;
+            // cout << "u2_grad kernel: " <<endl;
             Call_BL_u2_grad();
             Call_DS_u2_grad();
             break;
 
         case vorticity_grad: // for vorticity_grad_x, vorticity_grad_x, j_grad_x, j_grad_y
-            cout << "vorticity_grad kernel: " <<endl;
+            // cout << "vorticity_grad kernel: " <<endl;
             Call_BL_vorticity_grad();
             Call_DS_vorticity_grad();
             break;
 
         case laplacian: // for vorticity_laplacian, j_laplacian;
-            cout << "laplacian kernel: " <<endl;
+            // cout << "laplacian kernel: " <<endl;
             Call_BL_laplacian();
             Call_DS_laplacian();
             break;
 
         default:
-            cout << "orginal kernel: " <<endl;
+            // cout << "orginal kernel: " <<endl;
             Call_BL();
             Call_Ds();
             break;

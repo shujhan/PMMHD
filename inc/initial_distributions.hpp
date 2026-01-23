@@ -3,6 +3,7 @@
 
 #include <vector> 
 #include <iostream> 
+#include <cmath>
 
 class distribution {
     public:
@@ -17,6 +18,13 @@ class w0_uniform : public distribution {
         void print();
 };
 
+class w0_zero : public distribution {
+    public:
+        w0_zero();
+        double operator() (double x, double y);
+        void print();
+};
+
 class j0_uniform : public distribution {
     public:
         j0_uniform();
@@ -25,9 +33,9 @@ class j0_uniform : public distribution {
         void print();
 };
 
-class j0_non_uniform : public distribution {
+class j0_current_sheet: public distribution {
     public:
-        j0_non_uniform();
+        j0_current_sheet();
 
         double operator() (double x, double y);
         void print();

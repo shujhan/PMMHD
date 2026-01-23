@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
     switch (ics_type_vorticity)
     {
         case 1: // for vorticity 
-            w0 = new w0_uniform();
+            w0 = new w0_zero();
             break;
         default:
             cout << "Using default initial conditions, all 1s" << endl;
@@ -129,11 +129,11 @@ int main(int argc, char** argv) {
     switch (ics_type_j)
     {
         case 1: // for current density
-            j0 = new j0_uniform();
+            j0 = new j0_current_sheet();
             break;
 
         case 2: 
-            j0 = new j0_non_uniform();
+            j0 = new j0_uniform();
             break;
 
         default:
