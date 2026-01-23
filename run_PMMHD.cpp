@@ -147,7 +147,6 @@ int main(int argc, char** argv) {
     Field* calculate_field;
     if (use_treecode > 0) {
         calculate_field = new U_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
-        // calculate_field = new U_DirectSum(Lx, greens_epsilon);
     }
     else {
         calculate_field = new U_DirectSum(Lx, greens_epsilon);

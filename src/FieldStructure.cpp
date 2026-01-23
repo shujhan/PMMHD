@@ -21,28 +21,175 @@ U_DirectSum::~U_DirectSum() = default;
 void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx, 
                         double* y_vals, double* q_ws, int ny)
 {   
-    
     const double pi = std::atan(1.0) * 4.0;
+    switch (mode)
+    {
+        case original:
+            cout << "orginal kernel: " <<endl;
+            #ifdef OPENACC_ENABLED
+            #pragma acc parallel loop independent
+            #else
+            #pragma omp parallel for
+            #endif
+                for (int i = 0; i < nx; i++) {
+                    double u1 = 0.0;
+                    double u2 = 0.0;
+                #ifdef OPENACC_ENABLED
+                #pragma acc loop independent reduction(+:u1, u2)
+                #endif
+                    for(int k = 0; k < ny; k++) {
+                        double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
+                        double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        double denom = cosh(y_diff) - cos(x_diff) + epsilon * epsilon;
+                        u1 -= 0.5/L * sinh(y_diff) / denom * q_ws[k];
+                        u2 += 0.5/L * sin(x_diff) / denom * q_ws[k];
+                    }
+                    u1s[i] = u1;
+                    u2s[i] = u2;
+                }
+            break;
 
-#ifdef OPENACC_ENABLED
-#pragma acc parallel loop independent
-#else
-#pragma omp parallel for
-#endif
-    for (int i = 0; i < nx; i++) {
-        double u1 = 0.0;
-        double u2 = 0.0;
-    #ifdef OPENACC_ENABLED
-    #pragma acc loop independent reduction(+:u1, u2)
-    #endif
-        for(int k = 0; k < ny; k++) {
-            double denom = cosh(2* pi / L * (y_vals[i] - y_vals[k])) - cos(2* pi / L * (x_vals[i] - x_vals[k])) + epsilon * epsilon;
-            u1 -= 0.5/L * sinh(2 * pi / L * (y_vals[i] - y_vals[k])) / denom * q_ws[k];
-            u2 += 0.5/L * sin(2 * pi / L * (x_vals[i] - x_vals[k])) / denom * q_ws[k];
-        }
-        u1s[i] = u1;
-        u2s[i] = u2;
+        case u1_grad: // for u1s_grad_x, u1s_grad_y, b1s_grad_x, b1s_grad_y
+            cout << "u1_grad kernel: " <<endl;
+            #ifdef OPENACC_ENABLED
+            #pragma acc parallel loop independent
+            #else
+            #pragma omp parallel for
+            #endif
+                for (int i = 0; i < nx; i++) {
+                    double u1 = 0.0;
+                    double u2 = 0.0;
+                #ifdef OPENACC_ENABLED
+                #pragma acc loop independent reduction(+:u1, u2)
+                #endif
+                    for(int k = 0; k < ny; k++) {
+                        double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
+                        double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        double denom_sqr = (cosh(y_diff) - cos(x_diff) + epsilon * epsilon) * (cosh(y_diff) - cos(x_diff) + epsilon * epsilon);
+                        double constant_c = pi/L/L;
+                        u1 += constant_c * sinh(y_diff) * sin(x_diff) / denom_sqr * q_ws[k];
+                        u2 += constant_c * (cos(x_diff) * cosh(y_diff) - 1 - epsilon * epsilon * cosh(y_diff)) / denom_sqr * q_ws[k];
+                    }
+                    u1s[i] = u1;
+                    u2s[i] = u2;
+                }
+            break;
+
+        case u2_grad: // for u2s_grad_x, u2s_grad_y, b2s_grad_x, b2s_grad_y
+            cout << "u2_grad kernel: " <<endl;
+            #ifdef OPENACC_ENABLED
+            #pragma acc parallel loop independent
+            #else
+            #pragma omp parallel for
+            #endif
+                for (int i = 0; i < nx; i++) {
+                    double u1 = 0.0;
+                    double u2 = 0.0;
+                #ifdef OPENACC_ENABLED
+                #pragma acc loop independent reduction(+:u1, u2)
+                #endif
+                    for(int k = 0; k < ny; k++) {
+                        double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
+                        double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        double denom_sqr = (cosh(y_diff) - cos(x_diff) + epsilon * epsilon) * (cosh(y_diff) - cos(x_diff) + epsilon * epsilon);
+                        double constant_c = pi/L/L;
+                        u1 += constant_c * (cos(x_diff) * cosh(y_diff) - 1 + epsilon * epsilon * cos(x_diff)) / denom_sqr * q_ws[k];
+                        u2 += -1 * constant_c * sin(x_diff) * sinh(y_diff) / denom_sqr * q_ws[k];
+                    }
+                    u1s[i] = u1;
+                    u2s[i] = u2;
+                }
+            break;
+
+        case vorticity_grad: // for vorticity_grad_x, vorticity_grad_x, j_grad_x, j_grad_y
+            cout << "vorticity_grad kernel: " <<endl;
+            #ifdef OPENACC_ENABLED
+            #pragma acc parallel loop independent
+            #else
+            #pragma omp parallel for
+            #endif
+                for (int i = 0; i < nx; i++) {
+                    double u1 = 0.0;
+                    double u2 = 0.0;
+                #ifdef OPENACC_ENABLED
+                #pragma acc loop independent reduction(+:u1, u2)
+                #endif
+                    for(int k = 0; k < ny; k++) {
+                        double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
+                        double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        double denom_cube = (cosh(y_diff) - cos(x_diff) + epsilon * epsilon) * (cosh(y_diff) - cos(x_diff) + epsilon * epsilon) * (cosh(y_diff) - cos(x_diff) + epsilon * epsilon);
+                        double constant_c = 2 * pi * pi * epsilon * epsilon /L/L/L; 
+                        u1 += constant_c * sin(x_diff) *(-3*cosh(y_diff) - cos(x_diff) - epsilon * epsilon) / denom_cube * q_ws[k];
+                        u2 += constant_c * sinh(y_diff) *(-cosh(y_diff) - 3 * cos(x_diff) + epsilon * epsilon) / denom_cube * q_ws[k];
+                    }
+                    u1s[i] = u1;
+                    u2s[i] = u2;
+                }
+            break;
+
+        case laplacian: // for vorticity_laplacian, j_laplacian;
+            cout << "laplacian kernel: " <<endl;
+            #ifdef OPENACC_ENABLED
+            #pragma acc parallel loop independent
+            #else
+            #pragma omp parallel for
+            #endif
+                for (int i = 0; i < nx; i++) {
+                    double u1 = 0.0;
+                    double u2 = 0.0;
+                #ifdef OPENACC_ENABLED
+                #pragma acc loop independent reduction(+:u1, u2)
+                #endif
+                    for(int k = 0; k < ny; k++) {
+                        double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
+                        double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        double C = cos(x_diff);
+                        double S = sin(x_diff);
+                        double H = cosh(y_diff);
+                        double Sh = sinh(y_diff);
+                        double eps_sqr = epsilon * epsilon;
+                        double eps_4 = epsilon * epsilon * epsilon * epsilon;
+                        double denom_4 = (H - C + eps_sqr)*(H - C + eps_sqr)*(H - C + eps_sqr)*(H - C + eps_sqr);
+                        double constant_c = 4 * pi * pi * pi * epsilon * epsilon /L/L/L/L; 
+                        u1 += constant_c * (C*C*C +5*C*C*H -5*C*H*H -8*C*H*eps_sqr +2*C*S*S + 10*C*Sh*Sh -C*eps_4
+                                -H*H*H + 10*H*S*S +2*H*Sh*Sh + H*eps_4 + 4*S*S*eps_sqr - 4*Sh*Sh*eps_sqr) 
+                                / denom_4 * q_ws[k];               
+                        u2 += 0;
+                    }
+                    u1s[i] = u1;
+                    u2s[i] = u2;
+                }
+            break;
+
+        default:
+            cout << "orginal kernel: " <<endl;
+            #ifdef OPENACC_ENABLED
+            #pragma acc parallel loop independent
+            #else
+            #pragma omp parallel for
+            #endif
+                for (int i = 0; i < nx; i++) {
+                    double u1 = 0.0;
+                    double u2 = 0.0;
+                #ifdef OPENACC_ENABLED
+                #pragma acc loop independent reduction(+:u1, u2)
+                #endif
+                    for(int k = 0; k < ny; k++) {
+                        // double denom = cosh(2* pi / L * (y_vals[i] - y_vals[k])) - cos(2* pi / L * (x_vals[i] - x_vals[k])) + epsilon * epsilon;
+                        // u1 -= 0.5/L * sinh(2 * pi / L * (y_vals[i] - y_vals[k])) / denom * q_ws[k];
+                        // u2 += 0.5/L * sin(2 * pi / L * (x_vals[i] - x_vals[k])) / denom * q_ws[k];
+                        double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
+                        double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        double denom = cosh(y_diff) - cos(x_diff) + epsilon * epsilon;
+                        u1 -= 0.5/L * sinh(y_diff) / denom * q_ws[k];
+                        u2 += 0.5/L * sin(x_diff) / denom * q_ws[k];
+                    }
+                    u1s[i] = u1;
+                    u2s[i] = u2;
+                }
+            break;
     }
+
 }
 
 void U_DirectSum::print_field_obj() {
@@ -50,6 +197,10 @@ void U_DirectSum::print_field_obj() {
     cout << "Field object: " << endl;
 }
 
+
+void U_DirectSum::set_mode(KernelMode m){
+    mode = m;
+}
 
 
 // =========================

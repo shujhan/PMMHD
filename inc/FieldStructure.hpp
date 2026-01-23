@@ -33,6 +33,14 @@ class U_DirectSum : public Field {
                         double* y_vals, double* q_ws, int ny);
         void print_field_obj();
         ~U_DirectSum();
+
+        void set_mode(KernelMode m) override;
+    
+
+    private:
+        // Kernel mode
+        KernelMode mode;
+
 };
 
 class U_Treecode : public Field {
