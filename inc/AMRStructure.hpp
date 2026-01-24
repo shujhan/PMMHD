@@ -101,6 +101,7 @@ struct AMRStructure {
     double t;
     int n_steps_remesh;
     int n_steps_diag;
+    int method;
 
     //field parameters
 
@@ -132,7 +133,7 @@ struct AMRStructure {
                 int initial_height, int y_height, int max_height, 
                 double x_min, double x_max, double y_min, double y_max, 
                 int bcs, Field* calculate_e,
-                int quad, int num_steps, double dt, 
+                int quad, int num_steps, double dt, int method,
                 int n_steps_remesh,
                 int n_steps_diag,
                 bool do_adaptively_refine_vorticity, double amr_epsilons_vorticity,

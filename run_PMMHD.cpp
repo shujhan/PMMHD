@@ -82,11 +82,12 @@ int main(int argc, char** argv) {
     int max_target = deck.get<int>("max_target", 200); 
 
     // get simulation parameters 
-    int num_steps = deck.get<int>("num_steps", 10);//atoi(argv[19]);//120;
-    int n_steps_remesh = deck.get<int>("remesh_period", 1); //atoi(argv[20]);
-    int n_steps_diag = deck.get<int>("diag_period", 1); //atoi(argv[21]);
-    double dt = deck.get<double> ("dt", 0.5); //atof(argv[22]);//0.5;
-
+    int num_steps = deck.get<int>("num_steps", 10);
+    int n_steps_remesh = deck.get<int>("remesh_period", 1); 
+    int n_steps_diag = deck.get<int>("diag_period", 1); 
+    double dt = deck.get<double> ("dt", 0.5);
+    int method = deck.get<int> ("method", 0);  // 0 is RK4, 1 is euler 
+    
     // get vorticity and current density distribution parameters 
 
     pt::ptree &initial_list_deck = deck.get_child("initial_list");
@@ -176,6 +177,13 @@ int main(int argc, char** argv) {
         default : cout << "Using trap rule" << endl;
             break;
     }
+
+    if (method > 0) { 
+        cout << "Using Euler's method" << endl;
+    } else {
+        cout << "using RK4" << endl;
+    }
+
     cout << "green's epsilon = " << greens_epsilon << endl;
     cout << "Taking " << num_steps << " steps with dt = " << dt << endl;
     cout << "Remesh every " << n_steps_remesh << " step(s), diagnostic dump every " << n_steps_diag << " step(s)" << endl;
@@ -209,7 +217,7 @@ int main(int argc, char** argv) {
     AMRStructure amr{sim_dir, w0, j0, nu, mu,
                 initial_height, y_height, max_height,
                 x_min, x_max, y_min, y_max, bcs,
-                calculate_field, quad, num_steps, dt,
+                calculate_field, quad, num_steps, dt, method,
                 n_steps_remesh, n_steps_diag,
                 do_adaptively_refine_vorticity, amr_epsilons_vorticity,
                 do_adaptively_refine_j, amr_epsilons_j,greens_epsilon};

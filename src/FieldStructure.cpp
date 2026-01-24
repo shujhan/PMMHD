@@ -25,7 +25,7 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
     switch (mode)
     {
         case original:
-            cout << "orginal kernel: " <<endl;
+            // cout << "orginal kernel: " <<endl;
             #ifdef OPENACC_ENABLED
             #pragma acc parallel loop independent
             #else
@@ -50,7 +50,7 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
             break;
 
         case u1_grad: // for u1s_grad_x, u1s_grad_y, b1s_grad_x, b1s_grad_y
-            cout << "u1_grad kernel: " <<endl;
+            // cout << "u1_grad kernel: " <<endl;
             #ifdef OPENACC_ENABLED
             #pragma acc parallel loop independent
             #else
@@ -76,7 +76,7 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
             break;
 
         case u2_grad: // for u2s_grad_x, u2s_grad_y, b2s_grad_x, b2s_grad_y
-            cout << "u2_grad kernel: " <<endl;
+            // cout << "u2_grad kernel: " <<endl;
             #ifdef OPENACC_ENABLED
             #pragma acc parallel loop independent
             #else
@@ -102,7 +102,7 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
             break;
 
         case vorticity_grad: // for vorticity_grad_x, vorticity_grad_x, j_grad_x, j_grad_y
-            cout << "vorticity_grad kernel: " <<endl;
+            // cout << "vorticity_grad kernel: " <<endl;
             #ifdef OPENACC_ENABLED
             #pragma acc parallel loop independent
             #else
@@ -128,7 +128,7 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
             break;
 
         case laplacian: // for vorticity_laplacian, j_laplacian;
-            cout << "laplacian kernel: " <<endl;
+            // cout << "laplacian kernel: " <<endl;
             #ifdef OPENACC_ENABLED
             #pragma acc parallel loop independent
             #else
@@ -162,7 +162,7 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
             break;
 
         default:
-            cout << "orginal kernel: " <<endl;
+            // cout << "orginal kernel: " <<endl;
             #ifdef OPENACC_ENABLED
             #pragma acc parallel loop independent
             #else
