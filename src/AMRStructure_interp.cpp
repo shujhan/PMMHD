@@ -593,17 +593,14 @@ void AMRStructure::interpolate_from_panel_to_points(
         Panel* panel = &(old_panels[panel_ind]);
         const int* panel_point_inds = panel->point_inds;
         double panel_xs[9], panel_ys[9];
-        // , panel_fs[9];
         double panel_w0s[9], panel_j0s[9];
 
         for (int ii = 0; ii < 9; ++ii) {
             int pind = panel_point_inds[ii];
             panel_xs[ii] = old_xs[pind];
             panel_ys[ii] = old_ys[pind];
-            // panel_fs[ii] = old_fs[pind];
             panel_w0s[ii] = old_w0s[pind];
             panel_j0s[ii] = old_j0s[pind];
-
         }
 
         if (do_unshear) {
@@ -651,11 +648,11 @@ void AMRStructure::interpolate_from_panel_to_points(
             A(ii,8) = panel_dy[ii] * panel_dy[ii];
         }
         // create RHS vector for both w0 and j0
-        Eigen::Map<Eigen::Matrix<double,9,1>> b_w0(panel_w0s);
-        Eigen::Map<Eigen::Matrix<double,9,1>> b_j0(panel_j0s);
+        Eigen::Map<Eigen::Matrix<double,9,1>> f_w0(panel_w0s);
+        Eigen::Map<Eigen::Matrix<double,9,1>> f_j0(panel_j0s);
         // sove for both w0 and j0 
-        Eigen::Matrix<double,9,1> c_w0 = A.lu().solve(b_w0);
-        Eigen::Matrix<double,9,1> c_j0 = A.lu().solve(b_j0);
+        Eigen::Matrix<double,9,1> c_w0 = A.lu().solve(f_w0);
+        Eigen::Matrix<double,9,1> c_j0 = A.lu().solve(f_j0);
 
         // if (verbose) {
         //     std::cout << "Here is the matrix A:\n" << A << std::endl;

@@ -24,10 +24,7 @@ int AMRStructure::step() {
     if (iter_num % n_steps_remesh == 0) {
         remesh();
     }
-    // // if not remesh: evaluate e (remeshing ends by calculating e on uniform grid)
-    // else {
-    //     evaluate_field(es, xs, q_ws, t);
-    // }
+
 
     // if dump : write to file
     if (iter_num % n_steps_diag == 0) {
@@ -56,87 +53,91 @@ int AMRStructure::euler() {
     b2s.assign(b2s.size(), 0.0);
     evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
 
-    // u1s_grad, u2s_grad, b1s_grad, b2s_grad evaluation
+    // start interpolation
+    for (int panel_ind = 0; panel_ind < panels.size(); panel_ind++) {
+        // interpolate_from_panel_to_points
+        Panel* panel = &(panels[panel_ind]);
+        const int* panel_point_inds = panel->point_inds;
+        double panel_xs[9], panel_ys[9];
+        double panel_w0s[9], panel_j0s[9];
+        double panel_u1s[9], panel_u2s[9];
+        double panel_b1s[9], panel_b2s[9];
 
-    u1s_grad_x.assign(xs.size(), 0.0);
-    u1s_grad_y.assign(xs.size(), 0.0);
+        for (int ii = 0; ii < 9; ++ii) {
+            int pind = panel_point_inds[ii];
+            panel_xs[ii] = xs[pind];
+            panel_ys[ii] = ys[pind];
+            panel_w0s[ii] = w0s[pind];
+            panel_j0s[ii] = j0s[pind];
+            panel_u1s[ii] = u1s[pind];
+            panel_u2s[ii] = u2s[pind];
+            panel_b1s[ii] = b1s[pind];
+            panel_b2s[ii] = b2s[pind];
+        }
 
-    evaluate_u1s_grad(u1s_grad_x, u1s_grad_y, xs, ys, u_weights, t);
+        double panel_dx[9], panel_dy[9];
+        for (int ii = 0; ii < 9; ii ++) {
+            panel_dx[ii] = panel_xs[ii] - panel_xs[4];
+            panel_dy[ii] = panel_ys[ii] - panel_ys[4];
+        }
 
-    u2s_grad_x.assign(xs.size(), 0.0);
-    u2s_grad_y.assign(xs.size(), 0.0);
+        Eigen::Matrix<double,9,9> A;
+        for (int ii = 0; ii < 9; ++ii) {
+            A(ii,0) = 1; A(ii,1) = panel_dx[ii];
+            A(ii,2) = panel_dx[ii] * panel_dy[ii];
+            A(ii,3) = panel_dy[ii];
+            A(ii,4) = panel_dx[ii] * panel_dx[ii];
+            A(ii,5) =  panel_dx[ii] * panel_dx[ii] * panel_dy[ii];
+            A(ii,6) = panel_dx[ii] * panel_dx[ii] * panel_dy[ii] * panel_dy[ii];
+            A(ii,7) = panel_dx[ii] * panel_dy[ii] * panel_dy[ii];
+            A(ii,8) = panel_dy[ii] * panel_dy[ii];
+        }
 
-    evaluate_u2s_grad(u2s_grad_x, u2s_grad_y, xs, ys, u_weights, t);
-
-    b1s_grad_x.assign(xs.size(), 0.0);
-    b1s_grad_y.assign(xs.size(), 0.0);
-
-    evaluate_b1s_grad(b1s_grad_x, b1s_grad_y, xs, ys, b_weights, t);
-
-    b2s_grad_x.assign(xs.size(), 0.0);
-    b2s_grad_y.assign(xs.size(), 0.0);
-
-    evaluate_b2s_grad(b2s_grad_x, b2s_grad_y, xs, ys, b_weights, t);
-
-    // vortex_grad, j_grad evaluation
-    vorticity_grad_x.assign(xs.size(), 0.0);
-    vorticity_grad_y.assign(xs.size(), 0.0);
-
-    evaluate_vorticity_grad(vorticity_grad_x, vorticity_grad_y, xs, ys, u_weights, t);
-
-    j_grad_x.assign(xs.size(), 0.0);
-    j_grad_y.assign(xs.size(), 0.0);
-
-    evaluate_j_grad(j_grad_x, j_grad_y, xs, ys, b_weights, t);
-
-    // vortex_laplacian, j_laplacian evaluation
-
-    vorticity_laplacian.assign(xs.size(), 0.0);
-    j_laplacian.assign(xs.size(), 0.0);
-
-    std::vector<double> vorticity_none_local(xs.size(), 0.0);
-    std::vector<double> j_none_local(xs.size(), 0.0);
-
-    evaluate_vorticity_laplacian(vorticity_laplacian, vorticity_none_local, xs, ys, u_weights, t);
-    evaluate_j_laplacian(j_laplacian, j_none_local, xs, ys, b_weights, t);
+        // create RHS vector for both w0 and j0
+        Eigen::Map<Eigen::Matrix<double,9,1>> f_w0(panel_w0s);
+        Eigen::Map<Eigen::Matrix<double,9,1>> f_j0(panel_j0s);
+        // sove for both w0 and j0 
+        Eigen::Matrix<double,9,1> c_w0 = A.lu().solve(f_w0);
+        Eigen::Matrix<double,9,1> c_j0 = A.lu().solve(f_j0);
 
 
-    // calculate source terms
-    B_dot_grad_j.assign(xs.size(), 0.0);
-    for (int i = 0; i < xs.size(); ++i) {
-        B_dot_grad_j[i] = b1s[i] * j_grad_x[i] + b2s[i] * j_grad_y[i];
+        Eigen::Matrix<double,9,9> Dx;
+        for (int ii = 0; ii < 9; ++ii) {
+            Dx(ii,0) = 0; Dx(ii,1) = 1;
+            Dx(ii,2) = panel_dy[ii];
+            Dx(ii,3) = 0;
+            Dx(ii,4) = 2 * panel_dx[ii];
+            Dx(ii,5) =  2 * panel_dx[ii] * panel_dy[ii];
+            Dx(ii,6) = 2 * panel_dx[ii] * panel_dy[ii] * panel_dy[ii];
+            Dx(ii,7) = panel_dy[ii] * panel_dy[ii];
+            Dx(ii,8) = 0;
+        }
+
+        Eigen::Matrix<double, 9,1> dx_w0 = Dx * c_w0;
+        Eigen::Matrix<double, 9,1> dx_j0 = Dx * c_j0;
+
+        Eigen::Matrix<double,9,9> Dy;
+        for (int ii = 0; ii < 9; ++ii) {
+            Dy(ii,0) = 0; Dy(ii,1) = 0;
+            Dy(ii,2) = panel_dx[ii];
+            Dy(ii,3) = 1;
+            Dy(ii,4) = 0;
+            Dy(ii,5) =  panel_dx[ii] * panel_dx[ii];
+            Dy(ii,6) = 2 * panel_dx[ii] * panel_dx[ii] * panel_dy[ii];
+            Dy(ii,7) = 2 * panel_dx[ii] * panel_dy[ii];
+            Dy(ii,8) = 2 * panel_dy[ii];
+        }
+
+        Eigen::Matrix<double, 9,1> dy_w0 = Dy * c_w0;
+        Eigen::Matrix<double, 9,1> dy_j0 = Dy * c_j0;
+
+        for (int ii = 0; ii < 9; ++ii) {
+            w0_grad_x[ii] = dx_w0(ii);
+            j0_grad_x[ii] = dx_j0(ii);
+        }
+
     }
 
-    B_dot_grad_vorticity.assign(xs.size(), 0.0);
-    for (int i = 0; i < xs.size(); ++i) {
-        B_dot_grad_vorticity[i] = b1s[i] * vorticity_grad_x[i] + b2s[i] * vorticity_grad_y[i];
-    }
-
-    B_grad_x_dot_u2_grad.assign(xs.size(), 0.0);
-    for (int i = 0; i < xs.size(); ++i) {
-        B_grad_x_dot_u2_grad[i] = b1s_grad_x[i] * u2s_grad_x[i] + b2s_grad_x[i] * u2s_grad_y[i];
-    }
-
-    B_grad_y_dot_u1_grad.assign(xs.size(), 0.0);
-    for (int i = 0; i < xs.size(); ++i) {
-        B_grad_y_dot_u1_grad[i] = b1s_grad_y[i] * u1s_grad_x[i] + b2s_grad_y[i] * u1s_grad_y[i];
-    }
-    // start pushing, particle position, vorticity and current density 
-    for (int i = 0; i < xs.size(); i++) {
-        xs[i] += dt * u1s[i];
-    }
-
-    for (int i = 0; i < ys.size(); i++) {
-        ys[i] += dt * u2s[i];
-    }
-
-    for (int i = 0; i < xs.size(); i++) {
-        w0s[i] += dt * (nu * vorticity_laplacian[i] + B_dot_grad_j[i]);
-    }
-
-    for (int i = 0; i < xs.size(); i++) {
-        j0s[i] += dt * (mu * j_laplacian[i] + B_dot_grad_vorticity[i] + 2 * B_grad_x_dot_u2_grad[i] - 2 * B_grad_y_dot_u1_grad[i]);
-    }
 
     return 0;
 }
