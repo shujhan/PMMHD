@@ -190,6 +190,7 @@ int AMRStructure::create_prerefined_mesh() {
         refine_panels( [] (double x, double y) {return 1.0;} ,  false);
         minimum_unrefined_index = num_panels_pre_refine;
     }
+
     // TODO: refine in y 
     // for (int level = 0; level < y_height; ++level) {
     //     int num_panels_pre_refine = panels.size();

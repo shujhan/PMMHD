@@ -21,11 +21,12 @@ U_DirectSum::~U_DirectSum() = default;
 void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx, 
                         double* y_vals, double* q_ws, int ny)
 {   
-    const double pi = std::atan(1.0) * 4.0;
+    // const double pi = std::atan(1.0) * 4.0;
+    const double pi = 3.14159265358979323846;
     switch (mode)
     {
         case original:
-            // cout << "orginal kernel: " <<endl;
+            cout << "orginal kernel: " <<endl;
             #ifdef OPENACC_ENABLED
             #pragma acc parallel loop independent
             #else
@@ -40,6 +41,12 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                     for(int k = 0; k < ny; k++) {
                         double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
                         double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        // if (abs(x_vals[i] - x_vals[k]) < 1e-10) {
+                        //     x_diff = 0.0;
+                        // }
+                        // if (abs(y_vals[i] - y_vals[k]) < 1e-10) {
+                        //     y_diff = 0.0;
+                        // }
                         double denom = cosh(y_diff) - cos(x_diff) + epsilon * epsilon;
                         u1 -= 0.5/L * sinh(y_diff) / denom * q_ws[k];
                         u2 += 0.5/L * sin(x_diff) / denom * q_ws[k];
