@@ -68,9 +68,18 @@ int AMRStructure::euler() {
     j_grad_x.assign(xs.size(), 0.0);
     j_grad_y.assign(xs.size(), 0.0);
 
+
+    // to average: 
+     std::vector<int> grad_count(xs.size(), 0);
+
+
     for (int panel_ind = 0; panel_ind < panels.size(); panel_ind++) {
         // interpolate_from_panel_to_points
         Panel* panel = &(panels[panel_ind]);
+        // only use leaf panels 
+        if (panel->child_inds_start > -1) {
+            continue;
+        }
         const int* panel_point_inds = panel->point_inds;
         double panel_xs[9], panel_ys[9];
         double panel_w0s[9], panel_j0s[9];
@@ -90,18 +99,20 @@ int AMRStructure::euler() {
         }
 
         double panel_dx[9], panel_dy[9];
-        for (int ii = 0; ii < 9; ii ++) {
+        for (int ii = 0; ii < 9; ++ii) {
             panel_dx[ii] = panel_xs[ii] - panel_xs[4];
             panel_dy[ii] = panel_ys[ii] - panel_ys[4];
         }
 
+        // Build A for biquadratic basis:
+        // [1, x, xy, y, x^2, x^2 y, x^2 y^2, x y^2, y^2]
         Eigen::Matrix<double,9,9> A;
         for (int ii = 0; ii < 9; ++ii) {
             A(ii,0) = 1; A(ii,1) = panel_dx[ii];
             A(ii,2) = panel_dx[ii] * panel_dy[ii];
             A(ii,3) = panel_dy[ii];
             A(ii,4) = panel_dx[ii] * panel_dx[ii];
-            A(ii,5) =  panel_dx[ii] * panel_dx[ii] * panel_dy[ii];
+            A(ii,5) = panel_dx[ii] * panel_dx[ii] * panel_dy[ii];
             A(ii,6) = panel_dx[ii] * panel_dx[ii] * panel_dy[ii] * panel_dy[ii];
             A(ii,7) = panel_dx[ii] * panel_dy[ii] * panel_dy[ii];
             A(ii,8) = panel_dy[ii] * panel_dy[ii];
@@ -116,14 +127,20 @@ int AMRStructure::euler() {
         Eigen::Map<Eigen::Matrix<double,9,1>> f_b2s(panel_b2s);
 
 
-        // sove for both w0 and j0 
-        Eigen::Matrix<double,9,1> c_w0 = A.lu().solve(f_w0);
-        Eigen::Matrix<double,9,1> c_j0 = A.lu().solve(f_j0);
-        Eigen::Matrix<double,9,1> c_u1s = A.lu().solve(f_u1s);
-        Eigen::Matrix<double,9,1> c_u2s = A.lu().solve(f_u2s);
-        Eigen::Matrix<double,9,1> c_b1s = A.lu().solve(f_b1s);
-        Eigen::Matrix<double,9,1> c_b2s = A.lu().solve(f_b2s);
+        // solve for both w0 and j0 
+        Eigen::PartialPivLU<Eigen::Matrix<double, 9, 9>> lu(A);
+        // Eigen::ColPivHouseholderQR<Eigen::Matrix<double, 9, 9>> lu(A);
+        Eigen::Matrix<double,9,1> c_w0 = lu.solve(f_w0);
+        Eigen::Matrix<double,9,1> c_j0 = lu.solve(f_j0);
+        Eigen::Matrix<double,9,1> c_u1s = lu.solve(f_u1s);
+        Eigen::Matrix<double,9,1> c_u2s = lu.solve(f_u2s);
+        Eigen::Matrix<double,9,1> c_b1s = lu.solve(f_b1s);
+        Eigen::Matrix<double,9,1> c_b2s = lu.solve(f_b2s);
 
+
+        // d/dx of basis:
+        // d(1)=0, d(x)=1, d(xy)=y, d(y)=0, d(x^2)=2x, d(x^2 y)=2x y,
+        // d(x^2 y^2)=2x y^2, d(x y^2)=y^2, d(y^2)=0
         Eigen::Matrix<double,9,9> Dx;
         for (int ii = 0; ii < 9; ++ii) {
             Dx(ii,0) = 0; Dx(ii,1) = 1;
@@ -136,6 +153,7 @@ int AMRStructure::euler() {
             Dx(ii,8) = 0;
         }
 
+
         Eigen::Matrix<double, 9,1> dx_w0 = Dx * c_w0;
         Eigen::Matrix<double, 9,1> dx_j0 = Dx * c_j0;
         Eigen::Matrix<double, 9,1> dx_u1s = Dx * c_u1s;
@@ -143,7 +161,24 @@ int AMRStructure::euler() {
         Eigen::Matrix<double, 9,1> dx_b1s = Dx * c_b1s;
         Eigen::Matrix<double, 9,1> dx_b2s = Dx * c_b2s;
 
+        cout << "Dx matrix:\n";
+        for (int ii = 0; ii < 9; ++ii) {
+            for (int jj = 0; jj < 9; ++jj) {
+                cout << Dx(ii,jj) << " ";
+            }
+            cout << endl;
+        }
 
+        cout << "constant coeffcients j0 vector:\n";
+        for (int ii = 0; ii < 9; ++ii) {
+            cout << c_j0(ii) << endl;
+        }
+
+
+
+        // d/dy of basis:
+        // d(1)=0, d(x)=0, d(xy)=x, d(y)=1, d(x^2)=0, d(x^2 y)=x^2,
+        // d(x^2 y^2)=2 x^2 y, d(x y^2)=2 x y, d(y^2)=2y
         Eigen::Matrix<double,9,9> Dy;
         for (int ii = 0; ii < 9; ++ii) {
             Dy(ii,0) = 0; Dy(ii,1) = 0;
@@ -163,40 +198,183 @@ int AMRStructure::euler() {
         Eigen::Matrix<double, 9,1> dy_b1s = Dy * c_b1s;
         Eigen::Matrix<double, 9,1> dy_b2s = Dy * c_b2s;
 
+
         for (int ii = 0; ii < 9; ++ii) {
             int pind = panel_point_inds[ii];
-            vorticity_grad_x[pind] = dx_w0(ii,0);
-            j_grad_x[pind]         = dx_j0(ii,0);
-            u1s_grad_x[pind]       = dx_u1s(ii,0);
-            u2s_grad_x[pind]       = dx_u2s(ii,0);
-            b1s_grad_x[pind]       = dx_b1s(ii,0);
-            b2s_grad_x[pind]       = dx_b2s(ii,0);
+            vorticity_grad_x[pind] += dx_w0(ii,0);
+            j_grad_x[pind]         += dx_j0(ii,0);
+            u1s_grad_x[pind]       += dx_u1s(ii,0);
+            u2s_grad_x[pind]       += dx_u2s(ii,0);
+            b1s_grad_x[pind]       += dx_b1s(ii,0);
+            b2s_grad_x[pind]       += dx_b2s(ii,0);
 
-            vorticity_grad_y[pind] = dy_w0(ii,0);
-            j_grad_y[pind]         = dy_j0(ii,0);
-            u1s_grad_y[pind]       = dy_u1s(ii,0);
-            u2s_grad_y[pind]       = dy_u2s(ii,0);
-            b1s_grad_y[pind]       = dy_b1s(ii,0);
-            b2s_grad_y[pind]       = dy_b2s(ii,0);
+            vorticity_grad_y[pind] += dy_w0(ii,0);
+            j_grad_y[pind]         += dy_j0(ii,0);
+            u1s_grad_y[pind]       += dy_u1s(ii,0);
+            u2s_grad_y[pind]       += dy_u2s(ii,0); 
+            b1s_grad_y[pind]       += dy_b1s(ii,0);
+            b2s_grad_y[pind]       += dy_b2s(ii,0);
+
+            grad_count[pind] += 1;
+        }
+
+
+        // print out the gradient for each panel 
+        cout << "leaf panel: " << panel->panel_ind <<endl;
+        for (int ii = 0; ii < 9; ++ii) {
+            int pind = panel_point_inds[ii];
+            cout << "i=" << ii
+            << " x=" << xs[pind]
+            << " y=" << ys[pind]
+            << " b1=" << b1s[pind]
+            << " b2=" << b2s[pind]
+            << " j=" << j0s[pind]
+            << " w=" << w0s[pind]
+            << " w_dx=" << dx_w0[ii]
+            << " w_dy=" << dy_w0[ii]
+            << " j_dx=" << dx_j0[ii]
+            << " j_dy=" << dy_j0[ii]
+            << "\n";
+        }
+
+    }
+
+    // average gradients
+    for (int i = 0; i < xs.size(); ++i) {
+        if (grad_count[i] > 0) {
+            const double inv = 1.0 / static_cast<double>(grad_count[i]);
+            vorticity_grad_x[i] *= inv; vorticity_grad_y[i] *= inv;
+            j_grad_x[i] *= inv;         j_grad_y[i] *= inv;
+            u1s_grad_x[i] *= inv;       u1s_grad_y[i] *= inv;
+            u2s_grad_x[i] *= inv;       u2s_grad_y[i] *= inv;
+            b1s_grad_x[i] *= inv;       b1s_grad_y[i] *= inv;
+            b2s_grad_x[i] *= inv;       b2s_grad_y[i] *= inv;
         }
     }
 
-    // printing:
-    for (int i = 0; i < static_cast<int>(xs.size()); ++i) {
-        std::cout
-            << "i=" << i
-            << " x=" << xs[i]
-            << " y=" << ys[i]
-            << " u1=" << u1s[i]
-            << " u2=" << u2s[i]
-            << " b1=" << b1s[i]
-            << " b2=" << b2s[i]
-            << " w_dx=" << vorticity_grad_x[i]
-            << " w_dy=" << vorticity_grad_y[i]
-            << " j_dx=" << j_grad_x[i]
-            << " j_dy=" << j_grad_y[i]
-            << "\n";
+    // treat boundary
+    for (int panel_ind = 0; panel_ind < panels.size(); panel_ind++) {
+        Panel* panel = &(panels[panel_ind]);
+        // only use leaf panels 
+        if (panel->child_inds_start > -1) {
+            continue;
+        }
+        if (panel->is_left_bdry) {
+            cout << " left bdry panel: " << panel->panel_ind << endl;
+            const int* panel_point_inds = panel->point_inds;
+            Panel* left_panel = &(panels[panel->left_nbr_ind]);
+            const int* left_panel_point_inds = left_panel->point_inds;
+            // three left boundary points of the panel, point index in the panel is 0,1,2
+            // three right boundary points of the left panel, point index in the panel is 6,7,8
+            int pind_0 = panel_point_inds[0];
+            int pind_1 = panel_point_inds[1];
+            int pind_2 = panel_point_inds[2];
+
+            int left_pind_6 = left_panel_point_inds[6];
+            int left_pind_7 = left_panel_point_inds[7];
+            int left_pind_8 = left_panel_point_inds[8];
+
+            vorticity_grad_x[pind_0] = (vorticity_grad_x[pind_0] + vorticity_grad_x[left_pind_6])/2;
+            vorticity_grad_y[pind_0] = (vorticity_grad_y[pind_0] + vorticity_grad_y[left_pind_6])/2;
+            j_grad_x[pind_0] = (j_grad_x[pind_0] + j_grad_x[left_pind_6])/2;
+            j_grad_y[pind_0] = (j_grad_y[pind_0] + j_grad_y[left_pind_6])/2;
+            u1s_grad_x[pind_0] = (u1s_grad_x[pind_0] + u1s_grad_x[left_pind_6])/2;
+            u1s_grad_y[pind_0] = (u1s_grad_y[pind_0] + u1s_grad_y[left_pind_6])/2;
+            u2s_grad_x[pind_0] = (u2s_grad_x[pind_0] + u2s_grad_x[left_pind_6])/2;
+            u2s_grad_y[pind_0] = (u2s_grad_y[pind_0] + u2s_grad_y[left_pind_6])/2;
+            b1s_grad_x[pind_0] = (b1s_grad_x[pind_0] + b1s_grad_x[left_pind_6])/2;
+            b1s_grad_y[pind_0] = (b1s_grad_y[pind_0] + b1s_grad_y[left_pind_6])/2;
+            b2s_grad_x[pind_0] = (b2s_grad_x[pind_0] + b2s_grad_x[left_pind_6])/2;
+            b2s_grad_y[pind_0] = (b2s_grad_y[pind_0] + b2s_grad_y[left_pind_6])/2;
+
+            vorticity_grad_x[pind_1] = (vorticity_grad_x[pind_1] + vorticity_grad_x[left_pind_7])/2;
+            vorticity_grad_y[pind_1] = (vorticity_grad_y[pind_1] + vorticity_grad_y[left_pind_7])/2;
+            j_grad_x[pind_1] = (j_grad_x[pind_1] + j_grad_x[left_pind_7])/2;
+            j_grad_y[pind_1] = (j_grad_y[pind_1] + j_grad_y[left_pind_7])/2;
+            u1s_grad_x[pind_1] = (u1s_grad_x[pind_1] + u1s_grad_x[left_pind_7])/2;
+            u1s_grad_y[pind_1] = (u1s_grad_y[pind_1] + u1s_grad_y[left_pind_7])/2;
+            u2s_grad_x[pind_1] = (u2s_grad_x[pind_1] + u2s_grad_x[left_pind_7])/2;
+            u2s_grad_y[pind_1] = (u2s_grad_y[pind_1] + u2s_grad_y[left_pind_7])/2;
+            b1s_grad_x[pind_1] = (b1s_grad_x[pind_1] + b1s_grad_x[left_pind_7])/2;
+            b1s_grad_y[pind_1] = (b1s_grad_y[pind_1] + b1s_grad_y[left_pind_7])/2;
+            b2s_grad_x[pind_1] = (b2s_grad_x[pind_1] + b2s_grad_x[left_pind_7])/2;
+            b2s_grad_y[pind_1] = (b2s_grad_y[pind_1] + b2s_grad_y[left_pind_7])/2;
+
+            vorticity_grad_x[pind_2] = (vorticity_grad_x[pind_2] + vorticity_grad_x[left_pind_8])/2;
+            vorticity_grad_y[pind_2] = (vorticity_grad_y[pind_2] + vorticity_grad_y[left_pind_8])/2;
+            j_grad_x[pind_2] = (j_grad_x[pind_2] + j_grad_x[left_pind_8])/2;
+            j_grad_y[pind_2] = (j_grad_y[pind_2] + j_grad_y[left_pind_8])/2;
+            u1s_grad_x[pind_2] = (u1s_grad_x[pind_2] + u1s_grad_x[left_pind_8])/2;
+            u1s_grad_y[pind_2] = (u1s_grad_y[pind_2] + u1s_grad_y[left_pind_8])/2;
+            u2s_grad_x[pind_2] = (u2s_grad_x[pind_2] + u2s_grad_x[left_pind_8])/2;
+            u2s_grad_y[pind_2] = (u2s_grad_y[pind_2] + u2s_grad_y[left_pind_8])/2;
+            b1s_grad_x[pind_2] = (b1s_grad_x[pind_2] + b1s_grad_x[left_pind_8])/2;
+            b1s_grad_y[pind_2] = (b1s_grad_y[pind_2] + b1s_grad_y[left_pind_8])/2;
+            b2s_grad_x[pind_2] = (b2s_grad_x[pind_2] + b2s_grad_x[left_pind_8])/2;
+            b2s_grad_y[pind_2] = (b2s_grad_y[pind_2] + b2s_grad_y[left_pind_8])/2;
+
+
+            // right boundary have the same value
+            vorticity_grad_x[left_pind_6] = vorticity_grad_x[pind_0];
+            vorticity_grad_y[left_pind_6] = vorticity_grad_y[pind_0];
+            j_grad_x[left_pind_6] = j_grad_x[pind_0];
+            j_grad_y[left_pind_6] = j_grad_y[pind_0];
+            u1s_grad_x[left_pind_6] = u1s_grad_x[pind_0];
+            u1s_grad_y[left_pind_6] = u1s_grad_y[pind_0];
+            u2s_grad_x[left_pind_6] = u2s_grad_x[pind_0];
+            u2s_grad_y[left_pind_6] = u2s_grad_y[pind_0];
+            b1s_grad_x[left_pind_6] = b1s_grad_x[pind_0];
+            b1s_grad_y[left_pind_6] = b1s_grad_y[pind_0];
+            b2s_grad_x[left_pind_6] = b2s_grad_x[pind_0];
+            b2s_grad_y[left_pind_6] = b2s_grad_y[pind_0];
+
+            vorticity_grad_x[left_pind_7] = vorticity_grad_x[pind_1];
+            vorticity_grad_y[left_pind_7] = vorticity_grad_y[pind_1];
+            j_grad_x[left_pind_7] = j_grad_x[pind_1];
+            j_grad_y[left_pind_7] = j_grad_y[pind_1];
+            u1s_grad_x[left_pind_7] = u1s_grad_x[pind_1];
+            u1s_grad_y[left_pind_7] = u1s_grad_y[pind_1];
+            u2s_grad_x[left_pind_7] = u2s_grad_x[pind_1];
+            u2s_grad_y[left_pind_7] = u2s_grad_y[pind_1];
+            b1s_grad_x[left_pind_7] = b1s_grad_x[pind_1];
+            b1s_grad_y[left_pind_7] = b1s_grad_y[pind_1];
+            b2s_grad_x[left_pind_7] = b2s_grad_x[pind_1];
+            b2s_grad_y[left_pind_7] = b2s_grad_y[pind_1];
+
+            vorticity_grad_x[left_pind_8] = vorticity_grad_x[pind_2];
+            vorticity_grad_y[left_pind_8] = vorticity_grad_y[pind_2];
+            j_grad_x[left_pind_8] = j_grad_x[pind_2];
+            j_grad_y[left_pind_8] = j_grad_y[pind_2];
+            u1s_grad_x[left_pind_8] = u1s_grad_x[pind_2];
+            u1s_grad_y[left_pind_8] = u1s_grad_y[pind_2];
+            u2s_grad_x[left_pind_8] = u2s_grad_x[pind_2];
+            u2s_grad_y[left_pind_8] = u2s_grad_y[pind_2];
+            b1s_grad_x[left_pind_8] = b1s_grad_x[pind_2];
+            b1s_grad_y[left_pind_8] = b1s_grad_y[pind_2];
+            b2s_grad_x[left_pind_8] = b2s_grad_x[pind_2];
+            b2s_grad_y[left_pind_8] = b2s_grad_y[pind_2];
+        }
     }
+
+
+    // printing:
+    // for (int i = 0; i < static_cast<int>(xs.size()); ++i) {
+    //     std::cout
+    //         << "i=" << i
+    //         << " x=" << xs[i]
+    //         << " y=" << ys[i]
+    //         << " u1=" << u1s[i]
+    //         << " u2=" << u2s[i]
+    //         << " b1=" << b1s[i]
+    //         << " b2=" << b2s[i]
+    //         << " j=" << j0s[i]
+    //         << " w=" << w0s[i]
+    //         << " w_dx=" << vorticity_grad_x[i]
+    //         << " w_dy=" << vorticity_grad_y[i]
+    //         << " j_dx=" << j_grad_x[i]
+    //         << " j_dy=" << j_grad_y[i]
+    //         << "\n";
+    // }
 
     // calculate source terms
     B_dot_grad_j.assign(xs.size(), 0.0);

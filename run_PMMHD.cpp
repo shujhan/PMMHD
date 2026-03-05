@@ -137,6 +137,10 @@ int main(int argc, char** argv) {
             j0 = new j0_uniform();
             break;
 
+        case 3: 
+            j0 = new j0_uniform_y();
+            break;
+
         default:
             cout << "Using default initial conditions, all 1s" << endl;
             j0 = new j0_uniform();

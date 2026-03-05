@@ -1,12 +1,12 @@
 #!/bin/bash
 
-#SBATCH --job-name=PMMHD_kelvin_helmholz
+#SBATCH --job-name=PMMHD_magnetic_reconnection
 #SBATCH --mail-type=BEGIN,END
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --mem-per-cpu=10G
+#SBATCH --mem-per-cpu=1G
 #SBATCH --cpus-per-task=1
-#SBATCH --time=00:30:00
+#SBATCH --time=00:05:00
 #SBATCH --account=krasny0
 #SBATCH --partition=gpu
 #SBATCH  --gpus=1

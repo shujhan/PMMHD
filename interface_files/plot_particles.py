@@ -69,7 +69,7 @@ def plot_species(ax, x, y, f, species, time):
 
 
 # def plot_phase_space(sim_dir, simulation_dictionary, step_ii,flim, simulation_has_run = True, do_save = False):
-def plot_phase_space(ax, xs, ys, fs, panels, species, step_ii, symmetric=False, clim=None):
+def plot_phase_space(ax, xs, ys, fs, panels, species, step_ii, dt, symmetric=False, clim=None):
 
     xs = np.asarray(xs)
     ys = np.asarray(ys)
@@ -77,7 +77,7 @@ def plot_phase_space(ax, xs, ys, fs, panels, species, step_ii, symmetric=False, 
     panels = np.asarray(panels)
 
     # simtime = step_ii * sd["dt"]
-    simtime = int(step_ii) * 0.25
+    simtime = int(step_ii) * dt
     
     num_panels = int(panels.size/9)
     panels = np.reshape(panels, (num_panels,9))
@@ -223,6 +223,9 @@ def main():
     if args.plot_phase_space:
 
         time = args.time
+        with open(deck_path, "r") as f:
+            d = json.load(f)
+        dt = d.get("dt")
         xs_path, ys_path, w0s_path, j0s_path, uweights_path, u1s_path,u2s_path, panels_path = build_paths(base_dir, time)
 
         xs = read_bin_doubles(xs_path)
@@ -238,8 +241,8 @@ def main():
         ax_left, ax_right = axes
 
         # plot_phase_space(sim_dir, simulation_dictionary, timestep, flim=flim)
-        plot_phase_space(ax_left, xs, ys, w0s, panels, species_list[0], time)
-        plot_phase_space(ax_right, xs, ys, j0s, panels, species_list[1], time)
+        plot_phase_space(ax_left, xs, ys, w0s, panels, species_list[0], time,dt)
+        plot_phase_space(ax_right, xs, ys, j0s, panels, species_list[1], time,dt)
         fig.tight_layout()
         out_name = os.path.join(base_dir, f"phase_space_{time}.png")
         fig.savefig(out_name, dpi=200)

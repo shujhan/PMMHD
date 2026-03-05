@@ -41,12 +41,9 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                     for(int k = 0; k < ny; k++) {
                         double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
                         double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
-                        // if (abs(x_vals[i] - x_vals[k]) < 1e-10) {
-                        //     x_diff = 0.0;
-                        // }
-                        // if (abs(y_vals[i] - y_vals[k]) < 1e-10) {
-                        //     y_diff = 0.0;
-                        // }
+                        if ((abs(x_vals[i] - x_vals[k]) - L) < 1e-10) {
+                            x_diff = 0.0;
+                        }
                         double denom = cosh(y_diff) - cos(x_diff) + epsilon * epsilon;
                         u1 -= 0.5/L * sinh(y_diff) / denom * q_ws[k];
                         u2 += 0.5/L * sin(x_diff) / denom * q_ws[k];

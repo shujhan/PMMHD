@@ -33,6 +33,14 @@ class j0_uniform : public distribution {
         void print();
 };
 
+class j0_uniform_y : public distribution {
+    public:
+        j0_uniform_y();
+
+        double operator() (double x, double y);
+        void print();
+};
+
 class j0_current_sheet: public distribution {
     public:
         j0_current_sheet();

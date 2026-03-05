@@ -1,5 +1,5 @@
-{"sim_name": "PMMHD", "xmin": -3.2, "xmax": 3.2, "ymin": -3.2, "ymax": 3.2, "bcs": 0, "initial_height": 8, "y_height": 0, "max_height": 8,
-"greens_epsilon": 0.1, "use_treecode": 1, "mac": 0.6, "degree": 8, "max_source": 3000, "max_target": 3000, 
-"num_steps": 20, "remesh_period": 1, "diag_pcderiod": 1, "dt": 0.25, 
-"initial_list": [{"name": "vorticity", "normalized_wavenumber": 1.0, "amp": 0, "ics_type": 1, "do_adaptively_refine": 0, "amr_epsilons": [0.5]}, 
-{"name": "current density", "normalized_wavenumber": 1.0, "amp": 0, "ics_type": 1, "do_adaptively_refine": 0, "amr_epsilons": [0.1]}]}
+{"sim_name": "PMMHD", "xmin": 0, "xmax": 6.2831853071795864769, "ymin": -3.14159265358979323846, "ymax": 3.14159265358979323846, "bcs": 0, "initial_height": 2, "y_height": 0, "max_height": 2,
+"greens_epsilon": 0.1, "use_treecode": 0, "mac": 0.6, "degree": 8, "max_source": 3000, "max_target": 3000, 
+"num_steps": 1, "remesh_period": 100, "diag_pcderiod": 1, "dt": 0.1, "method": 1,
+"initial_list": [{"name": "vorticity", "normalized_wavenumber": 1.0, "amp": 0.0, "ics_type": 1, "viscosity": 0.0, "do_adaptively_refine": 0, "amr_epsilons": [0.5]}, 
+{"name": "current density", "normalized_wavenumber": 1.0, "amp": 0.0, "ics_type": 1, "resistivity": 0.0, "do_adaptively_refine": 0, "amr_epsilons": [0.1]}]}
