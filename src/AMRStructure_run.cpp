@@ -70,7 +70,7 @@ int AMRStructure::euler() {
 
 
     // to average: 
-     std::vector<int> grad_count(xs.size(), 0);
+    std::vector<int> grad_count(xs.size(), 0);
 
 
     for (int panel_ind = 0; panel_ind < panels.size(); panel_ind++) {
@@ -104,138 +104,405 @@ int AMRStructure::euler() {
             panel_dy[ii] = panel_ys[ii] - panel_ys[4];
         }
 
-        // Build A for biquadratic basis:
-        // [1, x, xy, y, x^2, x^2 y, x^2 y^2, x y^2, y^2]
-        Eigen::Matrix<double,9,9> A;
-        for (int ii = 0; ii < 9; ++ii) {
-            A(ii,0) = 1; A(ii,1) = panel_dx[ii];
-            A(ii,2) = panel_dx[ii] * panel_dy[ii];
-            A(ii,3) = panel_dy[ii];
-            A(ii,4) = panel_dx[ii] * panel_dx[ii];
-            A(ii,5) = panel_dx[ii] * panel_dx[ii] * panel_dy[ii];
-            A(ii,6) = panel_dx[ii] * panel_dx[ii] * panel_dy[ii] * panel_dy[ii];
-            A(ii,7) = panel_dx[ii] * panel_dy[ii] * panel_dy[ii];
-            A(ii,8) = panel_dy[ii] * panel_dy[ii];
-        }
+        // // start barycentric lagrange polynomial
+        // double wx_0 = 1/((panel_xs[0]- panel_xs[3]) * (panel_xs[0]- panel_xs[6]));
+        // double wx_1 = 1/((panel_xs[3]- panel_xs[0]) * (panel_xs[3]- panel_xs[6]));
+        // double wx_2 = 1/((panel_xs[6]- panel_xs[0]) * (panel_xs[6]- panel_xs[3]));
 
-        // create RHS vector for both w0 and j0, u1s, u2s, b1s, b2s
-        Eigen::Map<Eigen::Matrix<double,9,1>> f_w0(panel_w0s);
-        Eigen::Map<Eigen::Matrix<double,9,1>> f_j0(panel_j0s);
-        Eigen::Map<Eigen::Matrix<double,9,1>> f_u1s(panel_u1s);
-        Eigen::Map<Eigen::Matrix<double,9,1>> f_u2s(panel_u2s);
-        Eigen::Map<Eigen::Matrix<double,9,1>> f_b1s(panel_b1s);
-        Eigen::Map<Eigen::Matrix<double,9,1>> f_b2s(panel_b2s);
+        // double wy_0 = 1/((panel_ys[0]- panel_ys[1]) * (panel_ys[0]- panel_ys[2]));
+        // double wy_1 = 1/((panel_ys[1]- panel_ys[0]) * (panel_ys[1]- panel_ys[2]));
+        // double wy_2 = 1/((panel_ys[2]- panel_ys[0]) * (panel_ys[2]- panel_ys[1]));
 
 
-        // solve for both w0 and j0 
-        Eigen::PartialPivLU<Eigen::Matrix<double, 9, 9>> lu(A);
-        // Eigen::ColPivHouseholderQR<Eigen::Matrix<double, 9, 9>> lu(A);
-        Eigen::Matrix<double,9,1> c_w0 = lu.solve(f_w0);
-        Eigen::Matrix<double,9,1> c_j0 = lu.solve(f_j0);
-        Eigen::Matrix<double,9,1> c_u1s = lu.solve(f_u1s);
-        Eigen::Matrix<double,9,1> c_u2s = lu.solve(f_u2s);
-        Eigen::Matrix<double,9,1> c_b1s = lu.solve(f_b1s);
-        Eigen::Matrix<double,9,1> c_b2s = lu.solve(f_b2s);
+        vector<double> dx_j0(9, 0.0);
+        vector<double> dx_w0(9, 0.0);
+        vector<double> dx_u1s(9, 0.0);
+        vector<double> dx_u2s(9, 0.0);
+        vector<double> dx_b1s(9, 0.0);
+        vector<double> dx_b2s(9, 0.0);
+
+        vector<double> dy_j0(9, 0.0);
+        vector<double> dy_w0(9, 0.0);
+        vector<double> dy_u1s(9, 0.0);
+        vector<double> dy_u2s(9, 0.0);
+        vector<double> dy_b1s(9, 0.0);
+        vector<double> dy_b2s(9, 0.0);
+
+        /////////////// j0 /////////////
+        // first row
+        // dx_j0[0] = wx_1/wx_0 * (panel_j0s[3] - panel_j0s[0])/(panel_xs[0] - panel_xs[3]) + wx_2/wx_0 * (panel_j0s[6] - panel_j0s[0])/(panel_xs[0] - panel_xs[6]);
+        // dx_j0[3] = wx_0/wx_1 * (panel_j0s[0] - panel_j0s[3])/(panel_xs[3] - panel_xs[0]) + wx_2/wx_1 * (panel_j0s[6] - panel_j0s[3])/(panel_xs[3] - panel_xs[6]);
+        // dx_j0[6] = wx_0/wx_2 * (panel_j0s[0] - panel_j0s[6])/(panel_xs[6] - panel_xs[0]) + wx_1/wx_2 * (panel_j0s[3] - panel_j0s[6])/(panel_xs[6] - panel_xs[3]);
+        
+        // // second row
+        // dx_j0[1] = wx_1/wx_0 * (panel_j0s[4] - panel_j0s[1])/(panel_xs[1] - panel_xs[4]) + wx_2/wx_0 * (panel_j0s[7] - panel_j0s[1])/(panel_xs[1] - panel_xs[7]);
+        // dx_j0[4] = wx_0/wx_1 * (panel_j0s[1] - panel_j0s[4])/(panel_xs[4] - panel_xs[1]) + wx_2/wx_1 * (panel_j0s[7] - panel_j0s[4])/(panel_xs[4] - panel_xs[7]);
+        // dx_j0[7] = wx_0/wx_2 * (panel_j0s[1] - panel_j0s[7])/(panel_xs[7] - panel_xs[1]) + wx_1/wx_2 * (panel_j0s[4] - panel_j0s[7])/(panel_xs[7] - panel_xs[4]);
+        
+        // // third row
+        // dx_j0[2] = wx_1/wx_0 * (panel_j0s[5] - panel_j0s[2])/(panel_xs[2] - panel_xs[5]) + wx_2/wx_0 * (panel_j0s[8] - panel_j0s[2])/(panel_xs[2] - panel_xs[8]);
+        // dx_j0[5] = wx_0/wx_1 * (panel_j0s[2] - panel_j0s[5])/(panel_xs[5] - panel_xs[2]) + wx_2/wx_1 * (panel_j0s[8] - panel_j0s[5])/(panel_xs[5] - panel_xs[8]);
+        // dx_j0[8] = wx_0/wx_2 * (panel_j0s[2] - panel_j0s[8])/(panel_xs[8] - panel_xs[2]) + wx_1/wx_2 * (panel_j0s[5] - panel_j0s[8])/(panel_xs[8] - panel_xs[5]);
+        
+        double hx = panel_xs[3]- panel_xs[0];
+        // dx_j0[0] = (-3*panel_j0s[0] + 4* panel_j0s[3] - panel_j0s[6])/(2*hx);
+        dx_j0[0] = (-3*(panel_j0s[0] - panel_j0s[3]) + (panel_j0s[3] - panel_j0s[6]))/(2*hx);
+        dx_j0[3] = (panel_j0s[6] - panel_j0s[0])/(2*hx);
+        // dx_j0[6] = (3*panel_j0s[6] - 4*panel_j0s[3] + panel_j0s[0])/(2*hx);
+        dx_j0[6] = (3*(panel_j0s[6] - panel_j0s[3]) + (panel_j0s[0] - panel_j0s[3]))/(2*hx);
+
+        // dx_j0[1] = (-3*panel_j0s[1] + 4* panel_j0s[4] - panel_j0s[7])/(2*hx);
+        dx_j0[1] = (-3*(panel_j0s[1] - panel_j0s[4]) + (panel_j0s[4] - panel_j0s[7]))/(2*hx);
+        dx_j0[4] = (panel_j0s[7] - panel_j0s[1])/(2*hx);
+        // dx_j0[7] = (3*panel_j0s[7] - 4*panel_j0s[4] + panel_j0s[1])/(2*hx);
+        dx_j0[7] = (3*(panel_j0s[7] - panel_j0s[4]) + (panel_j0s[1] - panel_j0s[4]))/(2*hx);
+
+        dx_j0[2] = (-3*(panel_j0s[2] - panel_j0s[5]) + (panel_j0s[5] - panel_j0s[8]))/(2*hx);
+        dx_j0[5] = (panel_j0s[8] - panel_j0s[2])/(2*hx);
+        dx_j0[8] = (3*(panel_j0s[8] - panel_j0s[5]) + (panel_j0s[2] - panel_j0s[5]))/(2*hx);
+
+        // cout << panel_j0s[0] << ", " << panel_j0s[3] << ", " << panel_j0s[6] << endl;
+        // cout << panel_j0s[1] << ", " << panel_j0s[4] << ", " << panel_j0s[7] << endl;
+        // cout << panel_j0s[2] << ", " << panel_j0s[5] << ", " << panel_j0s[8] << endl;
+        // cout << (-3*(panel_j0s[0] - panel_j0s[3]) + (panel_j0s[3] - panel_j0s[6])) << endl;
+        // cout << (panel_j0s[6] - panel_j0s[0]) << endl;
+        // cout << (3*(panel_j0s[6] - panel_j0s[3]) + (panel_j0s[0] - panel_j0s[3])) << endl;
+
+        // cout << (-3*(panel_j0s[1] - panel_j0s[4]) + (panel_j0s[4] - panel_j0s[7])) << endl;
+        // cout << (panel_j0s[7] - panel_j0s[1]) << endl;
+        // cout << (3*(panel_j0s[7] - panel_j0s[4]) + (panel_j0s[1] - panel_j0s[4])) << endl;
+
+        // cout << (-3*(panel_j0s[2] - panel_j0s[5]) + (panel_j0s[5] - panel_j0s[8])) << endl;
+        // cout << (panel_j0s[8] - panel_j0s[2]) << endl;
+        // cout << (3*(panel_j0s[8] - panel_j0s[5]) + (panel_j0s[2] - panel_j0s[5])) << endl;
+
+        // first column
+        // dy_j0[0] = wy_1/wy_0 * (panel_j0s[1] - panel_j0s[0])/(panel_ys[0] - panel_ys[1]) + wy_2/wy_0 * (panel_j0s[2] - panel_j0s[0])/(panel_ys[0] - panel_ys[2]);
+        // dy_j0[1] = wy_0/wy_1 * (panel_j0s[0] - panel_j0s[1])/(panel_ys[1] - panel_ys[0]) + wy_2/wy_1 * (panel_j0s[2] - panel_j0s[1])/(panel_ys[1] - panel_ys[2]);
+        // dy_j0[2] = wy_0/wy_2 * (panel_j0s[0] - panel_j0s[2])/(panel_ys[2] - panel_ys[0]) + wy_1/wy_2 * (panel_j0s[1] - panel_j0s[2])/(panel_ys[2] - panel_ys[1]);
+        
+        // // second column
+        // dy_j0[3] = wy_1/wy_0 * (panel_j0s[4] - panel_j0s[3])/(panel_ys[3] - panel_ys[4]) + wy_2/wy_0 * (panel_j0s[5] - panel_j0s[3])/(panel_ys[3] - panel_ys[5]);
+        // dy_j0[4] = wy_0/wy_1 * (panel_j0s[3] - panel_j0s[4])/(panel_ys[4] - panel_ys[3]) + wy_2/wy_1 * (panel_j0s[5] - panel_j0s[4])/(panel_ys[4] - panel_ys[5]);
+        // dy_j0[5] = wy_0/wy_2 * (panel_j0s[3] - panel_j0s[5])/(panel_ys[5] - panel_ys[3]) + wy_1/wy_2 * (panel_j0s[4] - panel_j0s[5])/(panel_ys[5] - panel_ys[4]);
+        
+        // // third column
+        // dy_j0[6] = wy_1/wy_0 * (panel_j0s[7] - panel_j0s[6])/(panel_ys[6] - panel_ys[7]) + wy_2/wy_0 * (panel_j0s[8] - panel_j0s[6])/(panel_ys[6] - panel_ys[8]);
+        // dy_j0[7] = wy_0/wy_1 * (panel_j0s[6] - panel_j0s[7])/(panel_ys[7] - panel_ys[6]) + wy_2/wy_1 * (panel_j0s[8] - panel_j0s[7])/(panel_ys[7] - panel_ys[8]);
+        // dy_j0[8] = wy_0/wy_2 * (panel_j0s[6] - panel_j0s[8])/(panel_ys[8] - panel_ys[6]) + wy_1/wy_2 * (panel_j0s[7] - panel_j0s[8])/(panel_ys[8] - panel_ys[7]);
+        
+
+        double hy = panel_ys[1]- panel_ys[0];
+        // dy_j0[0] = (-3*panel_j0s[0] + 4* panel_j0s[1] - panel_j0s[2])/(2*hy);
+        dy_j0[0] = (-3*(panel_j0s[0] - panel_j0s[1]) + (panel_j0s[1] - panel_j0s[2]))/(2*hy);
+        dy_j0[1] = (panel_j0s[2] - panel_j0s[0])/(2*hy);
+        // dy_j0[2] = (3*panel_j0s[2] - 4*panel_j0s[1] + panel_j0s[0])/(2*hy);
+        dy_j0[2] = (3*(panel_j0s[2] - panel_j0s[1]) + (panel_j0s[0] - panel_j0s[1]))/(2*hy);
+
+        dy_j0[3] = (-3*(panel_j0s[3] - panel_j0s[4]) + (panel_j0s[4] - panel_j0s[5]))/(2*hy);
+        dy_j0[4] = (panel_j0s[5] - panel_j0s[3])/(2*hy);
+        dy_j0[5] = (3*(panel_j0s[5] - panel_j0s[4]) + (panel_j0s[3] - panel_j0s[4]))/(2*hy);
+
+        dy_j0[6] = (-3*(panel_j0s[6] - panel_j0s[7]) + (panel_j0s[7] - panel_j0s[8]))/(2*hy);
+        dy_j0[7] = (panel_j0s[8] - panel_j0s[6])/(2*hy);
+        dy_j0[8] = (3*(panel_j0s[8] - panel_j0s[7]) + (panel_j0s[6] - panel_j0s[7]))/(2*hy);
 
 
-        // d/dx of basis:
-        // d(1)=0, d(x)=1, d(xy)=y, d(y)=0, d(x^2)=2x, d(x^2 y)=2x y,
-        // d(x^2 y^2)=2x y^2, d(x y^2)=y^2, d(y^2)=0
-        Eigen::Matrix<double,9,9> Dx;
-        for (int ii = 0; ii < 9; ++ii) {
-            Dx(ii,0) = 0; Dx(ii,1) = 1;
-            Dx(ii,2) = panel_dy[ii];
-            Dx(ii,3) = 0;
-            Dx(ii,4) = 2 * panel_dx[ii];
-            Dx(ii,5) = 2 * panel_dx[ii] * panel_dy[ii];
-            Dx(ii,6) = 2 * panel_dx[ii] * panel_dy[ii] * panel_dy[ii];
-            Dx(ii,7) = panel_dy[ii] * panel_dy[ii];
-            Dx(ii,8) = 0;
-        }
+
+        //////////// w0 ///////////////
+        // dx_w0[0] = wx_1/wx_0 * (panel_w0s[3] - panel_w0s[0])/(panel_xs[0] - panel_xs[3]) + wx_2/wx_0 * (panel_w0s[6] - panel_w0s[0])/(panel_xs[0] - panel_xs[6]);
+        // dx_w0[3] = wx_0/wx_1 * (panel_w0s[0] - panel_w0s[3])/(panel_xs[3] - panel_xs[0]) + wx_2/wx_1 * (panel_w0s[6] - panel_w0s[3])/(panel_xs[3] - panel_xs[6]);
+        // dx_w0[6] = wx_0/wx_2 * (panel_w0s[0] - panel_w0s[6])/(panel_xs[6] - panel_xs[0]) + wx_1/wx_2 * (panel_w0s[3] - panel_w0s[6])/(panel_xs[6] - panel_xs[3]);
+        // dx_w0[1] = wx_1/wx_0 * (panel_w0s[4] - panel_w0s[1])/(panel_xs[1] - panel_xs[4]) + wx_2/wx_0 * (panel_w0s[7] - panel_w0s[1])/(panel_xs[1] - panel_xs[7]);
+        // dx_w0[4] = wx_0/wx_1 * (panel_w0s[1] - panel_w0s[4])/(panel_xs[4] - panel_xs[1]) + wx_2/wx_1 * (panel_w0s[7] - panel_w0s[4])/(panel_xs[4] - panel_xs[7]);
+        // dx_w0[7] = wx_0/wx_2 * (panel_w0s[1] - panel_w0s[7])/(panel_xs[7] - panel_xs[1]) + wx_1/wx_2 * (panel_w0s[4] - panel_w0s[7])/(panel_xs[7] - panel_xs[4]);
+        // dx_w0[2] = wx_1/wx_0 * (panel_w0s[5] - panel_w0s[2])/(panel_xs[2] - panel_xs[5]) + wx_2/wx_0 * (panel_w0s[8] - panel_w0s[2])/(panel_xs[2] - panel_xs[8]);
+        // dx_w0[5] = wx_0/wx_1 * (panel_w0s[2] - panel_w0s[5])/(panel_xs[5] - panel_xs[2]) + wx_2/wx_1 * (panel_w0s[8] - panel_w0s[5])/(panel_xs[5] - panel_xs[8]);
+        // dx_w0[8] = wx_0/wx_2 * (panel_w0s[2] - panel_w0s[8])/(panel_xs[8] - panel_xs[2]) + wx_1/wx_2 * (panel_w0s[5] - panel_w0s[8])/(panel_xs[8] - panel_xs[5]);
+
+        // dy_w0[0] = wy_1/wy_0 * (panel_w0s[1] - panel_w0s[0])/(panel_ys[0] - panel_ys[1]) + wy_2/wy_0 * (panel_w0s[2] - panel_w0s[0])/(panel_ys[0] - panel_ys[2]);
+        // dy_w0[1] = wy_0/wy_1 * (panel_w0s[0] - panel_w0s[1])/(panel_ys[1] - panel_ys[0]) + wy_2/wy_1 * (panel_w0s[2] - panel_w0s[1])/(panel_ys[1] - panel_ys[2]);
+        // dy_w0[2] = wy_0/wy_2 * (panel_w0s[0] - panel_w0s[2])/(panel_ys[2] - panel_ys[0]) + wy_1/wy_2 * (panel_w0s[1] - panel_w0s[2])/(panel_ys[2] - panel_ys[1]);
+        // dy_w0[3] = wy_1/wy_0 * (panel_w0s[4] - panel_w0s[3])/(panel_ys[3] - panel_ys[4]) + wy_2/wy_0 * (panel_w0s[5] - panel_w0s[3])/(panel_ys[3] - panel_ys[5]);
+        // dy_w0[4] = wy_0/wy_1 * (panel_w0s[3] - panel_w0s[4])/(panel_ys[4] - panel_ys[3]) + wy_2/wy_1 * (panel_w0s[5] - panel_w0s[4])/(panel_ys[4] - panel_ys[5]);
+        // dy_w0[5] = wy_0/wy_2 * (panel_w0s[3] - panel_w0s[5])/(panel_ys[5] - panel_ys[3]) + wy_1/wy_2 * (panel_w0s[4] - panel_w0s[5])/(panel_ys[5] - panel_ys[4]);
+        // dy_w0[6] = wy_1/wy_0 * (panel_w0s[7] - panel_w0s[6])/(panel_ys[6] - panel_ys[7]) + wy_2/wy_0 * (panel_w0s[8] - panel_w0s[6])/(panel_ys[6] - panel_ys[8]);
+        // dy_w0[7] = wy_0/wy_1 * (panel_w0s[6] - panel_w0s[7])/(panel_ys[7] - panel_ys[6]) + wy_2/wy_1 * (panel_w0s[8] - panel_w0s[7])/(panel_ys[7] - panel_ys[8]);
+        // dy_w0[8] = wy_0/wy_2 * (panel_w0s[6] - panel_w0s[8])/(panel_ys[8] - panel_ys[6]) + wy_1/wy_2 * (panel_w0s[7] - panel_w0s[8])/(panel_ys[8] - panel_ys[7]);
+        
+        dx_w0[0] = (-3*panel_w0s[0] + 4* panel_w0s[3] - panel_w0s[6])/(2*hx);
+        dx_w0[3] = (panel_w0s[6] - panel_w0s[0])/(2*hx);
+        dx_w0[6] = (3*panel_w0s[6] - 4*panel_w0s[3] + panel_w0s[0])/(2*hx);
+
+        dx_w0[1] = (-3*panel_w0s[1] + 4* panel_w0s[4] - panel_w0s[7])/(2*hx);
+        dx_w0[4] = (panel_w0s[7] - panel_w0s[1])/(2*hx);
+        dx_w0[7] = (3*panel_w0s[7] - 4*panel_w0s[4] + panel_w0s[1])/(2*hx);
+
+        dx_w0[2] = (-3*panel_w0s[2] + 4* panel_w0s[5] - panel_w0s[8])/(2*hx);
+        dx_w0[5] = (panel_w0s[8] - panel_w0s[2])/(2*hx);
+        dx_w0[8] = (3*panel_w0s[8] - 4*panel_w0s[5] + panel_w0s[2])/(2*hx);
+        
+        
+        dy_w0[0] = (-3*panel_w0s[0] + 4* panel_w0s[1] - panel_w0s[2])/(2*hy);
+        dy_w0[1] = (panel_w0s[2] - panel_w0s[0])/(2*hy);
+        dy_w0[2] = (3*panel_w0s[2] - 4*panel_w0s[1] + panel_w0s[0])/(2*hy);
+
+        dy_w0[3] = (-3*panel_w0s[3] + 4* panel_w0s[4] - panel_w0s[5])/(2*hy);
+        dy_w0[4] = (panel_w0s[5] - panel_w0s[3])/(2*hy);
+        dy_w0[5] = (3*panel_w0s[5] - 4*panel_w0s[4] + panel_w0s[3])/(2*hy);
+
+        dy_w0[6] = (-3*panel_w0s[6] + 4* panel_w0s[7] - panel_w0s[8])/(2*hy);
+        dy_w0[7] = (panel_w0s[8] - panel_w0s[6])/(2*hy);
+        dy_w0[8] = (3*panel_w0s[8] - 4*panel_w0s[7] + panel_w0s[6])/(2*hy);        
+        
+        
+        
+        
+        
+        //////////// u1s ///////////////
+        // dx_u1s[0] = wx_1/wx_0 * (panel_u1s[3] - panel_u1s[0])/(panel_xs[0] - panel_xs[3]) + wx_2/wx_0 * (panel_u1s[6] - panel_u1s[0])/(panel_xs[0] - panel_xs[6]);
+        // dx_u1s[3] = wx_0/wx_1 * (panel_u1s[0] - panel_u1s[3])/(panel_xs[3] - panel_xs[0]) + wx_2/wx_1 * (panel_u1s[6] - panel_u1s[3])/(panel_xs[3] - panel_xs[6]);
+        // dx_u1s[6] = wx_0/wx_2 * (panel_u1s[0] - panel_u1s[6])/(panel_xs[6] - panel_xs[0]) + wx_1/wx_2 * (panel_u1s[3] - panel_u1s[6])/(panel_xs[6] - panel_xs[3]);
+        // dx_u1s[1] = wx_1/wx_0 * (panel_u1s[4] - panel_u1s[1])/(panel_xs[1] - panel_xs[4]) + wx_2/wx_0 * (panel_u1s[7] - panel_u1s[1])/(panel_xs[1] - panel_xs[7]);
+        // dx_u1s[4] = wx_0/wx_1 * (panel_u1s[1] - panel_u1s[4])/(panel_xs[4] - panel_xs[1]) + wx_2/wx_1 * (panel_u1s[7] - panel_u1s[4])/(panel_xs[4] - panel_xs[7]);
+        // dx_u1s[7] = wx_0/wx_2 * (panel_u1s[1] - panel_u1s[7])/(panel_xs[7] - panel_xs[1]) + wx_1/wx_2 * (panel_u1s[4] - panel_u1s[7])/(panel_xs[7] - panel_xs[4]);
+        // dx_u1s[2] = wx_1/wx_0 * (panel_u1s[5] - panel_u1s[2])/(panel_xs[2] - panel_xs[5]) + wx_2/wx_0 * (panel_u1s[8] - panel_u1s[2])/(panel_xs[2] - panel_xs[8]);
+        // dx_u1s[5] = wx_0/wx_1 * (panel_u1s[2] - panel_u1s[5])/(panel_xs[5] - panel_xs[2]) + wx_2/wx_1 * (panel_u1s[8] - panel_u1s[5])/(panel_xs[5] - panel_xs[8]);
+        // dx_u1s[8] = wx_0/wx_2 * (panel_u1s[2] - panel_u1s[8])/(panel_xs[8] - panel_xs[2]) + wx_1/wx_2 * (panel_u1s[5] - panel_u1s[8])/(panel_xs[8] - panel_xs[5]);
+
+        // dy_u1s[0] = wy_1/wy_0 * (panel_u1s[1] - panel_u1s[0])/(panel_ys[0] - panel_ys[1]) + wy_2/wy_0 * (panel_u1s[2] - panel_u1s[0])/(panel_ys[0] - panel_ys[2]);
+        // dy_u1s[1] = wy_0/wy_1 * (panel_u1s[0] - panel_u1s[1])/(panel_ys[1] - panel_ys[0]) + wy_2/wy_1 * (panel_u1s[2] - panel_u1s[1])/(panel_ys[1] - panel_ys[2]);
+        // dy_u1s[2] = wy_0/wy_2 * (panel_u1s[0] - panel_u1s[2])/(panel_ys[2] - panel_ys[0]) + wy_1/wy_2 * (panel_u1s[1] - panel_u1s[2])/(panel_ys[2] - panel_ys[1]);
+        // dy_u1s[3] = wy_1/wy_0 * (panel_u1s[4] - panel_u1s[3])/(panel_ys[3] - panel_ys[4]) + wy_2/wy_0 * (panel_u1s[5] - panel_u1s[3])/(panel_ys[3] - panel_ys[5]);
+        // dy_u1s[4] = wy_0/wy_1 * (panel_u1s[3] - panel_u1s[4])/(panel_ys[4] - panel_ys[3]) + wy_2/wy_1 * (panel_u1s[5] - panel_u1s[4])/(panel_ys[4] - panel_ys[5]);
+        // dy_u1s[5] = wy_0/wy_2 * (panel_u1s[3] - panel_u1s[5])/(panel_ys[5] - panel_ys[3]) + wy_1/wy_2 * (panel_u1s[4] - panel_u1s[5])/(panel_ys[5] - panel_ys[4]);
+        // dy_u1s[6] = wy_1/wy_0 * (panel_u1s[7] - panel_u1s[6])/(panel_ys[6] - panel_ys[7]) + wy_2/wy_0 * (panel_u1s[8] - panel_u1s[6])/(panel_ys[6] - panel_ys[8]);
+        // dy_u1s[7] = wy_0/wy_1 * (panel_u1s[6] - panel_u1s[7])/(panel_ys[7] - panel_ys[6]) + wy_2/wy_1 * (panel_u1s[8] - panel_u1s[7])/(panel_ys[7] - panel_ys[8]);
+        // dy_u1s[8] = wy_0/wy_2 * (panel_u1s[6] - panel_u1s[8])/(panel_ys[8] - panel_ys[6]) + wy_1/wy_2 * (panel_u1s[7] - panel_u1s[8])/(panel_ys[8] - panel_ys[7]);
+        
+        
+        dx_u1s[0] = (-3*panel_u1s[0] + 4* panel_u1s[3] - panel_u1s[6])/(2*hx);
+        dx_u1s[3] = (panel_u1s[6] - panel_u1s[0])/(2*hx);
+        dx_u1s[6] = (3*panel_u1s[6] - 4*panel_u1s[3] + panel_u1s[0])/(2*hx);
+
+        dx_u1s[1] = (-3*panel_u1s[1] + 4* panel_u1s[4] - panel_u1s[7])/(2*hx);
+        dx_u1s[4] = (panel_u1s[7] - panel_u1s[1])/(2*hx);
+        dx_u1s[7] = (3*panel_u1s[7] - 4*panel_u1s[4] + panel_u1s[1])/(2*hx);
+
+        dx_u1s[2] = (-3*panel_u1s[2] + 4* panel_u1s[5] - panel_u1s[8])/(2*hx);
+        dx_u1s[5] = (panel_u1s[8] - panel_u1s[2])/(2*hx);
+        dx_u1s[8] = (3*panel_u1s[8] - 4*panel_u1s[5] + panel_u1s[2])/(2*hx);
+        
+        
+        dy_u1s[0] = (-3*panel_u1s[0] + 4* panel_u1s[1] - panel_u1s[2])/(2*hy);
+        dy_u1s[1] = (panel_u1s[2] - panel_u1s[0])/(2*hy);
+        dy_u1s[2] = (3*panel_u1s[2] - 4*panel_u1s[1] + panel_u1s[0])/(2*hy);
+
+        dy_u1s[3] = (-3*panel_u1s[3] + 4* panel_u1s[4] - panel_u1s[5])/(2*hy);
+        dy_u1s[4] = (panel_u1s[5] - panel_u1s[3])/(2*hy);
+        dy_u1s[5] = (3*panel_u1s[5] - 4*panel_u1s[4] + panel_u1s[3])/(2*hy);
+
+        dy_u1s[6] = (-3*panel_u1s[6] + 4* panel_u1s[7] - panel_u1s[8])/(2*hy);
+        dy_u1s[7] = (panel_u1s[8] - panel_u1s[6])/(2*hy);
+        dy_u1s[8] = (3*panel_u1s[8] - 4*panel_u1s[7] + panel_u1s[6])/(2*hy);        
+        
+        
+        
+        //////////// u2s ///////////////
+        // dx_u2s[0] = wx_1/wx_0 * (panel_u2s[3] - panel_u2s[0])/(panel_xs[0] - panel_xs[3]) + wx_2/wx_0 * (panel_u2s[6] - panel_u2s[0])/(panel_xs[0] - panel_xs[6]);
+        // dx_u2s[3] = wx_0/wx_1 * (panel_u2s[0] - panel_u2s[3])/(panel_xs[3] - panel_xs[0]) + wx_2/wx_1 * (panel_u2s[6] - panel_u2s[3])/(panel_xs[3] - panel_xs[6]);
+        // dx_u2s[6] = wx_0/wx_2 * (panel_u2s[0] - panel_u2s[6])/(panel_xs[6] - panel_xs[0]) + wx_1/wx_2 * (panel_u2s[3] - panel_u2s[6])/(panel_xs[6] - panel_xs[3]);
+        // dx_u2s[1] = wx_1/wx_0 * (panel_u2s[4] - panel_u2s[1])/(panel_xs[1] - panel_xs[4]) + wx_2/wx_0 * (panel_u2s[7] - panel_u2s[1])/(panel_xs[1] - panel_xs[7]);
+        // dx_u2s[4] = wx_0/wx_1 * (panel_u2s[1] - panel_u2s[4])/(panel_xs[4] - panel_xs[1]) + wx_2/wx_1 * (panel_u2s[7] - panel_u2s[4])/(panel_xs[4] - panel_xs[7]);
+        // dx_u2s[7] = wx_0/wx_2 * (panel_u2s[1] - panel_u2s[7])/(panel_xs[7] - panel_xs[1]) + wx_1/wx_2 * (panel_u2s[4] - panel_u2s[7])/(panel_xs[7] - panel_xs[4]);
+        // dx_u2s[2] = wx_1/wx_0 * (panel_u2s[5] - panel_u2s[2])/(panel_xs[2] - panel_xs[5]) + wx_2/wx_0 * (panel_u2s[8] - panel_u2s[2])/(panel_xs[2] - panel_xs[8]);
+        // dx_u2s[5] = wx_0/wx_1 * (panel_u2s[2] - panel_u2s[5])/(panel_xs[5] - panel_xs[2]) + wx_2/wx_1 * (panel_u2s[8] - panel_u2s[5])/(panel_xs[5] - panel_xs[8]);
+        // dx_u2s[8] = wx_0/wx_2 * (panel_u2s[2] - panel_u2s[8])/(panel_xs[8] - panel_xs[2]) + wx_1/wx_2 * (panel_u2s[5] - panel_u2s[8])/(panel_xs[8] - panel_xs[5]);
+
+        // dy_u2s[0] = wy_1/wy_0 * (panel_u2s[1] - panel_u2s[0])/(panel_ys[0] - panel_ys[1]) + wy_2/wy_0 * (panel_u2s[2] - panel_u2s[0])/(panel_ys[0] - panel_ys[2]);
+        // dy_u2s[1] = wy_0/wy_1 * (panel_u2s[0] - panel_u2s[1])/(panel_ys[1] - panel_ys[0]) + wy_2/wy_1 * (panel_u2s[2] - panel_u2s[1])/(panel_ys[1] - panel_ys[2]);
+        // dy_u2s[2] = wy_0/wy_2 * (panel_u2s[0] - panel_u2s[2])/(panel_ys[2] - panel_ys[0]) + wy_1/wy_2 * (panel_u2s[1] - panel_u2s[2])/(panel_ys[2] - panel_ys[1]);
+        // dy_u2s[3] = wy_1/wy_0 * (panel_u2s[4] - panel_u2s[3])/(panel_ys[3] - panel_ys[4]) + wy_2/wy_0 * (panel_u2s[5] - panel_u2s[3])/(panel_ys[3] - panel_ys[5]);
+        // dy_u2s[4] = wy_0/wy_1 * (panel_u2s[3] - panel_u2s[4])/(panel_ys[4] - panel_ys[3]) + wy_2/wy_1 * (panel_u2s[5] - panel_u2s[4])/(panel_ys[4] - panel_ys[5]);
+        // dy_u2s[5] = wy_0/wy_2 * (panel_u2s[3] - panel_u2s[5])/(panel_ys[5] - panel_ys[3]) + wy_1/wy_2 * (panel_u2s[4] - panel_u2s[5])/(panel_ys[5] - panel_ys[4]);
+        // dy_u2s[6] = wy_1/wy_0 * (panel_u2s[7] - panel_u2s[6])/(panel_ys[6] - panel_ys[7]) + wy_2/wy_0 * (panel_u2s[8] - panel_u2s[6])/(panel_ys[6] - panel_ys[8]);
+        // dy_u2s[7] = wy_0/wy_1 * (panel_u2s[6] - panel_u2s[7])/(panel_ys[7] - panel_ys[6]) + wy_2/wy_1 * (panel_u2s[8] - panel_u2s[7])/(panel_ys[7] - panel_ys[8]);
+        // dy_u2s[8] = wy_0/wy_2 * (panel_u2s[6] - panel_u2s[8])/(panel_ys[8] - panel_ys[6]) + wy_1/wy_2 * (panel_u2s[7] - panel_u2s[8])/(panel_ys[8] - panel_ys[7]);
+        
+        
+        dx_u2s[0] = (-3*panel_u2s[0] + 4* panel_u2s[3] - panel_u2s[6])/(2*hx);
+        dx_u2s[3] = (panel_u2s[6] - panel_u2s[0])/(2*hx);
+        dx_u2s[6] = (3*panel_u2s[6] - 4*panel_u2s[3] + panel_u2s[0])/(2*hx);
+
+        dx_u2s[1] = (-3*panel_u2s[1] + 4* panel_u2s[4] - panel_u2s[7])/(2*hx);
+        dx_u2s[4] = (panel_u2s[7] - panel_u2s[1])/(2*hx);
+        dx_u2s[7] = (3*panel_u2s[7] - 4*panel_u2s[4] + panel_u2s[1])/(2*hx);
+
+        dx_u2s[2] = (-3*panel_u2s[2] + 4* panel_u2s[5] - panel_u2s[8])/(2*hx);
+        dx_u2s[5] = (panel_u2s[8] - panel_u2s[2])/(2*hx);
+        dx_u2s[8] = (3*panel_u2s[8] - 4*panel_u2s[5] + panel_u2s[2])/(2*hx);
+        
+        
+        dy_u2s[0] = (-3*panel_u2s[0] + 4* panel_u2s[1] - panel_u2s[2])/(2*hy);
+        dy_u2s[1] = (panel_u2s[2] - panel_u2s[0])/(2*hy);
+        dy_u2s[2] = (3*panel_u2s[2] - 4*panel_u2s[1] + panel_u2s[0])/(2*hy);
+
+        dy_u2s[3] = (-3*panel_u2s[3] + 4* panel_u2s[4] - panel_u2s[5])/(2*hy);
+        dy_u2s[4] = (panel_u2s[5] - panel_u2s[3])/(2*hy);
+        dy_u2s[5] = (3*panel_u2s[5] - 4*panel_u2s[4] + panel_u2s[3])/(2*hy);
+
+        dy_u2s[6] = (-3*panel_u2s[6] + 4* panel_u2s[7] - panel_u2s[8])/(2*hy);
+        dy_u2s[7] = (panel_u2s[8] - panel_u2s[6])/(2*hy);
+        dy_u2s[8] = (3*panel_u2s[8] - 4*panel_u2s[7] + panel_u2s[6])/(2*hy);   
+        
+        
+        //////////// b1s ///////////////
+        // dx_b1s[0] = wx_1/wx_0 * (panel_b1s[3] - panel_b1s[0])/(panel_xs[0] - panel_xs[3]) + wx_2/wx_0 * (panel_b1s[6] - panel_b1s[0])/(panel_xs[0] - panel_xs[6]);
+        // dx_b1s[3] = wx_0/wx_1 * (panel_b1s[0] - panel_b1s[3])/(panel_xs[3] - panel_xs[0]) + wx_2/wx_1 * (panel_b1s[6] - panel_b1s[3])/(panel_xs[3] - panel_xs[6]);
+        // dx_b1s[6] = wx_0/wx_2 * (panel_b1s[0] - panel_b1s[6])/(panel_xs[6] - panel_xs[0]) + wx_1/wx_2 * (panel_b1s[3] - panel_b1s[6])/(panel_xs[6] - panel_xs[3]);
+        // dx_b1s[1] = wx_1/wx_0 * (panel_b1s[4] - panel_b1s[1])/(panel_xs[1] - panel_xs[4]) + wx_2/wx_0 * (panel_b1s[7] - panel_b1s[1])/(panel_xs[1] - panel_xs[7]);
+        // dx_b1s[4] = wx_0/wx_1 * (panel_b1s[1] - panel_b1s[4])/(panel_xs[4] - panel_xs[1]) + wx_2/wx_1 * (panel_b1s[7] - panel_b1s[4])/(panel_xs[4] - panel_xs[7]);
+        // dx_b1s[7] = wx_0/wx_2 * (panel_b1s[1] - panel_b1s[7])/(panel_xs[7] - panel_xs[1]) + wx_1/wx_2 * (panel_b1s[4] - panel_b1s[7])/(panel_xs[7] - panel_xs[4]);
+        // dx_b1s[2] = wx_1/wx_0 * (panel_b1s[5] - panel_b1s[2])/(panel_xs[2] - panel_xs[5]) + wx_2/wx_0 * (panel_b1s[8] - panel_b1s[2])/(panel_xs[2] - panel_xs[8]);
+        // dx_b1s[5] = wx_0/wx_1 * (panel_b1s[2] - panel_b1s[5])/(panel_xs[5] - panel_xs[2]) + wx_2/wx_1 * (panel_b1s[8] - panel_b1s[5])/(panel_xs[5] - panel_xs[8]);
+        // dx_b1s[8] = wx_0/wx_2 * (panel_b1s[2] - panel_b1s[8])/(panel_xs[8] - panel_xs[2]) + wx_1/wx_2 * (panel_b1s[5] - panel_b1s[8])/(panel_xs[8] - panel_xs[5]);
+
+        // dy_b1s[0] = wy_1/wy_0 * (panel_b1s[1] - panel_b1s[0])/(panel_ys[0] - panel_ys[1]) + wy_2/wy_0 * (panel_b1s[2] - panel_b1s[0])/(panel_ys[0] - panel_ys[2]);
+        // dy_b1s[1] = wy_0/wy_1 * (panel_b1s[0] - panel_b1s[1])/(panel_ys[1] - panel_ys[0]) + wy_2/wy_1 * (panel_b1s[2] - panel_b1s[1])/(panel_ys[1] - panel_ys[2]);
+        // dy_b1s[2] = wy_0/wy_2 * (panel_b1s[0] - panel_b1s[2])/(panel_ys[2] - panel_ys[0]) + wy_1/wy_2 * (panel_b1s[1] - panel_b1s[2])/(panel_ys[2] - panel_ys[1]);
+        // dy_b1s[3] = wy_1/wy_0 * (panel_b1s[4] - panel_b1s[3])/(panel_ys[3] - panel_ys[4]) + wy_2/wy_0 * (panel_b1s[5] - panel_b1s[3])/(panel_ys[3] - panel_ys[5]);
+        // dy_b1s[4] = wy_0/wy_1 * (panel_b1s[3] - panel_b1s[4])/(panel_ys[4] - panel_ys[3]) + wy_2/wy_1 * (panel_b1s[5] - panel_b1s[4])/(panel_ys[4] - panel_ys[5]);
+        // dy_b1s[5] = wy_0/wy_2 * (panel_b1s[3] - panel_b1s[5])/(panel_ys[5] - panel_ys[3]) + wy_1/wy_2 * (panel_b1s[4] - panel_b1s[5])/(panel_ys[5] - panel_ys[4]);
+        // dy_b1s[6] = wy_1/wy_0 * (panel_b1s[7] - panel_b1s[6])/(panel_ys[6] - panel_ys[7]) + wy_2/wy_0 * (panel_b1s[8] - panel_b1s[6])/(panel_ys[6] - panel_ys[8]);
+        // dy_b1s[7] = wy_0/wy_1 * (panel_b1s[6] - panel_b1s[7])/(panel_ys[7] - panel_ys[6]) + wy_2/wy_1 * (panel_b1s[8] - panel_b1s[7])/(panel_ys[7] - panel_ys[8]);
+        // dy_b1s[8] = wy_0/wy_2 * (panel_b1s[6] - panel_b1s[8])/(panel_ys[8] - panel_ys[6]) + wy_1/wy_2 * (panel_b1s[7] - panel_b1s[8])/(panel_ys[8] - panel_ys[7]);
+        
+
+        dx_b1s[0] = (-3*panel_b1s[0] + 4* panel_b1s[3] - panel_b1s[6])/(2*hx);
+        dx_b1s[3] = (panel_b1s[6] - panel_b1s[0])/(2*hx);
+        dx_b1s[6] = (3*panel_b1s[6] - 4*panel_b1s[3] + panel_b1s[0])/(2*hx);
+
+        dx_b1s[1] = (-3*panel_b1s[1] + 4* panel_b1s[4] - panel_b1s[7])/(2*hx);
+        dx_b1s[4] = (panel_b1s[7] - panel_b1s[1])/(2*hx);
+        dx_b1s[7] = (3*panel_b1s[7] - 4*panel_b1s[4] + panel_b1s[1])/(2*hx);
+
+        dx_b1s[2] = (-3*panel_b1s[2] + 4* panel_b1s[5] - panel_b1s[8])/(2*hx);
+        dx_b1s[5] = (panel_b1s[8] - panel_b1s[2])/(2*hx);
+        dx_b1s[8] = (3*panel_b1s[8] - 4*panel_b1s[5] + panel_b1s[2])/(2*hx);
+        
+        
+        dy_b1s[0] = (-3*panel_b1s[0] + 4* panel_b1s[1] - panel_b1s[2])/(2*hy);
+        dy_b1s[1] = (panel_b1s[2] - panel_b1s[0])/(2*hy);
+        dy_b1s[2] = (3*panel_b1s[2] - 4*panel_b1s[1] + panel_b1s[0])/(2*hy);
+
+        dy_b1s[3] = (-3*panel_b1s[3] + 4* panel_b1s[4] - panel_b1s[5])/(2*hy);
+        dy_b1s[4] = (panel_b1s[5] - panel_b1s[3])/(2*hy);
+        dy_b1s[5] = (3*panel_b1s[5] - 4*panel_b1s[4] + panel_b1s[3])/(2*hy);
+
+        dy_b1s[6] = (-3*panel_b1s[6] + 4* panel_b1s[7] - panel_b1s[8])/(2*hy);
+        dy_b1s[7] = (panel_b1s[8] - panel_b1s[6])/(2*hy);
+        dy_b1s[8] = (3*panel_b1s[8] - 4*panel_b1s[7] + panel_b1s[6])/(2*hy);   
 
 
-        Eigen::Matrix<double, 9,1> dx_w0 = Dx * c_w0;
-        Eigen::Matrix<double, 9,1> dx_j0 = Dx * c_j0;
-        Eigen::Matrix<double, 9,1> dx_u1s = Dx * c_u1s;
-        Eigen::Matrix<double, 9,1> dx_u2s = Dx * c_u2s;
-        Eigen::Matrix<double, 9,1> dx_b1s = Dx * c_b1s;
-        Eigen::Matrix<double, 9,1> dx_b2s = Dx * c_b2s;
-
-        cout << "Dx matrix:\n";
-        for (int ii = 0; ii < 9; ++ii) {
-            for (int jj = 0; jj < 9; ++jj) {
-                cout << Dx(ii,jj) << " ";
-            }
-            cout << endl;
-        }
-
-        cout << "constant coeffcients j0 vector:\n";
-        for (int ii = 0; ii < 9; ++ii) {
-            cout << c_j0(ii) << endl;
-        }
 
 
+        //////////// b2s ///////////////
+        // dx_b2s[0] = wx_1/wx_0 * (panel_b2s[3] - panel_b2s[0])/(panel_xs[0] - panel_xs[3]) + wx_2/wx_0 * (panel_b2s[6] - panel_b2s[0])/(panel_xs[0] - panel_xs[6]);
+        // dx_b2s[3] = wx_0/wx_1 * (panel_b2s[0] - panel_b2s[3])/(panel_xs[3] - panel_xs[0]) + wx_2/wx_1 * (panel_b2s[6] - panel_b2s[3])/(panel_xs[3] - panel_xs[6]);
+        // dx_b2s[6] = wx_0/wx_2 * (panel_b2s[0] - panel_b2s[6])/(panel_xs[6] - panel_xs[0]) + wx_1/wx_2 * (panel_b2s[3] - panel_b2s[6])/(panel_xs[6] - panel_xs[3]);
+        // dx_b2s[1] = wx_1/wx_0 * (panel_b2s[4] - panel_b2s[1])/(panel_xs[1] - panel_xs[4]) + wx_2/wx_0 * (panel_b2s[7] - panel_b2s[1])/(panel_xs[1] - panel_xs[7]);
+        // dx_b2s[4] = wx_0/wx_1 * (panel_b2s[1] - panel_b2s[4])/(panel_xs[4] - panel_xs[1]) + wx_2/wx_1 * (panel_b2s[7] - panel_b2s[4])/(panel_xs[4] - panel_xs[7]);
+        // dx_b2s[7] = wx_0/wx_2 * (panel_b2s[1] - panel_b2s[7])/(panel_xs[7] - panel_xs[1]) + wx_1/wx_2 * (panel_b2s[4] - panel_b2s[7])/(panel_xs[7] - panel_xs[4]);
+        // dx_b2s[2] = wx_1/wx_0 * (panel_b2s[5] - panel_b2s[2])/(panel_xs[2] - panel_xs[5]) + wx_2/wx_0 * (panel_b2s[8] - panel_b2s[2])/(panel_xs[2] - panel_xs[8]);
+        // dx_b2s[5] = wx_0/wx_1 * (panel_b2s[2] - panel_b2s[5])/(panel_xs[5] - panel_xs[2]) + wx_2/wx_1 * (panel_b2s[8] - panel_b2s[5])/(panel_xs[5] - panel_xs[8]);
+        // dx_b2s[8] = wx_0/wx_2 * (panel_b2s[2] - panel_b2s[8])/(panel_xs[8] - panel_xs[2]) + wx_1/wx_2 * (panel_b2s[5] - panel_b2s[8])/(panel_xs[8] - panel_xs[5]);
 
-        // d/dy of basis:
-        // d(1)=0, d(x)=0, d(xy)=x, d(y)=1, d(x^2)=0, d(x^2 y)=x^2,
-        // d(x^2 y^2)=2 x^2 y, d(x y^2)=2 x y, d(y^2)=2y
-        Eigen::Matrix<double,9,9> Dy;
-        for (int ii = 0; ii < 9; ++ii) {
-            Dy(ii,0) = 0; Dy(ii,1) = 0;
-            Dy(ii,2) = panel_dx[ii];
-            Dy(ii,3) = 1;
-            Dy(ii,4) = 0;
-            Dy(ii,5) = panel_dx[ii] * panel_dx[ii];
-            Dy(ii,6) = 2 * panel_dx[ii] * panel_dx[ii] * panel_dy[ii];
-            Dy(ii,7) = 2 * panel_dx[ii] * panel_dy[ii];
-            Dy(ii,8) = 2 * panel_dy[ii];
-        }
+        // dy_b2s[0] = wy_1/wy_0 * (panel_b2s[1] - panel_b2s[0])/(panel_ys[0] - panel_ys[1]) + wy_2/wy_0 * (panel_b2s[2] - panel_b2s[0])/(panel_ys[0] - panel_ys[2]);
+        // dy_b2s[1] = wy_0/wy_1 * (panel_b2s[0] - panel_b2s[1])/(panel_ys[1] - panel_ys[0]) + wy_2/wy_1 * (panel_b2s[2] - panel_b2s[1])/(panel_ys[1] - panel_ys[2]);
+        // dy_b2s[2] = wy_0/wy_2 * (panel_b2s[0] - panel_b2s[2])/(panel_ys[2] - panel_ys[0]) + wy_1/wy_2 * (panel_b2s[1] - panel_b2s[2])/(panel_ys[2] - panel_ys[1]);
+        // dy_b2s[3] = wy_1/wy_0 * (panel_b2s[4] - panel_b2s[3])/(panel_ys[3] - panel_ys[4]) + wy_2/wy_0 * (panel_b2s[5] - panel_b2s[3])/(panel_ys[3] - panel_ys[5]);
+        // dy_b2s[4] = wy_0/wy_1 * (panel_b2s[3] - panel_b2s[4])/(panel_ys[4] - panel_ys[3]) + wy_2/wy_1 * (panel_b2s[5] - panel_b2s[4])/(panel_ys[4] - panel_ys[5]);
+        // dy_b2s[5] = wy_0/wy_2 * (panel_b2s[3] - panel_b2s[5])/(panel_ys[5] - panel_ys[3]) + wy_1/wy_2 * (panel_b2s[4] - panel_b2s[5])/(panel_ys[5] - panel_ys[4]);
+        // dy_b2s[6] = wy_1/wy_0 * (panel_b2s[7] - panel_b2s[6])/(panel_ys[6] - panel_ys[7]) + wy_2/wy_0 * (panel_b2s[8] - panel_b2s[6])/(panel_ys[6] - panel_ys[8]);
+        // dy_b2s[7] = wy_0/wy_1 * (panel_b2s[6] - panel_b2s[7])/(panel_ys[7] - panel_ys[6]) + wy_2/wy_1 * (panel_b2s[8] - panel_b2s[7])/(panel_ys[7] - panel_ys[8]);
+        // dy_b2s[8] = wy_0/wy_2 * (panel_b2s[6] - panel_b2s[8])/(panel_ys[8] - panel_ys[6]) + wy_1/wy_2 * (panel_b2s[7] - panel_b2s[8])/(panel_ys[8] - panel_ys[7]);
+        
 
-        Eigen::Matrix<double, 9,1> dy_w0 = Dy * c_w0;
-        Eigen::Matrix<double, 9,1> dy_j0 = Dy * c_j0;
-        Eigen::Matrix<double, 9,1> dy_u1s = Dy * c_u1s;
-        Eigen::Matrix<double, 9,1> dy_u2s = Dy * c_u2s;
-        Eigen::Matrix<double, 9,1> dy_b1s = Dy * c_b1s;
-        Eigen::Matrix<double, 9,1> dy_b2s = Dy * c_b2s;
+        dx_b2s[0] = (-3*panel_b2s[0] + 4* panel_b2s[3] - panel_b2s[6])/(2*hx);
+        dx_b2s[3] = (panel_b2s[6] - panel_b2s[0])/(2*hx);
+        dx_b2s[6] = (3*panel_b2s[6] - 4*panel_b2s[3] + panel_b2s[0])/(2*hx);
+
+        dx_b2s[1] = (-3*panel_b2s[1] + 4* panel_b2s[4] - panel_b2s[7])/(2*hx);
+        dx_b2s[4] = (panel_b2s[7] - panel_b2s[1])/(2*hx);
+        dx_b2s[7] = (3*panel_b2s[7] - 4*panel_b2s[4] + panel_b2s[1])/(2*hx);
+
+        dx_b2s[2] = (-3*panel_b2s[2] + 4* panel_b2s[5] - panel_b2s[8])/(2*hx);
+        dx_b2s[5] = (panel_b2s[8] - panel_b2s[2])/(2*hx);
+        dx_b2s[8] = (3*panel_b2s[8] - 4*panel_b2s[5] + panel_b2s[2])/(2*hx);
+        
+        
+        dy_b2s[0] = (-3*panel_b2s[0] + 4* panel_b2s[1] - panel_b2s[2])/(2*hy);
+        dy_b2s[1] = (panel_b2s[2] - panel_b2s[0])/(2*hy);
+        dy_b2s[2] = (3*panel_b2s[2] - 4*panel_b2s[1] + panel_b2s[0])/(2*hy);
+
+        dy_b2s[3] = (-3*panel_b2s[3] + 4* panel_b2s[4] - panel_b2s[5])/(2*hy);
+        dy_b2s[4] = (panel_b2s[5] - panel_b2s[3])/(2*hy);
+        dy_b2s[5] = (3*panel_b2s[5] - 4*panel_b2s[4] + panel_b2s[3])/(2*hy);
+
+        dy_b2s[6] = (-3*panel_b2s[6] + 4* panel_b2s[7] - panel_b2s[8])/(2*hy);
+        dy_b2s[7] = (panel_b2s[8] - panel_b2s[6])/(2*hy);
+        dy_b2s[8] = (3*panel_b2s[8] - 4*panel_b2s[7] + panel_b2s[6])/(2*hy);   
+
+
 
 
         for (int ii = 0; ii < 9; ++ii) {
             int pind = panel_point_inds[ii];
-            vorticity_grad_x[pind] += dx_w0(ii,0);
-            j_grad_x[pind]         += dx_j0(ii,0);
-            u1s_grad_x[pind]       += dx_u1s(ii,0);
-            u2s_grad_x[pind]       += dx_u2s(ii,0);
-            b1s_grad_x[pind]       += dx_b1s(ii,0);
-            b2s_grad_x[pind]       += dx_b2s(ii,0);
+            vorticity_grad_x[pind] += dx_w0[ii];
+            j_grad_x[pind]         += dx_j0[ii];
+            u1s_grad_x[pind]       += dx_u1s[ii];
+            u2s_grad_x[pind]       += dx_u2s[ii];
+            b1s_grad_x[pind]       += dx_b1s[ii];
+            b2s_grad_x[pind]       += dx_b2s[ii];
 
-            vorticity_grad_y[pind] += dy_w0(ii,0);
-            j_grad_y[pind]         += dy_j0(ii,0);
-            u1s_grad_y[pind]       += dy_u1s(ii,0);
-            u2s_grad_y[pind]       += dy_u2s(ii,0); 
-            b1s_grad_y[pind]       += dy_b1s(ii,0);
-            b2s_grad_y[pind]       += dy_b2s(ii,0);
+            vorticity_grad_y[pind] += dy_w0[ii];
+            j_grad_y[pind]         += dy_j0[ii];
+            u1s_grad_y[pind]       += dy_u1s[ii];
+            u2s_grad_y[pind]       += dy_u2s[ii]; 
+            b1s_grad_y[pind]       += dy_b1s[ii];
+            b2s_grad_y[pind]       += dy_b2s[ii];
 
             grad_count[pind] += 1;
         }
 
 
         // print out the gradient for each panel 
-        cout << "leaf panel: " << panel->panel_ind <<endl;
-        for (int ii = 0; ii < 9; ++ii) {
-            int pind = panel_point_inds[ii];
-            cout << "i=" << ii
-            << " x=" << xs[pind]
-            << " y=" << ys[pind]
-            << " b1=" << b1s[pind]
-            << " b2=" << b2s[pind]
-            << " j=" << j0s[pind]
-            << " w=" << w0s[pind]
-            << " w_dx=" << dx_w0[ii]
-            << " w_dy=" << dy_w0[ii]
-            << " j_dx=" << dx_j0[ii]
-            << " j_dy=" << dy_j0[ii]
-            << "\n";
-        }
+        // cout << "leaf panel: " << panel->panel_ind <<endl;
+        // for (int ii = 0; ii < 9; ++ii) {
+        //     int pind = panel_point_inds[ii];
+        //     cout << "i=" << ii
+        //     << " x=" << xs[pind]
+        //     << " y=" << ys[pind]
+        //     << " b1=" << b1s[pind]
+        //     << " b2=" << b2s[pind]
+        //     << " j=" << j0s[pind]
+        //     // << " w=" << w0s[pind]
+        //     // << " w_dx=" << dx_w0[ii]
+        //     // << " w_dy=" << dy_w0[ii]
+
+        //     // << " u1_dx=" << dx_u1s[ii]
+        //     // << " u1_dy=" << dy_u1s[ii]
+        //     // << " u2_dx=" << dx_u2s[ii]
+        //     // << " u2_dy=" << dy_u2s[ii]
+
+        //     // << " b1_dx=" << dx_u1s[ii]
+        //     // << " b1_dy=" << dy_u1s[ii]
+        //     // << " b2_dx=" << dx_u2s[ii]
+        //     // << " b2_dy=" << dy_u2s[ii]
+        //     << " j_dx=" << dx_j0[ii]
+        //     << " j_dy=" << dy_j0[ii]
+        //     << "\n";
+        // }
 
     }
 
@@ -260,7 +527,7 @@ int AMRStructure::euler() {
             continue;
         }
         if (panel->is_left_bdry) {
-            cout << " left bdry panel: " << panel->panel_ind << endl;
+            // cout << " left bdry panel: " << panel->panel_ind << endl;
             const int* panel_point_inds = panel->point_inds;
             Panel* left_panel = &(panels[panel->left_nbr_ind]);
             const int* left_panel_point_inds = left_panel->point_inds;
@@ -403,6 +670,65 @@ int AMRStructure::euler() {
         w0s[i] += dt * (nu * vorticity_laplacian[i] + B_dot_grad_j[i]);
         j0s[i] += dt * (mu * j_laplacian[i] + B_dot_grad_vorticity[i] + 2 * B_grad_x_dot_u2_grad[i] - 2 * B_grad_y_dot_u1_grad[i]);
     }
+
+
+
+
+    // // Lax–Friedrichs, loop through panels 
+    // std::vector<int> average_count(xs.size(), 0);
+
+    // std::vector<int> xs_average_state(xs.size(), 0);
+    // std::vector<int> w0s_average_state(w0s.size(), 0);
+
+    // for (int panel_ind = 0; panel_ind < panels.size(); panel_ind++) {
+    //     Panel* panel = &(panels[panel_ind]);
+    //     if (panel->child_inds_start > -1) {
+    //         continue;
+    //     }
+    //     const int* panel_point_inds = panel->point_inds;
+    //     double panel_xs[9], panel_ys[9];
+    //     double panel_w0s[9], panel_j0s[9];
+
+    //     for (int ii = 0; ii < 9; ++ii) {
+    //         int pind = panel_point_inds[ii];
+    //         panel_xs[ii] = xs[pind];
+    //         panel_ys[ii] = ys[pind];
+    //         panel_w0s[ii] = w0s[pind];
+    //         panel_j0s[ii] = j0s[pind];
+    //     }
+
+    //     // go through each index 0 to 8
+    //     w0s_average_state[panel_point_inds[0]] += panel_w0s[1] + panel_w0s[3];
+    //     average_count[panel_point_inds[0]] += 2;
+    //     w0s_average_state[panel_point_inds[1]] += panel_w0s[0] + panel_w0s[2] + panel_w0s[4];
+    //     average_count[panel_point_inds[1]] += 3;
+    //     w0s_average_state[panel_point_inds[2]] += panel_w0s[1] + panel_w0s[5];
+    //     average_count[panel_point_inds[2]] += 2;
+    //     w0s_average_state[panel_point_inds[3]] += panel_w0s[0] + panel_w0s[4] + panel_w0s[6];
+    //     average_count[panel_point_inds[3]] += 3;
+    //     w0s_average_state[panel_point_inds[4]] += panel_w0s[1] + panel_w0s[3] + panel_w0s[5] + panel_w0s[7];
+    //     average_count[panel_point_inds[4]] += 4;
+    //     w0s_average_state[panel_point_inds[5]] += panel_w0s[2] + panel_w0s[4] + panel_w0s[8];
+    //     average_count[panel_point_inds[5]] += 3;
+    //     w0s_average_state[panel_point_inds[6]] += panel_w0s[3] + panel_w0s[7];
+    //     average_count[panel_point_inds[6]] += 2;
+    //     w0s_average_state[panel_point_inds[7]] += panel_w0s[4] + panel_w0s[6] + panel_w0s[8];
+    //     average_count[panel_point_inds[7]] += 3;
+    //     w0s_average_state[panel_point_inds[8]] += panel_w0s[5] + panel_w0s[7];
+    //     average_count[panel_point_inds[8]] += 2;
+    //     if (panel->is_left_bdry) {
+
+    //     }
+
+    //     if (panel->is_top_bdry) {
+            
+    //     }
+
+    //     if (panel->is_bottom_bdry) {
+            
+    //     }
+
+    // }
 
     return 0;
 }
