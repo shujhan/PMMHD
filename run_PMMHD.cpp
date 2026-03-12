@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
     switch (ics_type_j)
     {
         case 1: // for current density
-            j0 = new j0_current_sheet();
+            j0 = new j0_current_sheet(kx_j, amp_j);
             break;
 
         case 2: 

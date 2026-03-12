@@ -41,7 +41,7 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                     for(int k = 0; k < ny; k++) {
                         double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
                         double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
-                        if ((abs(x_vals[i] - x_vals[k]) - L) < 1e-10) {
+                        if ((abs(x_vals[i] - x_vals[k]) - L) < 1e-14) {
                             x_diff = 0.0;
                         }
                         double denom = cosh(y_diff) - cos(x_diff) + epsilon * epsilon;
@@ -69,6 +69,9 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                     for(int k = 0; k < ny; k++) {
                         double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
                         double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        if ((abs(x_vals[i] - x_vals[k]) - L) < 1e-14) {
+                            x_diff = 0.0;
+                        }
                         double denom_sqr = (cosh(y_diff) - cos(x_diff) + epsilon * epsilon) * (cosh(y_diff) - cos(x_diff) + epsilon * epsilon);
                         double constant_c = pi/L/L;
                         u1 += constant_c * sinh(y_diff) * sin(x_diff) / denom_sqr * q_ws[k];
@@ -95,6 +98,9 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                     for(int k = 0; k < ny; k++) {
                         double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
                         double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        if ((abs(x_vals[i] - x_vals[k]) - L) < 1e-14) {
+                            x_diff = 0.0;
+                        }
                         double denom_sqr = (cosh(y_diff) - cos(x_diff) + epsilon * epsilon) * (cosh(y_diff) - cos(x_diff) + epsilon * epsilon);
                         double constant_c = pi/L/L;
                         u1 += constant_c * (cos(x_diff) * cosh(y_diff) - 1 + epsilon * epsilon * cos(x_diff)) / denom_sqr * q_ws[k];
@@ -121,6 +127,9 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                     for(int k = 0; k < ny; k++) {
                         double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
                         double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        if ((abs(x_vals[i] - x_vals[k]) - L) < 1e-14) {
+                            x_diff = 0.0;
+                        }
                         double denom_cube = (cosh(y_diff) - cos(x_diff) + epsilon * epsilon) * (cosh(y_diff) - cos(x_diff) + epsilon * epsilon) * (cosh(y_diff) - cos(x_diff) + epsilon * epsilon);
                         double constant_c = 2 * pi * pi * epsilon * epsilon /L/L/L; 
                         u1 += constant_c * sin(x_diff) *(-3*cosh(y_diff) - cos(x_diff) - epsilon * epsilon) / denom_cube * q_ws[k];
@@ -147,6 +156,9 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                     for(int k = 0; k < ny; k++) {
                         double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
                         double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        if ((abs(x_vals[i] - x_vals[k]) - L) < 1e-14) {
+                            x_diff = 0.0;
+                        }
                         double C = cos(x_diff);
                         double S = sin(x_diff);
                         double H = cosh(y_diff);
@@ -184,6 +196,9 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                         // u2 += 0.5/L * sin(2 * pi / L * (x_vals[i] - x_vals[k])) / denom * q_ws[k];
                         double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
                         double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        if ((abs(x_vals[i] - x_vals[k]) - L) < 1e-14) {
+                            x_diff = 0.0;
+                        }
                         double denom = cosh(y_diff) - cos(x_diff) + epsilon * epsilon;
                         u1 -= 0.5/L * sinh(y_diff) / denom * q_ws[k];
                         u2 += 0.5/L * sin(x_diff) / denom * q_ws[k];

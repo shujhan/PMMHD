@@ -43,10 +43,12 @@ class j0_uniform_y : public distribution {
 
 class j0_current_sheet: public distribution {
     public:
-        j0_current_sheet();
+        j0_current_sheet(double kx_j, double amp_j);
 
         double operator() (double x, double y);
         void print();
+    double kx;
+    double amp;
 };
 
 

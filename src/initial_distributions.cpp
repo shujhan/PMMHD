@@ -49,10 +49,11 @@ void j0_uniform_y::print() {
 }
 
 // ---- current sheet ----
-j0_current_sheet::j0_current_sheet() {}
+j0_current_sheet::j0_current_sheet(double kx_j, double amp_j):
+    kx(kx_j), amp(amp_j) {}
 
 double j0_current_sheet::operator()(double x, double y) {
-    return 1.0 / (std::cosh(y) * std::cosh(y));
+    return 1.0 / (std::cosh(y) * std::cosh(y)) * ( 1 + amp * cos(kx * x));
 }
 
 
