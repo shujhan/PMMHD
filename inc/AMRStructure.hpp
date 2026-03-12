@@ -64,6 +64,8 @@ struct AMRStructure {
     std::vector <int> leaf_inds;
 
     //source terms
+    int uniform_size;
+    double uniform_dx, uniform_dy;
     std::vector<double> uniform_xs, uniform_ys;
     std::vector<double> xs, ys, w0s, j0s, weights;
     std::vector<double> u_weights, b_weights;
@@ -119,7 +121,7 @@ struct AMRStructure {
     // private functions
     int create_prerefined_mesh();
 //     int create_prerefined_mesh_v_refinement();
-    void refine_panels(std::function<double (double,double)> f, bool do_adaptive_refine);
+    void refine_panels(std::function<double (double,double)> f, bool do_adaptive_refine, int level);
 //     void refine_panels_refine_v(std::function<double (double,double)> f, bool do_adaptive_refine);
     void test_panel(int panel_ind, bool verbose);
 

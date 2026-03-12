@@ -112,13 +112,24 @@ int AMRStructure::create_prerefined_mesh() {
     if (initial_height < 1) {
         throw std::invalid_argument("height must be greater than 1");
     }
-    double dx = (x_max - x_min) / 4;
-    double dy = (y_max - y_min) / 4;
+    // double dx = (x_max - x_min) / 4;
+    // double dy = (y_max - y_min) / 4;
+    // std::vector<double> xs_init, ys_init;
+    // for(int ii = 0; ii < 5; ++ii) {
+    //     xs_init.push_back(uniform_xs[0]);
+    //     ys_init.push_back(y_min + ii * dy);
+    // }
+    int mid_index = (uniform_size - 1) / 2;
+    int q1 = (uniform_size - 1) / 4;
+    int q3 = 3 * (uniform_size - 1) / 4;
+
+    std::vector<int> inds = {0, q1, mid_index, q3, uniform_size - 1};
     std::vector<double> xs_init, ys_init;
-    for(int ii = 0; ii < 5; ++ii) {
-        xs_init.push_back(x_min + ii * dx);
-        ys_init.push_back(y_min + ii * dy);
+    for (int ind : inds) {
+        xs_init.push_back(uniform_xs[ind]);
+        ys_init.push_back(uniform_ys[ind]);
     }
+
     panels.clear();
     xs.clear();
     ys.clear();
@@ -187,7 +198,7 @@ int AMRStructure::create_prerefined_mesh() {
         for (auto panel_it = panels.begin() + minimum_unrefined_index; panel_it != panels.end(); ++panel_it) {
             panel_it->needs_refinement = true;
         }
-        refine_panels( [] (double x, double y) {return 1.0;} ,  false);
+        refine_panels( [] (double x, double y) {return 1.0;} ,  false , level);
         minimum_unrefined_index = num_panels_pre_refine;
     }
 
@@ -483,7 +494,7 @@ int AMRStructure::create_prerefined_mesh() {
 //     // }
 // }
 
-void AMRStructure::refine_panels(std::function<double (double,double)> f, bool do_adaptive_refine) {
+void AMRStructure::refine_panels(std::function<double (double,double)> f, bool do_adaptive_refine, int level) {
     std::vector <double> new_xs;
     std::vector <double> new_ys;
     std::vector <double> new_w0s;
@@ -501,7 +512,6 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
             // printf("refining panel %i\n", panel->get_panel_ind() );
             std::vector<double> panel_xs;
             std::vector<double> panel_ys;
-            double dx, dy;
 
             const int* panel_points = panel->point_inds;
             for (int ii = 0; ii < 9; ++ii) {
@@ -509,17 +519,49 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
                 panel_xs.push_back(xs[point_ind]);
                 panel_ys.push_back(ys[point_ind]);
             }
-            dx = panel_xs[3] - panel_xs[0];
-            dy = panel_ys[1] - panel_ys[0];
-            double sub_dx = 0.5 * dx;
-            double sub_dy = 0.5 * dy;
 
             int num_new_panels = panels.size();
             double subpanel_xs[5], subpanel_ys[5];
-            for (int ii = 0; ii < 5; ii ++) {
-                subpanel_xs[ii] = panel_xs[0] + sub_dx * ii;
-                subpanel_ys[ii] = panel_ys[0] + sub_dy * ii;
+
+            // panel index 0 is the starting point in the uniform xs and ys, 
+            // we just need find the following 5 poitns in uniform xs and ys. 
+            int index_in_uniform_xs = 0;
+            int index_in_uniform_ys = 0;
+            for (int ii = 0; ii < uniform_xs.size(); ii++) {
+                if (abs(panel_xs[0] - uniform_xs[ii]) < 0.1 * uniform_dx){
+                    index_in_uniform_xs = ii;
+                    break;
+                }
             }
+
+            for (int ii = 0; ii < uniform_ys.size(); ii++) {
+                if (abs(panel_ys[0] - uniform_ys[ii]) < 0.1 * uniform_dy){
+                    index_in_uniform_ys = ii;
+                    break;
+                }
+            }
+
+            // cout << " for panel " << jj << ", " << "index_in_uniform_xs = " 
+            //     << index_in_uniform_xs << "index_in_uniform_ys = " << index_in_uniform_ys << endl;
+
+            int step_length = int(pow(2, max_height - level - 1));
+            for (int ii = 0; ii < 5; ii ++) {
+                subpanel_xs[ii] = uniform_xs[index_in_uniform_xs + ii * step_length];
+                subpanel_ys[ii] = uniform_ys[index_in_uniform_ys + ii * step_length];
+            }
+
+            // for (int ii = 0; ii < 5; ii ++) {
+            //     cout << "subpanel_xs" << subpanel_xs[ii] << ", subpanel_ys: " << subpanel_ys[ii] << endl;
+            // }
+
+            // double original_subpanel_xs[5], original_subpanel_ys[5];
+            // for (int ii = 0; ii < 5; ii ++) {
+            //     original_subpanel_xs[ii] = panel_xs[0] + sub_dx * ii;
+            //     original_subpanel_ys[ii] = panel_ys[0] + sub_dy * ii;
+            // }
+            // for (int ii = 0; ii < 5; ii ++) {
+            //     cout << "original_subpanel_xs" << original_subpanel_xs[ii] << ", original_subpanel_ys: " << original_subpanel_ys[ii] << endl;
+            // }
 
             // int left_vert_ind, bottom_vert_ind, mid_vert_ind, top_vert_ind, right_vert_ind;
             int point_9_ind, point_10_ind, point_11_ind, point_15_ind, 

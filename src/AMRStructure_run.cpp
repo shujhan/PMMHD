@@ -947,6 +947,7 @@ int AMRStructure::euler() {
         if (panel->child_inds_start > -1) {
             continue;
         }
+        // cout << "panel " << panel_ind << ": " << endl;
         const int* panel_point_inds = panel->point_inds;
         double panel_xs[9], panel_ys[9];
         double panel_w0s[9], panel_j0s[9];
@@ -1060,26 +1061,26 @@ int AMRStructure::euler() {
         dx_j0[5] = (panel_j0s[8] - panel_j0s[2])/(2*hx);
         dx_j0[8] = (right_panel_j0s[5] - panel_j0s[5])/(2*hx);
 
-        std::cout << std::fixed << std::setprecision(17);
-        cout << "ys: " << endl;
-        cout << panel_ys[0] << ", " << panel_ys[3] << ", " << panel_ys[6] << endl;
-        cout << panel_ys[1] << ", " << panel_ys[4] << ", " << panel_ys[7] << endl;
-        cout << panel_ys[2] << ", " << panel_ys[5] << ", " << panel_ys[8] << endl;
-        cout << "j0s: " << endl;
-        cout << panel_j0s[0] << ", " << panel_j0s[3] << ", " << panel_j0s[6] << endl;
-        cout << panel_j0s[1] << ", " << panel_j0s[4] << ", " << panel_j0s[7] << endl;
-        cout << panel_j0s[2] << ", " << panel_j0s[5] << ", " << panel_j0s[8] << endl;
-        cout << (panel_j0s[3] - left_panel_j0s[3])<< endl;
-        cout << (panel_j0s[6] - panel_j0s[0]) << endl;
-        cout << (right_panel_j0s[3] - panel_j0s[3]) << endl;
+        // std::cout << std::fixed << std::setprecision(17);
+        // cout << "ys: " << endl;
+        // cout << panel_ys[0] << ", " << panel_ys[3] << ", " << panel_ys[6] << endl;
+        // cout << panel_ys[1] << ", " << panel_ys[4] << ", " << panel_ys[7] << endl;
+        // cout << panel_ys[2] << ", " << panel_ys[5] << ", " << panel_ys[8] << endl;
+        // cout << "j0s: " << endl;
+        // cout << panel_j0s[0] << ", " << panel_j0s[3] << ", " << panel_j0s[6] << endl;
+        // cout << panel_j0s[1] << ", " << panel_j0s[4] << ", " << panel_j0s[7] << endl;
+        // cout << panel_j0s[2] << ", " << panel_j0s[5] << ", " << panel_j0s[8] << endl;
+        // cout << (panel_j0s[3] - left_panel_j0s[3])<< endl;
+        // cout << (panel_j0s[6] - panel_j0s[0]) << endl;
+        // cout << (right_panel_j0s[3] - panel_j0s[3]) << endl;
 
-        cout << (panel_j0s[4] - left_panel_j0s[4]) << endl;
-        cout << (panel_j0s[7] - panel_j0s[1]) << endl;
-        cout << (right_panel_j0s[4] - panel_j0s[4]) << endl;
+        // cout << (panel_j0s[4] - left_panel_j0s[4]) << endl;
+        // cout << (panel_j0s[7] - panel_j0s[1]) << endl;
+        // cout << (right_panel_j0s[4] - panel_j0s[4]) << endl;
 
-        cout << (panel_j0s[5] - left_panel_j0s[5]) << endl;
-        cout << (panel_j0s[8] - panel_j0s[2]) << endl;
-        cout << (right_panel_j0s[5] - panel_j0s[5]) << endl;
+        // cout << (panel_j0s[5] - left_panel_j0s[5]) << endl;
+        // cout << (panel_j0s[8] - panel_j0s[2]) << endl;
+        // cout << (right_panel_j0s[5] - panel_j0s[5]) << endl;
 
 
         double hy = panel_ys[1]- panel_ys[0];

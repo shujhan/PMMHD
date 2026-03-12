@@ -36,17 +36,19 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
     initial_dy = Ly / npanels_y;
 
     // generate all uniform_xs, uniform_ys to make sure all xs, ys are the same for different panels
-    int uniform_size = int(pow(2, max_height+1)) + 1;
+    uniform_size = int(pow(2, max_height+1)) + 1;
     uniform_xs.assign(uniform_size, 0.0);
     uniform_ys.assign(uniform_size, 0.0);
-    double uniform_dx = Lx / (uniform_size - 1);
-    double uniform_dy = Ly / (uniform_size - 1);
-    for (int i = 0; i++; i < uniform_size) {
+    uniform_dx = Lx / (uniform_size - 1);
+    uniform_dy = Ly / (uniform_size - 1);
+    for (int i = 0; i < uniform_size; i++) {
         uniform_xs[i] = x_min + i * uniform_dx;
         uniform_ys[i] = y_min + i * uniform_dy;
     }
 
-
+    // for (int i = 0; i < uniform_size; i++) {
+    //     cout << "i = " << i << ", " << uniform_xs[i] << " " << uniform_ys[i] << endl;
+    // }
 
     
     bool is_initial_step = true;
