@@ -153,11 +153,8 @@ int main(int argc, char** argv) {
 
 
     // create field solver 
-    periodizer = new Periodizer(x_min, x_max, y_min, y_max, greens_epsilon, calculate_e,
-                    100, 30, 1.5);  // was 80, 30, 1.4
     Field* calculate_field;
     if (bcs == 0) { // periodic in xy 
-        periodizer->precompute_Q();
         KernelMode m = periodic_xy;
         if (use_treecode > 0) {
             calculate_field = new U_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
@@ -181,6 +178,13 @@ int main(int argc, char** argv) {
         }
     }
 
+    // periodizer needs the free-space kernel above; only used for doubly-periodic bcs
+    Periodizer* periodizer = nullptr;
+    if (bcs == 0) {
+        periodizer = new Periodizer(x_min, x_max, y_min, y_max, greens_epsilon, calculate_field,
+                        100, 30, 1.5);  // was 80, 30, 1.4
+        periodizer->precompute_Q();
+    }
 
 
 
@@ -255,9 +259,11 @@ int main(int argc, char** argv) {
                 do_adaptively_refine_vorticity, amr_epsilons_vorticity,
                 do_adaptively_refine_j, amr_epsilons_j,greens_epsilon};
                 
-
-    // amr.init_e();
-    amr.write_to_file();
+    // calculate fileds
+    amr.set_periodizer(periodizer);
+    evaluate_u_field(u1s, u2s, xs, ys, u_weights, t);
+    evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
+    // amr.write_to_file();
 
     // print AMR structure info 
     cout << amr << endl;

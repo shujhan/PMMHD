@@ -3,7 +3,7 @@
 
 void AMRStructure::generate_mesh(std::function<double (double,double)> f0, 
                                 std::function<double (double,double)> f1, 
-                                 bool do_adaptively_refine_vorticity, bool do_adaptively_refine_j, is_initial_step) 
+                                 bool do_adaptively_refine_vorticity, bool do_adaptively_refine_j, bool is_initial_step) 
 {
     bool verbose=false;
 
@@ -32,9 +32,14 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0,
         cout << "ps size " << ps.size() << endl;
         #endif
 
-        // interpolate q_plus and q_minus back to uniform panel mesh so that they are at the same location, then calculate w0 and j0 
-        interpolate_to_initial_xys(q_plus, xs_plus, ys_plus, nx_points, ny_points);
-        interpolate_to_initial_xys(q_minus, xs_minus, ys_minus, nx_points, ny_points);
+        // Remesh each deformed Lagrangian copy back onto the fresh uniform grid.
+        // Source = deformed mesh (old_panels + old_xs/old_ys + old_q0s),
+        // target = the freshly built uniform grid points (xs, ys).
+        // interpolate q_plus and q_minus back to uniform panel mesh so that they are at the same location, then calculate w0 and j0
+        old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
+        interpolate_to_initial_xys(q_plus, xs, ys, nx_points, ny_points);
+        old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
+        interpolate_to_initial_xys(q_minus, xs, ys, nx_points, ny_points);
         for (int ii = 0; ii < xs.size(); ii++) {
             w0s[ii] = 0.5 * (q_plus[ii] + q_minus[ii]);
             j0s[ii] = 0.5 * (q_plus[ii] - q_minus[ii]);
@@ -61,21 +66,21 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0,
         while (need_further_refinement) {
             need_further_refinement = false;
             // auto amr_start = high_resolution_clock::now();
-            refine_panels(f0, do_adaptive_refine, is_initial_step);
+            refine_panels(f0, true, is_initial_step);
             // auto amr_stop = high_resolution_clock::now();
             // add_time(amr_refine_time, duration_cast<duration<double>>(amr_stop-amr_start) );
 
-            amr_start = high_resolution_clock::now();
+            // amr_start = high_resolution_clock::now();
             for (int ii = minimum_unrefined_index; ii < panels.size(); ++ii) {
                 if (!panels[ii].is_refined_xy) {
                     test_panel(ii, verbose);
                 }
             }
-            amr_stop = high_resolution_clock::now();
-            add_time(amr_test_time,  duration_cast<duration<double>>(amr_stop - amr_start) );
+            // amr_stop = high_resolution_clock::now();
+            // add_time(amr_test_time,  duration_cast<duration<double>>(amr_stop - amr_start) );
         }
-        stop = high_resolution_clock::now();
-        add_time(tree_build_time,  duration_cast<duration<double>>(stop - start) );
+        // stop = high_resolution_clock::now();
+        // add_time(tree_build_time,  duration_cast<duration<double>>(stop - start) );
   
     }
 

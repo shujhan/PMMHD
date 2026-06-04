@@ -1,83 +1,39 @@
 #include "Panel.hpp"
-
 // Constructors
 Panel::Panel() 
-    : panel_ind(0), level(0), parent_ind(-1), which_child(-1),
-      left_nbr_ind(0), right_nbr_ind(0), top_nbr_ind(-2), bottom_nbr_ind(-2),
-      is_left_bdry(false), is_right_bdry(false),
-      needs_refinement(false), is_refined_xy(false), is_refined_y(false)
+    : panel_ind(0),level(0),parent_ind(-1), which_child(-1),
+    left_nbr_ind(0), right_nbr_ind(0), top_nbr_ind(0), bottom_nbr_ind(0),
+    is_left_bdry(false), is_right_bdry(false),
+    is_top_bdry(false), is_bottom_bdry(false),
+    needs_refinement(false), is_refined_xy(false), is_refined_y(false)
 {
-    for(int ii = 0; ii < 9; ii++) {
-        point_inds[ii] = ii;
+    for(int i = 0; i < 9; i++) {
+        point_inds[i] = i;
     }
 }
 
-Panel::Panel(int panel_ind, int level, int parent_ind, int which_child)
-        : panel_ind(panel_ind), level(level), parent_ind(parent_ind), which_child(which_child),
-        is_left_bdry(false), is_right_bdry(false),
-        needs_refinement(false), is_refined_xy(false), is_refined_y(false)
-{
-    for(int ii = 0; ii < 8; ii++) {
-        point_inds[ii] = -1;
-    }
 
-    child_inds_start = -1;
-}
 
-Panel::Panel(int panel_ind, int level, int parent_ind, int which_child,
-            int ln_ind, int tn_ind, 
-            int rn_ind, int bn_ind)
-        : panel_ind(panel_ind), level(level), parent_ind(parent_ind), which_child(which_child),
-        left_nbr_ind(ln_ind), top_nbr_ind(tn_ind), right_nbr_ind(rn_ind), bottom_nbr_ind(bn_ind),
-        is_left_bdry(false), is_right_bdry(false),
-        needs_refinement(false), is_refined_xy(false), is_refined_y(false)
-{
-    child_inds_start = -1;
-}
+
+Panel::Panel(int panel_ind)
+    
+{   this->panel_ind = panel_ind;
+    // for(int i = 0; i < 9; i++) {
+    //     this->point_inds[i] = point_inds[i];
+    // }
+};
 
 Panel::Panel(int panel_ind, int level, int parent_ind, int which_child,
-            int p0, int p1, int p2, int p3, int p4, int p5, 
-            int p6, int p7, int p8, 
-            int ln_ind, int tn_ind, 
-            int rn_ind, int bn_ind,
-            bool is_left_bdry, bool is_right_bdry)
-        : panel_ind(panel_ind), level(level), parent_ind(parent_ind), which_child(which_child),
-        left_nbr_ind(ln_ind), top_nbr_ind(tn_ind), right_nbr_ind(rn_ind), bottom_nbr_ind(bn_ind),
-        is_left_bdry(is_left_bdry), is_right_bdry(is_right_bdry),
-        needs_refinement(false), is_refined_xy(false), is_refined_y(false)
-{
-    point_inds[0] = p0;
-    point_inds[1] = p1;
-    point_inds[2] = p2;
-    point_inds[3] = p3;
-    point_inds[4] = p4;
-    point_inds[5] = p5;
-    point_inds[6] = p6;
-    point_inds[7] = p7;
-    point_inds[8] = p8;
-
-    child_inds_start = -1;
-}
-
-
-Panel::Panel(int panel_ind, int level, int parent_ind, int which_child,
-        int (&vpoint_inds)[9], 
         int ln_ind, int tn_ind, 
         int rn_ind, int bn_ind)
-        : panel_ind(panel_ind), level(level), parent_ind(parent_ind), which_child(which_child),
-        left_nbr_ind(ln_ind), top_nbr_ind(tn_ind), right_nbr_ind(rn_ind), bottom_nbr_ind(bn_ind),
-        is_left_bdry(false), is_right_bdry(false),
-        needs_refinement(false), is_refined_xy(false), is_refined_y(false)
+    : panel_ind(panel_ind), level(level), parent_ind(parent_ind), which_child(which_child),
+    left_nbr_ind(ln_ind), top_nbr_ind(tn_ind), right_nbr_ind(rn_ind), bottom_nbr_ind(bn_ind),
+    is_left_bdry(false), is_right_bdry(false),
+    is_top_bdry(false), is_bottom_bdry(false),
+    needs_refinement(false), is_refined_xy(false), is_refined_y(false)
 {
-    for(int ii = 0; ii < 9; ++ii) {
-        this->point_inds[ii] = point_inds[ii];
-    }
     child_inds_start = -1;
 }
-
-// End Constructors
-
-
 
 void Panel::set_point_inds(int p0, int p1, int p2, int p3, int p4, 
                     int p5, int p6, int p7, int p8) {
@@ -92,17 +48,51 @@ void Panel::set_point_inds(int p0, int p1, int p2, int p3, int p4,
     point_inds[8] = p8;
 }
 
+
+Panel::Panel(int panel_ind, int level, int parent_ind, int which_child,
+            int p0, int p1, int p2, int p3, int p4, int p5, 
+            int p6, int p7, int p8, 
+            int ln_ind, int tn_ind, 
+            int rn_ind, int bn_ind,
+            bool is_left_bdry, bool is_right_bdry,
+            bool is_top_bdry, bool is_bottom_bdry)
+        : panel_ind(panel_ind), level(level), parent_ind(parent_ind), which_child(which_child),
+        left_nbr_ind(ln_ind), top_nbr_ind(tn_ind), right_nbr_ind(rn_ind), bottom_nbr_ind(bn_ind),
+        is_left_bdry(is_left_bdry), is_right_bdry(is_right_bdry),
+        is_top_bdry(is_top_bdry), is_bottom_bdry(is_bottom_bdry),
+        needs_refinement(false), is_refined_xy(false), is_refined_y(false)
+{
+    point_inds[0] = p0;
+    point_inds[1] = p1;
+    point_inds[2] = p2;
+    point_inds[3] = p3;
+    point_inds[4] = p4;
+    point_inds[5] = p5;
+    point_inds[6] = p6;
+    point_inds[7] = p7;
+    point_inds[8] = p8;
+
+    child_inds_start = -1;
+}
+
+
+
+
+
+
 void Panel::set_child_inds_start(int c0) {
     is_refined_xy = true;
     needs_refinement = false;
     child_inds_start = c0;
 }
 
-void Panel::set_child_inds_start(int c0, bool refined_v) {
+
+void Panel::set_child_inds_start(int c0, bool refined_y) {
     is_refined_y = true;
     needs_refinement = false;
     child_inds_start = c0;
 }
+
 
 
 

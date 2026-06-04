@@ -28,6 +28,12 @@ using namespace Eigen;
 #include "FieldStructure.hpp"
 #include "Periodizer.hpp"
 
+// named values for the integer `bcs` and `quad` members
+// (bcs == 0 is doubly-periodic, bcs == 1 is open-in-y; quad 0 = trap, 1 = simpsons)
+enum BCType   { periodic_bcs = 0, open_bcs = 1 };
+enum QuadType { trap = 0, simpsons = 1 };
+
+
 
 struct AMRStructure {
     std::string sim_dir;
@@ -182,15 +188,15 @@ struct AMRStructure {
         bool use_limiter;
         double limit_val;
         void shift_xs(std::vector<double>& shifted_xs, const std::vector<double>& xs, const std::vector<double>& ys);
-        int find_leaf_containing_xy_recursively(double &x, const double &y, bool& beyond_boundary, int panel_ind, bool verbose);
-        int find_leaf_containing_point_from_neighbor(double& tx, double& ty, bool& beyond_boundary, int leaf_ind, std::set<int>& history, bool verbose);
+        int find_leaf_containing_xy_recursively(double &x, double &y, bool& beyond_boundary, int panel_ind);
+        int find_leaf_containing_point_from_neighbor(double& tx, double& ty, bool& beyond_boundary, int leaf_ind, std::set<int>& history);
         // // int find_leaf_containing();
-        void interpolate_to_initial_xys(std::vector<double>& w0s, std::vector<double>& j0s, std::vector<double>& xs, std::vector<double>& ys, int nx, int ny,bool verbose);
+        void interpolate_to_initial_xys(std::vector<double>& q0s, std::vector<double>& xs, std::vector<double>& ys, int nx, int ny);
         // double interpolate_from_mesh(double xs, double vs, bool verbose);
         // void interpolate_from_mesh(std::vector<double> &values, std::vector<double>& x, std::vector<double>& v, bool verbose);
         // void interpolate_from_mesh_slow(std::vector<double> &values, std::vector<double>& x, std::vector<double>& v, bool verbose);
         // double interpolate_from_panel(double x, double v, int panel_ind, bool use_limiter, bool verbose);
-        void interpolate_from_panel_to_points(std::vector<double>& values_w0, std::vector<double>& values_j0, std::vector<double>& xs, std::vector<double>& ys,
+        void interpolate_from_panel_to_points(std::vector<double>& values_q0, std::vector<double>& xs, std::vector<double>& ys,
                                                 std::vector<int>& point_inds, int panel_ind, bool use_limiter, double limit_val);
 
         // field functions

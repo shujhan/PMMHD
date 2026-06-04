@@ -175,6 +175,15 @@ int AMRStructure::euler() {
 
 
 int AMRStructure::rk4() {
+    // NOT IMPLEMENTED for the Elsasser (q+/q-) scheme yet.
+    // The body below is the old in-place omega/j RK4: it calls compute_rhs_state
+    // (now replaced by compute_source_S) and never fills xs_plus/q_plus/..., so it is
+    // inconsistent with euler() and remesh(). Disabled for now -- use method>0 (euler).
+    std::cerr << "rk4() is not implemented for the q+/q- scheme yet; "
+                 "run with method>0 to use euler." << std::endl;
+    return 1;
+
+#if 0
     cout << "enter rk4" << endl;
     const int xs_size = (int)xs.size();
 
@@ -272,6 +281,7 @@ int AMRStructure::rk4() {
     }
 
     return 0;
+#endif
 }
 
 
@@ -380,10 +390,10 @@ int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<doub
             const int* top_panel_point_inds = top_panel->point_inds;
             for (int ii = 0; ii < 9; ++ii) {
                 int pind = top_panel_point_inds[ii];
-                top_panel_u1s[ii] = u1s_in[pind];
-                top_panel_u2s[ii] = u2s_in[pind];
-                top_panel_b1s[ii] = b1s_in[pind];
-                top_panel_b2s[ii] = b2s_in[pind];
+                top_panel_u1s[ii] = u1s[pind];
+                top_panel_u2s[ii] = u2s[pind];
+                top_panel_b1s[ii] = b1s[pind];
+                top_panel_b2s[ii] = b2s[pind];
             }
         }
         else {
@@ -392,10 +402,10 @@ int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<doub
                 const int* top_panel_point_inds = top_panel->point_inds;
                 for (int ii = 0; ii < 9; ++ii) {
                     int pind = top_panel_point_inds[ii];
-                    top_panel_u1s[ii] = u1s_in[pind];
-                    top_panel_u2s[ii] = u2s_in[pind];
-                    top_panel_b1s[ii] = b1s_in[pind];
-                    top_panel_b2s[ii] = b2s_in[pind];
+                    top_panel_u1s[ii] = u1s[pind];
+                    top_panel_u2s[ii] = u2s[pind];
+                    top_panel_b1s[ii] = b1s[pind];
+                    top_panel_b2s[ii] = b2s[pind];
                 }
             }
         }
@@ -686,44 +696,10 @@ int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<doub
         }
     }
 
-    // calculate source terms
-    B_dot_grad_j.assign(xs.size(), 0.0);
-    for (int i = 0; i < xs.size(); ++i) {
-        B_dot_grad_j[i] = b1s[i] * j_grad_x[i] + b2s[i] * j_grad_y[i];
-    }
-
-    B_dot_grad_vorticity.assign(xs.size(), 0.0);
-    for (int i = 0; i < xs.size(); ++i) {
-        B_dot_grad_vorticity[i] = b1s[i] * vorticity_grad_x[i] + b2s[i] * vorticity_grad_y[i];
-    }
-
-    B_grad_x_dot_u2_grad.assign(xs.size(), 0.0);
-    for (int i = 0; i < xs.size(); ++i) {
-        B_grad_x_dot_u2_grad[i] = b1s_grad_x[i] * u2s_grad_x[i] + b2s_grad_x[i] * u2s_grad_y[i];
-    }
-
-    B_grad_y_dot_u1_grad.assign(xs.size(), 0.0);
-    for (int i = 0; i < xs.size(); ++i) {
-        B_grad_y_dot_u1_grad[i] = b1s_grad_y[i] * u1s_grad_x[i] + b2s_grad_y[i] * u1s_grad_y[i];
-    }
-
-    // RHS
-    dxs_dt.assign(xs.size(), 0.0);
-    dys_dt.assign(xs.size(), 0.0);
-    dw0s_dt.assign(xs.size(), 0.0);
-    dj0s_dt.assign(xs.size(), 0.0);
-
-    for (int i = 0; i < xs.size(); ++i) {
-        dxs_dt[i]  = u1s[i];
-        dys_dt[i]  = u2s[i];
-        dw0s_dt[i] = nu * vorticity_laplacian[i] + B_dot_grad_j[i];
-        dj0s_dt[i] = mu * j_laplacian[i]
-                   + B_dot_grad_vorticity[i]
-                   + 2.0 * B_grad_x_dot_u2_grad[i]
-                   - 2.0 * B_grad_y_dot_u1_grad[i];
-    }
-
-    // S term (same as two-panel)
+    // S term (same as two-panel): built directly from the U and B gradients.
+    // Note: the old tendency RHS (dw0s_dt / dj0s_dt with nu*Laplacian, B.grad terms)
+    // is intentionally gone -- in the Elsasser split, transport carries only the ideal
+    // coupling through S, and dissipation is applied separately after remesh.
     S_out.assign(xs.size(), 0.0);
     for (int i = 0; i < xs.size(); ++i) {
         S_out[i] = 2.0 * (b1s_grad_x[i]*u2s_grad_x[i] + b2s_grad_x[i]*u2s_grad_y[i])
@@ -733,19 +709,4 @@ int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<doub
     u1_out = u1s;  u2_out = u2s;  b1_out = b1s;  b2_out = b2s;
 
     return 0;
-}
-
-
-
-
-// given probe (xs_p,ys_p,q_p) and (xs_m,ys_m,q_m), recover (w,j) at the probe
-// grid and refresh weights, so the NEXT compute_source_S sees correct fields.
-void stage_recover(/* probe arrays */) {
-    // save the two probe copies as the deformed "old" meshes
-    old_panels = panels;                       // connectivity unchanged
-    old_xs_plus = xs_p;  old_ys_plus = ys_p;  old_q_plus  = q_p;
-    old_xs_minus= xs_m;  old_ys_minus= ys_m;  old_q_minus = q_m;
-    // interpolate both onto the SAME structured grid and recover w,j
-    remesh_recover_only();   // = create_prerefined_mesh + interp q± + recover_wj
-    set_leaves_weights();    // rebuild u_weights = weights*w0s, b_weights = weights*j0s
 }
