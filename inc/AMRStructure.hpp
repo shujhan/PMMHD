@@ -86,7 +86,7 @@ struct AMRStructure {
     // the two deformed Lagrangian copies saved for remeshing
     // (both reuse old_panels connectivity — only coordinates differ)
     std::vector <Panel> old_panels;
-    std::vector<double> old_xs, old_ys, old_w0s, old_j0s;
+    std::vector<double> old_xs, old_ys, old_w0s, old_j0s, old_q0s;
     std::vector<double> old_xs_plus, old_ys_plus, old_q_plus;
     std::vector<double> old_xs_minus, old_ys_minus, old_q_minus;
     double B0x = 0.0, B0y = 0.0;        // optional uniform guide field
@@ -117,6 +117,7 @@ struct AMRStructure {
     bool allow_boundary_extrapolation = false;
     double w0_beyond_boundary = 0;
     double j0_beyond_boundary = 0;
+    double q0_beyond_boundary = 0;
     bool do_unshear = false;
     bool sqrt_f = false;
 
@@ -142,8 +143,7 @@ struct AMRStructure {
     std::vector<int> num_operations;
 
     // private functions
-    int create_prerefined_mesh();
-    int create_prerefined_mesh_v_refinement();
+    int create_prerefined_mesh(bool is_initial_step);
     void refine_panels(std::function<double (double,double)> f, bool do_adaptive_refine, bool is_initial_step);
     void refine_panels_refine_v(std::function<double (double,double)> f, bool do_adaptive_refine,  bool is_initial_step);
     void test_panel(int panel_ind, bool verbose);
@@ -174,8 +174,8 @@ struct AMRStructure {
         // end getters
 
         // amr
-        void generate_mesh(std::function<double (double,double)> w0, std::function<double (double,double)> j0,
-                        bool do_adaptively_refine_vorticity, bool do_adaptively_refine_j, bool is_initial_step);
+        // void refine_panels_refine_v(std::function<double (double,double)> w0, std::function<double (double,double)> j0,
+        //                 bool do_adaptively_refine_vorticity, bool do_adaptively_refine_j, bool is_initial_step);
         void set_leaves_weights();
         void recursively_set_leaves_weights(int panel_ind);
 
@@ -200,7 +200,7 @@ struct AMRStructure {
                                                 std::vector<int>& point_inds, int panel_ind, bool use_limiter, double limit_val);
 
         // field functions
-        // void init_e();
+        int init_fields();
 
         
         // u1 and u2, use u_weights

@@ -8,7 +8,7 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0,
     bool verbose=false;
 
     // auto start = high_resolution_clock::now();
-    create_prerefined_mesh();
+    create_prerefined_mesh(is_initial_step);
     // auto stop = high_resolution_clock::now();
     // add_time(tree_build_time,  duration_cast<duration<double>>(stop - start) );
 
@@ -88,7 +88,7 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0,
 }
 
 
-int AMRStructure::create_prerefined_mesh() {
+int AMRStructure::create_prerefined_mesh(bool is_initial_step) {
     // create a level 1 panel, 2^2 + 1 = 5 points in x and y
     // in total 5 * 5 = 25 points 
 
@@ -197,7 +197,7 @@ int AMRStructure::create_prerefined_mesh() {
         for (auto panel_it = panels.begin() + minimum_unrefined_index; panel_it != panels.end(); ++panel_it) {
             panel_it->needs_refinement = true;
         }
-        refine_panels( [] (double x, double y) {return 1.0;} , false, true);
+        refine_panels( [] (double x, double y) {return 1.0;} , false, is_initial_step);
         minimum_unrefined_index = num_panels_pre_refine;
     }
 
@@ -207,8 +207,7 @@ int AMRStructure::create_prerefined_mesh() {
         for (auto panel_it = panels.begin() + minimum_unrefined_index; panel_it != panels.end(); ++panel_it) {
             panel_it->needs_refinement = true;
         }
-        bool do_adaptive_refine = false;
-        refine_panels_refine_v( [] (double x, double v) {return 1.0;} , do_adaptive_refine);
+        refine_panels_refine_v( [] (double x, double v) {return 1.0;} , false, is_initial_step);
         minimum_unrefined_index = num_panels_pre_refine;
     }
 
@@ -218,7 +217,7 @@ int AMRStructure::create_prerefined_mesh() {
 }
 
 
-void AMRStructure::refine_panels_refine_v(std::function<double (double,double)> f, bool do_adaptive_refine) {
+void AMRStructure::refine_panels_refine_v(std::function<double (double,double)> f, bool do_adaptive_refine, bool is_initial_step) {
 
     // Note: this assumes that we are refining in v uniformly before any xp refinement;
     // No compatibility with xp refined panels is guaranteed
@@ -503,14 +502,16 @@ void AMRStructure::refine_panels_refine_v(std::function<double (double,double)> 
                     point_inds[6], point_13_ind, point_inds[7],
                     child_0_left_nbr_ind, num_new_panels + 1, 
                     child_0_right_nbr_ind, child_0_bottom_nbr_ind,
-                    panel->is_left_bdry, panel->is_right_bdry});
+                    panel->is_left_bdry, panel->is_right_bdry,
+                    false, panel->is_bottom_bdry});
             panels.push_back(Panel {num_new_panels+1, child_level, panel_ind, 1, 
                     point_inds[1], point_10_ind, point_inds[2],
                     point_inds[4], point_11_ind+1, point_inds[5],
                     point_inds[7], point_14_ind, point_inds[8],
                     child_1_left_nbr_ind, child_1_top_nbr_ind,
                     child_1_right_nbr_ind, num_new_panels,
-                    panel->is_left_bdry, panel->is_right_bdry});
+                    panel->is_left_bdry, panel->is_right_bdry,
+                    panel->is_top_bdry, false});
 
         } // end if panel is flagged
         

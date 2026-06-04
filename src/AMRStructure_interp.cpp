@@ -646,7 +646,7 @@ void AMRStructure::interpolate_from_panel_to_points(
         for (int ii = 0; ii < point_inds.size(); ++ii) {
             // values_w0[point_inds[ii]] = f_beyond_boundary;
             // values_j0[point_inds[ii]] = f_beyond_boundary;
-            values_q0[point_inds[ii]] = f_beyond_boundary;
+            values_q0[point_inds[ii]] = q0_beyond_boundary;
         }
     }
     else {

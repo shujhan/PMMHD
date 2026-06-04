@@ -261,8 +261,7 @@ int main(int argc, char** argv) {
                 
     // calculate fileds
     amr.set_periodizer(periodizer);
-    evaluate_u_field(u1s, u2s, xs, ys, u_weights, t);
-    evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
+    amr.init_fields();
     // amr.write_to_file();
 
     // print AMR structure info 

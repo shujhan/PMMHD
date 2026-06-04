@@ -1,5 +1,6 @@
 #include "AMRStructure.hpp"
 #include <iomanip>
+
 int AMRStructure::run() {
     while (iter_num < num_steps) {
         step();
@@ -31,7 +32,17 @@ int AMRStructure::step() {
 }
 
 
-
+int AMRStructure::init_fields() {
+    // initial U/B evaluation on the structured mesh; safe to call only after the
+    // periodizer has been set (for periodic bcs). Fields are recomputed every step.
+    u1s.assign(xs.size(), 0.0);
+    u2s.assign(xs.size(), 0.0);
+    b1s.assign(xs.size(), 0.0);
+    b2s.assign(xs.size(), 0.0);
+    evaluate_u_field(u1s, u2s, xs, ys, u_weights, t);
+    evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
+    return 0;
+}
 
 // int AMRStructure::euler() {
 //     cout << "enter euler" << endl;
