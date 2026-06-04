@@ -38,7 +38,7 @@ struct Panel {
     int parent_ind;
     int which_child;
     int left_nbr_ind, top_nbr_ind, right_nbr_ind, bottom_nbr_ind;
-    bool is_left_bdry, is_right_bdry;
+    bool is_left_bdry, is_right_bdry, is_top_bdry, is_bottom_bdry;
     bool needs_refinement;
     bool is_refined_xy;
     bool is_refined_y;

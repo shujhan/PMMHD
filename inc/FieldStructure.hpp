@@ -11,7 +11,8 @@ enum KernelMode {
     // u2_grad for u2s_grad_x, u2s_grad_y, b2s_grad_x, b2s_grad_y
     // vorticity_grad for vorticity_grad_x, vorticity_grad_x, j_grad_x, j_grad_y
     // laplacian  vorticity_laplacian, j_laplacian
-    original, u1_grad, u2_grad, vorticity_grad, laplacian
+    original, periodic_xy,
+    u1_grad, u2_grad, vorticity_grad, laplacian
 };
 
 class Field {
@@ -162,17 +163,20 @@ class U_Treecode : public Field {
         void Call_BL(); // far field
         void Call_Ds(); // near field direct
 
-        void Call_BL_u1_grad(); 
-        void Call_DS_u1_grad(); 
+        void Call_BL_free_space(); 
+        void Call_DS_free_space();
 
-        void Call_BL_u2_grad();
-        void Call_DS_u2_grad();
+        // void Call_BL_u1_grad(); 
+        // void Call_DS_u1_grad(); 
 
-        void Call_BL_vorticity_grad(); 
-        void Call_DS_vorticity_grad(); 
+        // void Call_BL_u2_grad();
+        // void Call_DS_u2_grad();
 
-        void Call_BL_laplacian();
-        void Call_DS_laplacian();
+        // void Call_BL_vorticity_grad(); 
+        // void Call_DS_vorticity_grad(); 
+
+        // void Call_BL_laplacian();
+        // void Call_DS_laplacian();
 
         // =========================
         // Parameters

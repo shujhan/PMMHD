@@ -26,6 +26,7 @@ using namespace Eigen;
 #include "initial_distributions.hpp"
 #include "Panel.hpp"
 #include "FieldStructure.hpp"
+#include "Periodizer.hpp"
 
 
 struct AMRStructure {
@@ -68,6 +69,25 @@ struct AMRStructure {
     double uniform_dx, uniform_dy;
     std::vector<double> uniform_xs, uniform_ys;
     std::vector<double> xs, ys, w0s, j0s, weights;
+
+
+    // transient Elsässer state used only inside step()
+    std::vector<double> q_plus, q_minus;          // q± sampled at mesh points
+    std::vector<double> xs_plus, ys_plus;         // advected positions of the q+ copy
+    std::vector<double> xs_minus, ys_minus;       // advected positions of the q− copy
+    std::vector<double> source_S;                 // the S term at mesh points
+
+    // the two deformed Lagrangian copies saved for remeshing
+    // (both reuse old_panels connectivity — only coordinates differ)
+    std::vector <Panel> old_panels;
+    std::vector<double> old_xs, old_ys, old_w0s, old_j0s;
+    std::vector<double> old_xs_plus, old_ys_plus, old_q_plus;
+    std::vector<double> old_xs_minus, old_ys_minus, old_q_minus;
+    double B0x = 0.0, B0y = 0.0;        // optional uniform guide field
+    Periodizer* periodizer = nullptr;   
+
+
+
     std::vector<double> u_weights, b_weights;
     std::vector<double> u1s, u2s, b1s, b2s; // u1 velocity in x, u2 velocity in y; b1, b2: magnetic field in x,y
     std::vector<double> u1s_grad_x, u1s_grad_y;
@@ -88,12 +108,9 @@ struct AMRStructure {
     std::vector<double> B_grad_x_dot_u2_grad;
     std::vector<double> B_grad_y_dot_u1_grad;
 
-
-    std::vector <Panel> old_panels;
-    std::vector<double> old_xs, old_ys, old_w0s, old_j0s;
-
     bool allow_boundary_extrapolation = false;
-    double f_beyond_boundary = 0;
+    double w0_beyond_boundary = 0;
+    double j0_beyond_boundary = 0;
     bool do_unshear = false;
     bool sqrt_f = false;
 
@@ -120,9 +137,9 @@ struct AMRStructure {
 
     // private functions
     int create_prerefined_mesh();
-//     int create_prerefined_mesh_v_refinement();
-    void refine_panels(std::function<double (double,double)> f, bool do_adaptive_refine, int level);
-//     void refine_panels_refine_v(std::function<double (double,double)> f, bool do_adaptive_refine);
+    int create_prerefined_mesh_v_refinement();
+    void refine_panels(std::function<double (double,double)> f, bool do_adaptive_refine, bool is_initial_step);
+    void refine_panels_refine_v(std::function<double (double,double)> f, bool do_adaptive_refine,  bool is_initial_step);
     void test_panel(int panel_ind, bool verbose);
 
     int write_particles_to_file();
@@ -141,20 +158,6 @@ struct AMRStructure {
                 int n_steps_diag,
                 bool do_adaptively_refine_vorticity, double amr_epsilons_vorticity,
                 bool do_adaptively_refine_j, double amr_epsilons_j, double greens_epsilon);
-
-
-        // AMRStructure(std::string sim_dir, distribution* f0, 
-        //         int initial_height, 
-        //         double x_min, double x_max, double v_min, double v_max, 
-        //         ElectricField* calculate_e, int num_steps, double dt);
-
-        // AMRStructure(std::string sim_dir, distribution* f0, 
-        //         double q, double m, 
-        //         int initial_height, int v_height, int max_height, 
-        //         double x_min, double x_max, double v_min, double v_max, 
-        //         BoundaryConditions bcs,
-        //         ElectricField* calculate_e, Quadrature quad, int num_steps, double dt, 
-        //         bool do_adaptively_refine, std::vector<double>& amr_epsilons);
 
         // end constructors
         // destructor
@@ -199,19 +202,19 @@ struct AMRStructure {
         // b1 and b2, use b_weights 
         int evaluate_b_field(std::vector<double>& b1s_local, std::vector<double>& b2s_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
         
-        // gradients evaluation
-        int evaluate_u1s_grad(std::vector<double>& u1s_grad_x_local, std::vector<double>& u1s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
-        int evaluate_u2s_grad(std::vector<double>& u2s_grad_x_local, std::vector<double>& u2s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
-        int evaluate_b1s_grad(std::vector<double>& b1s_grad_x_local, std::vector<double>& b1s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
-        int evaluate_b2s_grad(std::vector<double>& b2s_grad_x_local, std::vector<double>& b2s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        // // gradients evaluation
+        // int evaluate_u1s_grad(std::vector<double>& u1s_grad_x_local, std::vector<double>& u1s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        // int evaluate_u2s_grad(std::vector<double>& u2s_grad_x_local, std::vector<double>& u2s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        // int evaluate_b1s_grad(std::vector<double>& b1s_grad_x_local, std::vector<double>& b1s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        // int evaluate_b2s_grad(std::vector<double>& b2s_grad_x_local, std::vector<double>& b2s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
         
-        // vorticity_gradient and j_gradient
-        int evaluate_vorticity_grad(std::vector<double>& vorticity_grad_x_local, std::vector<double>& vorticity_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
-        int evaluate_j_grad(std::vector<double>& j_grad_x_local, std::vector<double>& j_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        // // vorticity_gradient and j_gradient
+        // int evaluate_vorticity_grad(std::vector<double>& vorticity_grad_x_local, std::vector<double>& vorticity_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        // int evaluate_j_grad(std::vector<double>& j_grad_x_local, std::vector<double>& j_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
         
-        // vorticity_laplacian and j_laplacian
-        int evaluate_vorticity_laplacian(std::vector<double>& vorticity_laplacian_local, std::vector<double>& vorticity_none_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
-        int evaluate_j_laplacian(std::vector<double>& j_laplacian_local, std::vector<double>& j_none_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        // // vorticity_laplacian and j_laplacian
+        // int evaluate_vorticity_laplacian(std::vector<double>& vorticity_laplacian_local, std::vector<double>& vorticity_none_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        // int evaluate_j_laplacian(std::vector<double>& j_laplacian_local, std::vector<double>& j_none_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
         
 
 
@@ -222,8 +225,17 @@ struct AMRStructure {
         int euler();
         // void step(bool get_4th_e);
         int rk4();
-        int compute_rhs_state(std::vector<double>& xs_in, std::vector<double>& ys_in, std::vector<double>& w0s_in,
-                std::vector<double>& j0s_in, double t_in, std::vector<double>& dxs_dt, std::vector<double>& dys_dt, std::vector<double>& dw0s_dt, std::vector<double>& dj0s_dt);
+        // int compute_rhs_state(std::vector<double>& xs_in, std::vector<double>& ys_in, std::vector<double>& w0s_in,
+        //         std::vector<double>& j0s_in, double t_in, std::vector<double>& dxs_dt, std::vector<double>& dys_dt, std::vector<double>& dw0s_dt, std::vector<double>& dj0s_dt);
+
+
+        int  compute_source_S(std::vector<double>& xs_in, std::vector<double>& ys_in,
+                            std::vector<double>& w0s_in, std::vector<double>& j0s_in,
+                            double t_in, std::vector<double>& S_out,
+                            std::vector<double>& u1_out, std::vector<double>& u2_out,
+                            std::vector<double>& b1_out, std::vector<double>& b2_out);
+
+        void set_periodizer(Periodizer* p) { periodizer = p; }
 
         // io
         friend std::ostream& operator<<(std::ostream& os, const AMRStructure& amr);

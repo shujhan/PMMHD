@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
     std::string project_name = deck.get<std::string>("project_name", "no_name_found");
     double x_min = deck.get<double>("xmin", 0.0), x_max = deck.get<double>("xmax", 1.0);
     double y_min = deck.get<double>("ymin", 0.0), y_max = deck.get<double>("ymax", 1.0);
-    int bcs = deck.get<int>("bcs",0); // 0 for periodic bc
+    int bcs = deck.get<int>("bcs",0); // 0 for periodic_xy, 1 for periodic in x, open in y 
     double Lx = x_max - x_min;
     double Ly = y_max - y_min;
     int quad = deck.get<int>("quadrature",0); // 0 for trap rule 
@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
     int max_height = deck.get<int>("max_height", initial_height);
 
     // get treecode parameters
-    double greens_epsilon = deck.get<double>("greens_epsilon", 0.5);
+    double greens_epsilon = deck.get<double>("greens_epsilon", 0.1);
     int use_treecode = deck.get<int>("use_treecode", 0); 
     double mac = deck.get<double>("mac", -1.0);
     int degree = deck.get<int>("degree", -1); 
@@ -142,10 +142,6 @@ int main(int argc, char** argv) {
             break;
 
         case 3: 
-            j0 = new j0_uniform_y();
-            break;
-
-        case 4: 
             j0 = new j0_uniform();
             break;
 
@@ -157,13 +153,36 @@ int main(int argc, char** argv) {
 
 
     // create field solver 
+    periodizer = new Periodizer(x_min, x_max, y_min, y_max, greens_epsilon, calculate_e,
+                    100, 30, 1.5);  // was 80, 30, 1.4
     Field* calculate_field;
-    if (use_treecode > 0) {
-        calculate_field = new U_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
+    if (bcs == 0) { // periodic in xy 
+        periodizer->precompute_Q();
+        KernelMode m = periodic_xy;
+        if (use_treecode > 0) {
+            calculate_field = new U_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
+            calculate_field->set_mode(m);
+            cout << "using treecode: periodic in x and y" << endl;
+        }
+        else {
+            calculate_field = new U_DirectSum(Lx, greens_epsilon);
+            calculate_field->set_mode(m);
+            cout << "using direct sum: periodic in x and y" << endl;
+        }
     }
     else {
-        calculate_field = new U_DirectSum(Lx, greens_epsilon);
+        if (use_treecode > 0) {
+            calculate_field = new U_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
+            cout << "using treecode: periodic in x and open in y" << endl;
+        }
+        else {
+            calculate_field = new U_DirectSum(Lx, greens_epsilon);
+            cout << "using direct sum: periodic in x and open in y" << endl;
+        }
     }
+
+
+
 
     cout << "============================" << endl;
     cout << "Running a FARRSIGHT simulation" << endl;
@@ -172,10 +191,10 @@ int main(int argc, char** argv) {
     cout << x_min << " <= x <= " << x_max << endl;
     cout << y_min << " <= y <= " << y_max << endl;
     switch (bcs) {
-        case 1 : cout << "Using open boundary conditions" << endl;
+        case 1 : cout << "Using periodic in x, open in y boundary conditions" << endl;
             break;
         default : // periodic
-            cout << "Using periodic boundary conditions" << endl;
+            cout << "Using periodic_xy boundary conditions" << endl;
             break;
     }
 
@@ -258,6 +277,7 @@ int main(int argc, char** argv) {
     delete w0;
     delete j0;
     delete calculate_field;
+    delete periodizer;
     return 0;
 }
 

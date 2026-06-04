@@ -51,17 +51,6 @@ void j0_uniform::print() {
     std::cout << "j0_uniform distribution: 1s" << std::endl;
 }
 
-// ---- j0_uniform ----
-j0_uniform_y::j0_uniform_y() {}
-
-double j0_uniform_y::operator()(double x, double y) {
-    return y;
-}
-
-void j0_uniform_y::print() {
-    std::cout << "j0_uniform_y distribution: y" << std::endl;
-}
-
 // ---- current sheet ----
 j0_current_sheet::j0_current_sheet(double kx_j, double amp_j):
     kx(kx_j), amp(amp_j) {}

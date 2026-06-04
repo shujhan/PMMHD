@@ -4,10 +4,15 @@ int AMRStructure::run() {
     while (iter_num < num_steps) {
         step();
     }
+
+    write_to_file();
     return 0;
 }
 
 int AMRStructure::step() {
+    if (iter_num % n_steps_diag == 0) {
+        write_to_file();
+    }
     iter_num += 1;
     std::cout << "step " << iter_num << std::endl;
 
@@ -20,16 +25,7 @@ int AMRStructure::step() {
 
     t += dt;
 
-    // if remesh:
-    if (iter_num % n_steps_remesh == 0) {
-        remesh();
-    }
-
-
-    // if dump : write to file
-    if (iter_num % n_steps_diag == 0) {
-        write_to_file();
-    }
+    remesh();
 
     return 0;
 }
@@ -150,462 +146,30 @@ int AMRStructure::step() {
 
 
 int AMRStructure::euler() {
-    cout << "enter euler" << endl;
-    u1s.assign(xs.size(), 0.0);
-    u2s.assign(xs.size(), 0.0);
-    evaluate_u_field(u1s, u2s, xs, ys, u_weights, t);
+    const int N = (int)xs.size();
 
-    // B evaluation
-    b1s.assign(xs.size(), 0.0);
-    b2s.assign(xs.size(), 0.0);
-    evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
+    // q± at current mesh points
+    q_plus.assign(N, 0.0);  q_minus.assign(N, 0.0);
+    for (int i = 0; i < N; ++i) { q_plus[i]  = w0s[i] + j0s[i];
+                                  q_minus[i] = w0s[i] - j0s[i]; }
 
-    //external field for alfven wave
-    for (size_t i = 0; i < b1s.size(); ++i) {
-        b1s[i] +=  1.0;
+    // RHS at (X_n, t_n): fields + S on the current (structured) mesh
+    std::vector<double> u1(N), u2(N), b1(N), b2(N), S(N);
+    compute_source_S(xs, ys, w0s, j0s, t, S, u1, u2, b1, b2);
+
+    // two copies start co-located on the mesh, advect with U∓B
+    xs_plus = xs;  ys_plus = ys;  xs_minus = xs;  ys_minus = ys;
+    for (int i = 0; i < N; ++i) {
+        xs_plus[i]  += dt * (u1[i] - b1[i]);
+        ys_plus[i]  += dt * (u2[i] - b2[i]);
+        q_plus[i]   += dt * S[i];
+
+        xs_minus[i] += dt * (u1[i] + b1[i]);
+        ys_minus[i] += dt * (u2[i] + b2[i]);
+        q_minus[i]  -= dt * S[i];
     }
-
-    // start interpolation
-    u1s_grad_x.assign(xs.size(), 0.0);
-    u1s_grad_y.assign(xs.size(), 0.0);
-    u2s_grad_x.assign(xs.size(), 0.0);
-    u2s_grad_y.assign(xs.size(), 0.0);
-    b1s_grad_x.assign(xs.size(), 0.0);
-    b1s_grad_y.assign(xs.size(), 0.0);
-    b2s_grad_x.assign(xs.size(), 0.0);
-    b2s_grad_y.assign(xs.size(), 0.0);
-
-    vorticity_grad_x.assign(xs.size(), 0.0);
-    vorticity_grad_y.assign(xs.size(), 0.0);
-    j_grad_x.assign(xs.size(), 0.0);
-    j_grad_y.assign(xs.size(), 0.0);
-
-
-    // for each leaf panel, do centered finite difference
-    for (int panel_ind = 0; panel_ind < panels.size(); panel_ind++) {
-        Panel* panel = &(panels[panel_ind]);
-        // only use leaf panels 
-        if (panel->child_inds_start > -1) {
-            continue;
-        }
-        // cout << "panel " << panel_ind << ": " << endl;
-        const int* panel_point_inds = panel->point_inds;
-        double panel_xs[9], panel_ys[9];
-        double panel_w0s[9], panel_j0s[9];
-        double panel_u1s[9], panel_u2s[9];
-        double panel_b1s[9], panel_b2s[9];
-
-        for (int ii = 0; ii < 9; ++ii) {
-            int pind = panel_point_inds[ii];
-            panel_xs[ii] = xs[pind];
-            panel_ys[ii] = ys[pind];
-            panel_w0s[ii] = w0s[pind];
-            panel_j0s[ii] = j0s[pind];
-            panel_u1s[ii] = u1s[pind];
-            panel_u2s[ii] = u2s[pind];
-            panel_b1s[ii] = b1s[pind];
-            panel_b2s[ii] = b2s[pind];
-        }
-
-        Panel* left_panel = &(panels[panel->left_nbr_ind]);
-        const int* left_panel_point_inds = left_panel->point_inds;
-        double left_panel_w0s[9], left_panel_j0s[9];
-        double left_panel_u1s[9], left_panel_u2s[9];
-        double left_panel_b1s[9], left_panel_b2s[9];
-
-        for (int ii = 0; ii < 9; ++ii) {
-            int pind = left_panel_point_inds[ii];
-            left_panel_w0s[ii] = w0s[pind];
-            left_panel_j0s[ii] = j0s[pind];
-            left_panel_u1s[ii] = u1s[pind];
-            left_panel_u2s[ii] = u2s[pind];
-            left_panel_b1s[ii] = b1s[pind];
-            left_panel_b2s[ii] = b2s[pind];
-        }
-
-        Panel* right_panel = &(panels[panel->right_nbr_ind]);
-        const int* right_panel_point_inds = right_panel->point_inds;
-        double right_panel_w0s[9], right_panel_j0s[9];
-        double right_panel_u1s[9], right_panel_u2s[9];
-        double right_panel_b1s[9], right_panel_b2s[9];
-
-        for (int ii = 0; ii < 9; ++ii) {
-            int pind = right_panel_point_inds[ii];
-            right_panel_w0s[ii] = w0s[pind];
-            right_panel_j0s[ii] = j0s[pind];
-            right_panel_u1s[ii] = u1s[pind];
-            right_panel_u2s[ii] = u2s[pind];
-            right_panel_b1s[ii] = b1s[pind];
-            right_panel_b2s[ii] = b2s[pind];
-        }
-
-        double top_panel_w0s[9], top_panel_j0s[9];
-        double top_panel_u1s[9], top_panel_u2s[9];
-        double top_panel_b1s[9], top_panel_b2s[9];
-        if (panel->top_nbr_ind > -2) {
-            Panel* top_panel = &(panels[panel->top_nbr_ind]);
-            const int* top_panel_point_inds = top_panel->point_inds;
-            for (int ii = 0; ii < 9; ++ii) {
-                int pind = top_panel_point_inds[ii];
-                top_panel_w0s[ii] = w0s[pind];
-                top_panel_j0s[ii] = j0s[pind];
-                top_panel_u1s[ii] = u1s[pind];
-                top_panel_u2s[ii] = u2s[pind];
-                top_panel_b1s[ii] = b1s[pind];
-                top_panel_b2s[ii] = b2s[pind];
-            }
-        }
-
-        double bottom_panel_w0s[9], bottom_panel_j0s[9];
-        double bottom_panel_u1s[9], bottom_panel_u2s[9];
-        double bottom_panel_b1s[9], bottom_panel_b2s[9];
-        if (panel->bottom_nbr_ind > -2) {
-            Panel* bottom_panel = &(panels[panel->bottom_nbr_ind]);
-            const int* bottom_panel_point_inds = bottom_panel->point_inds;
-            for (int ii = 0; ii < 9; ++ii) {
-                int pind = bottom_panel_point_inds[ii];
-                bottom_panel_w0s[ii] = w0s[pind];
-                bottom_panel_j0s[ii] = j0s[pind];
-                bottom_panel_u1s[ii] = u1s[pind];
-                bottom_panel_u2s[ii] = u2s[pind];
-                bottom_panel_b1s[ii] = b1s[pind];
-                bottom_panel_b2s[ii] = b2s[pind];
-            }
-        }
-
-
-        vector<double> dx_j0(9, 0.0);
-        vector<double> dx_w0(9, 0.0);
-        vector<double> dx_u1s(9, 0.0);
-        vector<double> dx_u2s(9, 0.0);
-        vector<double> dx_b1s(9, 0.0);
-        vector<double> dx_b2s(9, 0.0);
-
-        vector<double> dy_j0(9, 0.0);
-        vector<double> dy_w0(9, 0.0);
-        vector<double> dy_u1s(9, 0.0);
-        vector<double> dy_u2s(9, 0.0);
-        vector<double> dy_b1s(9, 0.0);
-        vector<double> dy_b2s(9, 0.0);
-
-        /////////////// j0 /////////////
-        double hx = panel_xs[3]- panel_xs[0];
-        dx_j0[0] = (panel_j0s[3] - left_panel_j0s[3])/(2*hx);
-        dx_j0[3] = (panel_j0s[6] - panel_j0s[0])/(2*hx);
-        dx_j0[6] = (right_panel_j0s[3] - panel_j0s[3])/(2*hx);
-
-        dx_j0[1] = (panel_j0s[4] - left_panel_j0s[4])/(2*hx);
-        dx_j0[4] = (panel_j0s[7] - panel_j0s[1])/(2*hx);
-        dx_j0[7] = (right_panel_j0s[4] - panel_j0s[4])/(2*hx);
-
-        dx_j0[2] = (panel_j0s[5] - left_panel_j0s[5])/(2*hx);
-        dx_j0[5] = (panel_j0s[8] - panel_j0s[2])/(2*hx);
-        dx_j0[8] = (right_panel_j0s[5] - panel_j0s[5])/(2*hx);
-
-        // std::cout << std::fixed << std::setprecision(17);
-        // cout << "ys: " << endl;
-        // cout << panel_ys[0] << ", " << panel_ys[3] << ", " << panel_ys[6] << endl;
-        // cout << panel_ys[1] << ", " << panel_ys[4] << ", " << panel_ys[7] << endl;
-        // cout << panel_ys[2] << ", " << panel_ys[5] << ", " << panel_ys[8] << endl;
-        // cout << "j0s: " << endl;
-        // cout << panel_j0s[0] << ", " << panel_j0s[3] << ", " << panel_j0s[6] << endl;
-        // cout << panel_j0s[1] << ", " << panel_j0s[4] << ", " << panel_j0s[7] << endl;
-        // cout << panel_j0s[2] << ", " << panel_j0s[5] << ", " << panel_j0s[8] << endl;
-        // cout << (panel_j0s[3] - left_panel_j0s[3])<< endl;
-        // cout << (panel_j0s[6] - panel_j0s[0]) << endl;
-        // cout << (right_panel_j0s[3] - panel_j0s[3]) << endl;
-
-        // cout << (panel_j0s[4] - left_panel_j0s[4]) << endl;
-        // cout << (panel_j0s[7] - panel_j0s[1]) << endl;
-        // cout << (right_panel_j0s[4] - panel_j0s[4]) << endl;
-
-        // cout << (panel_j0s[5] - left_panel_j0s[5]) << endl;
-        // cout << (panel_j0s[8] - panel_j0s[2]) << endl;
-        // cout << (right_panel_j0s[5] - panel_j0s[5]) << endl;
-
-
-        double hy = panel_ys[1]- panel_ys[0];
-        if (panel->bottom_nbr_ind> -2) {
-            dy_j0[0] = (panel_j0s[1] - bottom_panel_j0s[1])/(2*hy);
-            dy_j0[3] = (panel_j0s[4] - bottom_panel_j0s[4])/(2*hy);
-            dy_j0[6] = (panel_j0s[7] - bottom_panel_j0s[7])/(2*hy);
-        }
-        else {
-            dy_j0[0] = (-3*(panel_j0s[0] - panel_j0s[1]) + (panel_j0s[1] - panel_j0s[2]))/(2*hy);
-            dy_j0[3] = (-3*(panel_j0s[3] - panel_j0s[4]) + (panel_j0s[4] - panel_j0s[5]))/(2*hy);
-            dy_j0[6] = (-3*(panel_j0s[6] - panel_j0s[7]) + (panel_j0s[7] - panel_j0s[8]))/(2*hy);
-        }
-
-        dy_j0[1] = (panel_j0s[2] - panel_j0s[0])/(2*hy);
-        dy_j0[4] = (panel_j0s[5] - panel_j0s[3])/(2*hy);
-        dy_j0[7] = (panel_j0s[8] - panel_j0s[6])/(2*hy);
-
-        if (panel->top_nbr_ind> -2) {
-            dy_j0[2] = (top_panel_j0s[1] - panel_j0s[1])/(2*hy);
-            dy_j0[5] = (top_panel_j0s[4] - panel_j0s[4])/(2*hy);
-            dy_j0[8] = (top_panel_j0s[7] - panel_j0s[7])/(2*hy);
-        }
-        else {
-            dy_j0[2] = (-3*(panel_j0s[0] - panel_j0s[1]) + (panel_j0s[1] - panel_j0s[2]))/(2*hy);
-            dy_j0[5] = (-3*(panel_j0s[3] - panel_j0s[4]) + (panel_j0s[4] - panel_j0s[5]))/(2*hy);
-            dy_j0[8] = (-3*(panel_j0s[6] - panel_j0s[7]) + (panel_j0s[7] - panel_j0s[8]))/(2*hy);
-        }
-
-
-        //////////// w0 ///////////////
-        dx_w0[0] = (panel_w0s[3] - left_panel_w0s[3])/(2*hx);
-        dx_w0[3] = (panel_w0s[6] - panel_w0s[0])/(2*hx);
-        dx_w0[6] = (right_panel_w0s[3] - panel_w0s[3])/(2*hx);
-
-        dx_w0[1] = (panel_w0s[4] - left_panel_w0s[4])/(2*hx);
-        dx_w0[4] = (panel_w0s[7] - panel_w0s[1])/(2*hx);
-        dx_w0[7] = (right_panel_w0s[4] - panel_w0s[4])/(2*hx);
-
-        dx_w0[2] = (panel_w0s[5] - left_panel_w0s[5])/(2*hx);
-        dx_w0[5] = (panel_w0s[8] - panel_w0s[2])/(2*hx);
-        dx_w0[8] = (right_panel_w0s[5] - panel_w0s[5])/(2*hx);
-    
-        if (panel->bottom_nbr_ind> -2) {
-            dy_w0[0] = (panel_w0s[1] - bottom_panel_w0s[1])/(2*hy);
-            dy_w0[3] = (panel_w0s[4] - bottom_panel_w0s[4])/(2*hy);
-            dy_w0[6] = (panel_w0s[7] - bottom_panel_w0s[7])/(2*hy);
-        }
-        else {
-            dy_w0[0] = (-3*(panel_w0s[0] - panel_w0s[1]) + (panel_w0s[1] - panel_w0s[2]))/(2*hy);
-            dy_w0[3] = (-3*(panel_w0s[3] - panel_w0s[4]) + (panel_w0s[4] - panel_w0s[5]))/(2*hy);
-            dy_w0[6] = (-3*(panel_w0s[6] - panel_w0s[7]) + (panel_w0s[7] - panel_w0s[8]))/(2*hy);
-        }
-
-        dy_w0[1] = (panel_w0s[2] - panel_w0s[0])/(2*hy);
-        dy_w0[4] = (panel_w0s[5] - panel_w0s[3])/(2*hy);
-        dy_w0[7] = (panel_w0s[8] - panel_w0s[6])/(2*hy);
-
-        if (panel->top_nbr_ind> -2) {
-            dy_w0[2] = (top_panel_w0s[1] - panel_w0s[1])/(2*hy);
-            dy_w0[5] = (top_panel_w0s[4] - panel_w0s[4])/(2*hy);
-            dy_w0[8] = (top_panel_w0s[7] - panel_w0s[7])/(2*hy);
-        }
-        else {
-            dy_w0[2] = (-3*(panel_w0s[0] - panel_w0s[1]) + (panel_w0s[1] - panel_w0s[2]))/(2*hy);
-            dy_w0[5] = (-3*(panel_w0s[3] - panel_w0s[4]) + (panel_w0s[4] - panel_w0s[5]))/(2*hy);
-            dy_w0[8] = (-3*(panel_w0s[6] - panel_w0s[7]) + (panel_w0s[7] - panel_w0s[8]))/(2*hy);
-        }
-
-    
-        
-        //////////// u1s ///////////////
-        dx_u1s[0] = (panel_u1s[3] - left_panel_u1s[3])/(2*hx);
-        dx_u1s[3] = (panel_u1s[6] - panel_u1s[0])/(2*hx);
-        dx_u1s[6] = (right_panel_u1s[3] - panel_u1s[3])/(2*hx);
-
-        dx_u1s[1] = (panel_u1s[4] - left_panel_u1s[4])/(2*hx);
-        dx_u1s[4] = (panel_u1s[7] - panel_u1s[1])/(2*hx);
-        dx_u1s[7] = (right_panel_u1s[4] - panel_u1s[4])/(2*hx);
-
-        dx_u1s[2] = (panel_u1s[5] - left_panel_u1s[5])/(2*hx);
-        dx_u1s[5] = (panel_u1s[8] - panel_u1s[2])/(2*hx);
-        dx_u1s[8] = (right_panel_u1s[5] - panel_u1s[5])/(2*hx);
-    
-        if (panel->bottom_nbr_ind> -2) {
-            dy_u1s[0] = (panel_u1s[1] - bottom_panel_u1s[1])/(2*hy);
-            dy_u1s[3] = (panel_u1s[4] - bottom_panel_u1s[4])/(2*hy);
-            dy_u1s[6] = (panel_u1s[7] - bottom_panel_u1s[7])/(2*hy);
-        }
-        else {
-            dy_u1s[0] = (-3*(panel_u1s[0] - panel_u1s[1]) + (panel_u1s[1] - panel_u1s[2]))/(2*hy);
-            dy_u1s[3] = (-3*(panel_u1s[3] - panel_u1s[4]) + (panel_u1s[4] - panel_u1s[5]))/(2*hy);
-            dy_u1s[6] = (-3*(panel_u1s[6] - panel_u1s[7]) + (panel_u1s[7] - panel_u1s[8]))/(2*hy);
-        }
-
-        dy_u1s[1] = (panel_u1s[2] - panel_u1s[0])/(2*hy);
-        dy_u1s[4] = (panel_u1s[5] - panel_u1s[3])/(2*hy);
-        dy_u1s[7] = (panel_u1s[8] - panel_u1s[6])/(2*hy);
-
-        if (panel->top_nbr_ind> -2) {
-            dy_u1s[2] = (top_panel_u1s[1] - panel_u1s[1])/(2*hy);
-            dy_u1s[5] = (top_panel_u1s[4] - panel_u1s[4])/(2*hy);
-            dy_u1s[8] = (top_panel_u1s[7] - panel_u1s[7])/(2*hy);
-        }
-        else {
-            dy_u1s[2] = (-3*(panel_u1s[0] - panel_u1s[1]) + (panel_u1s[1] - panel_u1s[2]))/(2*hy);
-            dy_u1s[5] = (-3*(panel_u1s[3] - panel_u1s[4]) + (panel_u1s[4] - panel_u1s[5]))/(2*hy);
-            dy_u1s[8] = (-3*(panel_u1s[6] - panel_u1s[7]) + (panel_u1s[7] - panel_u1s[8]))/(2*hy);
-        }
-        
-        
-        //////////// u2s ///////////////
-        dx_u2s[0] = (panel_u2s[3] - left_panel_u2s[3])/(2*hx);
-        dx_u2s[3] = (panel_u2s[6] - panel_u2s[0])/(2*hx);
-        dx_u2s[6] = (right_panel_u2s[3] - panel_u2s[3])/(2*hx);
-
-        dx_u2s[1] = (panel_u2s[4] - left_panel_u2s[4])/(2*hx);
-        dx_u2s[4] = (panel_u2s[7] - panel_u2s[1])/(2*hx);
-        dx_u2s[7] = (right_panel_u2s[4] - panel_u2s[4])/(2*hx);
-
-        dx_u2s[2] = (panel_u2s[5] - left_panel_u2s[5])/(2*hx);
-        dx_u2s[5] = (panel_u2s[8] - panel_u2s[2])/(2*hx);
-        dx_u2s[8] = (right_panel_u2s[5] - panel_u2s[5])/(2*hx);
-    
-        if (panel->bottom_nbr_ind> -2) {
-            dy_u2s[0] = (panel_u2s[1] - bottom_panel_u2s[1])/(2*hy);
-            dy_u2s[3] = (panel_u2s[4] - bottom_panel_u2s[4])/(2*hy);
-            dy_u2s[6] = (panel_u2s[7] - bottom_panel_u2s[7])/(2*hy);
-        }
-        else {
-            dy_u2s[0] = (-3*(panel_u2s[0] - panel_u2s[1]) + (panel_u2s[1] - panel_u2s[2]))/(2*hy);
-            dy_u2s[3] = (-3*(panel_u2s[3] - panel_u2s[4]) + (panel_u2s[4] - panel_u2s[5]))/(2*hy);
-            dy_u2s[6] = (-3*(panel_u2s[6] - panel_u2s[7]) + (panel_u2s[7] - panel_u2s[8]))/(2*hy);
-        }
-
-        dy_u2s[1] = (panel_u2s[2] - panel_u2s[0])/(2*hy);
-        dy_u2s[4] = (panel_u2s[5] - panel_u2s[3])/(2*hy);
-        dy_u2s[7] = (panel_u2s[8] - panel_u2s[6])/(2*hy);
-
-        if (panel->top_nbr_ind> -2) {
-            dy_u2s[2] = (top_panel_u2s[1] - panel_u2s[1])/(2*hy);
-            dy_u2s[5] = (top_panel_u2s[4] - panel_u2s[4])/(2*hy);
-            dy_u2s[8] = (top_panel_u2s[7] - panel_u2s[7])/(2*hy);
-        }
-        else {
-            dy_u2s[2] = (-3*(panel_u2s[0] - panel_u2s[1]) + (panel_u2s[1] - panel_u2s[2]))/(2*hy);
-            dy_u2s[5] = (-3*(panel_u2s[3] - panel_u2s[4]) + (panel_u2s[4] - panel_u2s[5]))/(2*hy);
-            dy_u2s[8] = (-3*(panel_u2s[6] - panel_u2s[7]) + (panel_u2s[7] - panel_u2s[8]))/(2*hy);
-        }
-
-
-
-        //////////// b1s ///////////////
-        dx_b1s[0] = (panel_b1s[3] - left_panel_b1s[3])/(2*hx);
-        dx_b1s[3] = (panel_b1s[6] - panel_b1s[0])/(2*hx);
-        dx_b1s[6] = (right_panel_b1s[3] - panel_b1s[3])/(2*hx);
-
-        dx_b1s[1] = (panel_b1s[4] - left_panel_b1s[4])/(2*hx);
-        dx_b1s[4] = (panel_b1s[7] - panel_b1s[1])/(2*hx);
-        dx_b1s[7] = (right_panel_b1s[4] - panel_b1s[4])/(2*hx);
-
-        dx_b1s[2] = (panel_b1s[5] - left_panel_b1s[5])/(2*hx);
-        dx_b1s[5] = (panel_b1s[8] - panel_b1s[2])/(2*hx);
-        dx_b1s[8] = (right_panel_b1s[5] - panel_b1s[5])/(2*hx);
-    
-        if (panel->bottom_nbr_ind> -2) {
-            dy_b1s[0] = (panel_b1s[1] - bottom_panel_b1s[1])/(2*hy);
-            dy_b1s[3] = (panel_b1s[4] - bottom_panel_b1s[4])/(2*hy);
-            dy_b1s[6] = (panel_b1s[7] - bottom_panel_b1s[7])/(2*hy);
-        }
-        else {
-            dy_b1s[0] = (-3*(panel_b1s[0] - panel_b1s[1]) + (panel_b1s[1] - panel_b1s[2]))/(2*hy);
-            dy_b1s[3] = (-3*(panel_b1s[3] - panel_b1s[4]) + (panel_b1s[4] - panel_b1s[5]))/(2*hy);
-            dy_b1s[6] = (-3*(panel_b1s[6] - panel_b1s[7]) + (panel_b1s[7] - panel_b1s[8]))/(2*hy);
-        }
-
-        dy_b1s[1] = (panel_b1s[2] - panel_b1s[0])/(2*hy);
-        dy_b1s[4] = (panel_b1s[5] - panel_b1s[3])/(2*hy);
-        dy_b1s[7] = (panel_b1s[8] - panel_b1s[6])/(2*hy);
-
-        if (panel->top_nbr_ind> -2) {
-            dy_b1s[2] = (top_panel_b1s[1] - panel_b1s[1])/(2*hy);
-            dy_b1s[5] = (top_panel_b1s[4] - panel_b1s[4])/(2*hy);
-            dy_b1s[8] = (top_panel_b1s[7] - panel_b1s[7])/(2*hy);
-        }
-        else {
-            dy_b1s[2] = (-3*(panel_b1s[0] - panel_b1s[1]) + (panel_b1s[1] - panel_b1s[2]))/(2*hy);
-            dy_b1s[5] = (-3*(panel_b1s[3] - panel_b1s[4]) + (panel_b1s[4] - panel_b1s[5]))/(2*hy);
-            dy_b1s[8] = (-3*(panel_b1s[6] - panel_b1s[7]) + (panel_b1s[7] - panel_b1s[8]))/(2*hy);
-        }
-
-
-        //////////// b2s ///////////////
-        dx_b2s[0] = (panel_b2s[3] - left_panel_b2s[3])/(2*hx);
-        dx_b2s[3] = (panel_b2s[6] - panel_b2s[0])/(2*hx);
-        dx_b2s[6] = (right_panel_b2s[3] - panel_b2s[3])/(2*hx);
-
-        dx_b2s[1] = (panel_b2s[4] - left_panel_b2s[4])/(2*hx);
-        dx_b2s[4] = (panel_b2s[7] - panel_b2s[1])/(2*hx);
-        dx_b2s[7] = (right_panel_b2s[4] - panel_b2s[4])/(2*hx);
-
-        dx_b2s[2] = (panel_b2s[5] - left_panel_b2s[5])/(2*hx);
-        dx_b2s[5] = (panel_b2s[8] - panel_b2s[2])/(2*hx);
-        dx_b2s[8] = (right_panel_b2s[5] - panel_b2s[5])/(2*hx);
-    
-        if (panel->bottom_nbr_ind> -2) {
-            dy_b2s[0] = (panel_b2s[1] - bottom_panel_b2s[1])/(2*hy);
-            dy_b2s[3] = (panel_b2s[4] - bottom_panel_b2s[4])/(2*hy);
-            dy_b2s[6] = (panel_b2s[7] - bottom_panel_b2s[7])/(2*hy);
-        }
-        else {
-            dy_b2s[0] = (-3*(panel_b2s[0] - panel_b2s[1]) + (panel_b2s[1] - panel_b2s[2]))/(2*hy);
-            dy_b2s[3] = (-3*(panel_b2s[3] - panel_b2s[4]) + (panel_b2s[4] - panel_b2s[5]))/(2*hy);
-            dy_b2s[6] = (-3*(panel_b2s[6] - panel_b2s[7]) + (panel_b2s[7] - panel_b2s[8]))/(2*hy);
-        }
-
-        dy_b2s[1] = (panel_b2s[2] - panel_b2s[0])/(2*hy);
-        dy_b2s[4] = (panel_b2s[5] - panel_b2s[3])/(2*hy);
-        dy_b2s[7] = (panel_b2s[8] - panel_b2s[6])/(2*hy);
-
-        if (panel->top_nbr_ind> -2) {
-            dy_b2s[2] = (top_panel_b2s[1] - panel_b2s[1])/(2*hy);
-            dy_b2s[5] = (top_panel_b2s[4] - panel_b2s[4])/(2*hy);
-            dy_b2s[8] = (top_panel_b2s[7] - panel_b2s[7])/(2*hy);
-        }
-        else {
-            dy_b2s[2] = (-3*(panel_b2s[0] - panel_b2s[1]) + (panel_b2s[1] - panel_b2s[2]))/(2*hy);
-            dy_b2s[5] = (-3*(panel_b2s[3] - panel_b2s[4]) + (panel_b2s[4] - panel_b2s[5]))/(2*hy);
-            dy_b2s[8] = (-3*(panel_b2s[6] - panel_b2s[7]) + (panel_b2s[7] - panel_b2s[8]))/(2*hy);
-        }
-
-        for (int ii = 0; ii < 9; ++ii) {
-            int pind = panel_point_inds[ii];
-            vorticity_grad_x[pind] = dx_w0[ii];
-            j_grad_x[pind]         = dx_j0[ii];
-            u1s_grad_x[pind]       = dx_u1s[ii];
-            u2s_grad_x[pind]       = dx_u2s[ii];
-            b1s_grad_x[pind]       = dx_b1s[ii];
-            b2s_grad_x[pind]       = dx_b2s[ii];
-
-            vorticity_grad_y[pind] = dy_w0[ii];
-            j_grad_y[pind]         = dy_j0[ii];
-            u1s_grad_y[pind]       = dy_u1s[ii];
-            u2s_grad_y[pind]       = dy_u2s[ii]; 
-            b1s_grad_y[pind]       = dy_b1s[ii];
-            b2s_grad_y[pind]       = dy_b2s[ii];
-        }
-
-    }
-
-    // calculate source terms
-    B_dot_grad_j.assign(xs.size(), 0.0);
-    for (int i = 0; i < xs.size(); ++i) {
-        B_dot_grad_j[i] = b1s[i] * j_grad_x[i] + b2s[i] * j_grad_y[i];
-    }
-
-    B_dot_grad_vorticity.assign(xs.size(), 0.0);
-    for (int i = 0; i < xs.size(); ++i) {
-        B_dot_grad_vorticity[i] = b1s[i] * vorticity_grad_x[i] + b2s[i] * vorticity_grad_y[i];
-    }
-
-    B_grad_x_dot_u2_grad.assign(xs.size(), 0.0);
-    for (int i = 0; i < xs.size(); ++i) {
-        B_grad_x_dot_u2_grad[i] = b1s_grad_x[i] * u2s_grad_x[i] + b2s_grad_x[i] * u2s_grad_y[i];
-    }
-
-    B_grad_y_dot_u1_grad.assign(xs.size(), 0.0);
-    for (int i = 0; i < xs.size(); ++i) {
-        B_grad_y_dot_u1_grad[i] = b1s_grad_y[i] * u1s_grad_x[i] + b2s_grad_y[i] * u1s_grad_y[i];
-    }
-    // start pushing, particle position, vorticity and current density 
-    for (int i = 0; i < xs.size(); i++) {
-        xs[i] += dt * u1s[i];
-        ys[i] += dt * u2s[i];
-        w0s[i] += dt * (nu * vorticity_laplacian[i] + B_dot_grad_j[i]);
-        j0s[i] += dt * (mu * j_laplacian[i] + B_dot_grad_vorticity[i] + 2 * B_grad_x_dot_u2_grad[i] - 2 * B_grad_y_dot_u1_grad[i]);
-        // cout << "B_dot_grad_j: " << B_dot_grad_j[i] << endl;
-        // cout << " B_dot_grad_vorticity: " <<  B_dot_grad_vorticity[i] << endl;
-    
-    }
-
     return 0;
 }
-
 
 
 
@@ -712,46 +276,13 @@ int AMRStructure::rk4() {
 
 
 
-
-int AMRStructure::compute_rhs_state(
-    std::vector<double>& xs_in,
-    std::vector<double>& ys_in,
-    std::vector<double>& w0s_in,
-    std::vector<double>& j0s_in,
-    double t_in,
-    std::vector<double>& dxs_dt,
-    std::vector<double>& dys_dt,
-    std::vector<double>& dw0s_dt,
-    std::vector<double>& dj0s_dt
+int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<double>& ys_in,
+                            std::vector<double>& w0s_in, std::vector<double>& j0s_in,
+                            double t_in, std::vector<double>& S_out,
+                            std::vector<double>& u1_out, std::vector<double>& u2_out,
+                            std::vector<double>& b1_out, std::vector<double>& b2_out
 ) {
-    cout << "enter compute_rhs_state" << endl;
-
-    // ------------------------------------------------------------
-    // backup current member state
-    // ------------------------------------------------------------
-    // std::vector<double> xs_backup  = xs;
-    // std::vector<double> ys_backup  = ys;
-    // std::vector<double> w0s_backup = w0s;
-    // std::vector<double> j0s_backup = j0s;
-    // double t_backup = t;
-
-    // ------------------------------------------------------------
-    // load stage state into member arrays
-    // ------------------------------------------------------------
-    // xs  = xs_in;
-    // ys  = ys_in;
-    // w0s = w0s_in;
-    // j0s = j0s_in;
-    // t   = t_in;
-
-    // ------------------------------------------------------------
-    // IMPORTANT:
-    // If your vorticity_laplacian and j_laplacian depend on the
-    // current stage state, recompute them HERE before using them.
-    //
-    // Example (replace with your actual routine if needed):
-    // compute_laplacian_terms();
-    // ------------------------------------------------------------
+    cout << "enter compute_source" << endl;
 
     // velocity evaluation
     u1s.assign(xs.size(), 0.0);
@@ -762,9 +293,9 @@ int AMRStructure::compute_rhs_state(
     b1s.assign(xs.size(), 0.0);
     b2s.assign(xs.size(), 0.0);
     evaluate_b_field(b1s, b2s, xs_in, ys_in, b_weights, t_in);
-    for (size_t i = 0; i < b1s.size(); ++i) {
-        b1s[i] += 1.0;
-    }
+    // for (size_t i = 0; i < b1s.size(); ++i) {
+    //     b1s[i] += 1.0;
+    // }
 
     // start interpolation
     u1s_grad_x.assign(xs.size(), 0.0);
@@ -843,19 +374,32 @@ int AMRStructure::compute_rhs_state(
         double top_panel_w0s[9], top_panel_j0s[9];
         double top_panel_u1s[9], top_panel_u2s[9];
         double top_panel_b1s[9], top_panel_b2s[9];
-        if (panel->top_nbr_ind > -2) {
+
+        if (bcs == 0) {
             Panel* top_panel = &(panels[panel->top_nbr_ind]);
             const int* top_panel_point_inds = top_panel->point_inds;
             for (int ii = 0; ii < 9; ++ii) {
                 int pind = top_panel_point_inds[ii];
-                top_panel_w0s[ii] = w0s[pind];
-                top_panel_j0s[ii] = j0s[pind];
-                top_panel_u1s[ii] = u1s[pind];
-                top_panel_u2s[ii] = u2s[pind];
-                top_panel_b1s[ii] = b1s[pind];
-                top_panel_b2s[ii] = b2s[pind];
+                top_panel_u1s[ii] = u1s_in[pind];
+                top_panel_u2s[ii] = u2s_in[pind];
+                top_panel_b1s[ii] = b1s_in[pind];
+                top_panel_b2s[ii] = b2s_in[pind];
             }
         }
+        else {
+            if (panel->top_nbr_ind > -2) {
+                Panel* top_panel = &(panels[panel->top_nbr_ind]);
+                const int* top_panel_point_inds = top_panel->point_inds;
+                for (int ii = 0; ii < 9; ++ii) {
+                    int pind = top_panel_point_inds[ii];
+                    top_panel_u1s[ii] = u1s_in[pind];
+                    top_panel_u2s[ii] = u2s_in[pind];
+                    top_panel_b1s[ii] = b1s_in[pind];
+                    top_panel_b2s[ii] = b2s_in[pind];
+                }
+            }
+        }
+
 
         double bottom_panel_w0s[9], bottom_panel_j0s[9];
         double bottom_panel_u1s[9], bottom_panel_u2s[9];
@@ -1179,14 +723,29 @@ int AMRStructure::compute_rhs_state(
                    - 2.0 * B_grad_y_dot_u1_grad[i];
     }
 
-    // ------------------------------------------------------------
-    // restore original member state
-    // ------------------------------------------------------------
-    // xs  = xs_backup;
-    // ys  = ys_backup;
-    // w0s = w0s_backup;
-    // j0s = j0s_backup;
-    // t   = t_backup;
+    // S term (same as two-panel)
+    S_out.assign(xs.size(), 0.0);
+    for (int i = 0; i < xs.size(); ++i) {
+        S_out[i] = 2.0 * (b1s_grad_x[i]*u2s_grad_x[i] + b2s_grad_x[i]*u2s_grad_y[i])
+                 - 2.0 * (b1s_grad_y[i]*u1s_grad_x[i] + b2s_grad_y[i]*u1s_grad_y[i]);
+    }
+    // hand U, B back so the caller can build U∓B
+    u1_out = u1s;  u2_out = u2s;  b1_out = b1s;  b2_out = b2s;
 
     return 0;
+}
+
+
+
+
+// given probe (xs_p,ys_p,q_p) and (xs_m,ys_m,q_m), recover (w,j) at the probe
+// grid and refresh weights, so the NEXT compute_source_S sees correct fields.
+void stage_recover(/* probe arrays */) {
+    // save the two probe copies as the deformed "old" meshes
+    old_panels = panels;                       // connectivity unchanged
+    old_xs_plus = xs_p;  old_ys_plus = ys_p;  old_q_plus  = q_p;
+    old_xs_minus= xs_m;  old_ys_minus= ys_m;  old_q_minus = q_m;
+    // interpolate both onto the SAME structured grid and recover w,j
+    remesh_recover_only();   // = create_prerefined_mesh + interp q± + recover_wj
+    set_leaves_weights();    // rebuild u_weights = weights*w0s, b_weights = weights*j0s
 }
