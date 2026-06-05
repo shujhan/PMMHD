@@ -27,6 +27,7 @@ int AMRStructure::step() {
     t += dt;
 
     remesh();
+    init_fields();
 
     return 0;
 }
@@ -41,6 +42,11 @@ int AMRStructure::init_fields() {
     b2s.assign(xs.size(), 0.0);
     evaluate_u_field(u1s, u2s, xs, ys, u_weights, t);
     evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
+
+    for (size_t i = 0; i < xs.size(); ++i) {
+        b1s[i] += B0x;
+        b2s[i] += B0y;
+    }
     return 0;
 }
 
@@ -159,32 +165,20 @@ int AMRStructure::init_fields() {
 int AMRStructure::euler() {
     const int N = (int)xs.size();
 
-    // // q± at current mesh points
-    // q_plus.assign(N, 0.0);  q_minus.assign(N, 0.0);
-    // for (int i = 0; i < N; ++i) { q_plus[i]  = w0s[i] + j0s[i];
-    //                               q_minus[i] = w0s[i] - j0s[i]; }
-
     // RHS at (X_n, t_n): fields + S on the current (structured) mesh
-    std::vector<double> u1(N), u2(N), b1(N), b2(N), S(N);
+    std::vector<double> S(N);
 
-    // if (iter_num <= 1) {
-    //     u1 = u1s;
-    //     u2 = u2s;
-    //     b1 = b1s;
-    //     b2 = b2s;
-    // }
-
-    compute_source_S(xs, ys, w0s, j0s, t, S, u1, u2, b1, b2);
+    compute_source_S(xs, ys, w0s, j0s, t, S);
 
     // two copies start co-located on the mesh, advect with U∓B
     xs_plus = xs;  ys_plus = ys;  xs_minus = xs;  ys_minus = ys;
     for (int i = 0; i < N; ++i) {
-        xs_plus[i]  += dt * (u1[i] - b1[i]);
-        ys_plus[i]  += dt * (u2[i] - b2[i]);
+        xs_plus[i]  += dt * (u1s[i] - b1s[i]);
+        ys_plus[i]  += dt * (u2s[i] - b2s[i]);
         q_plus[i]   += dt * S[i];
 
-        xs_minus[i] += dt * (u1[i] + b1[i]);
-        ys_minus[i] += dt * (u2[i] + b2[i]);
+        xs_minus[i] += dt * (u1s[i] + b1s[i]);
+        ys_minus[i] += dt * (u2s[i] + b2s[i]);
         q_minus[i]  -= dt * S[i];
     }
     return 0;
@@ -307,24 +301,9 @@ int AMRStructure::rk4() {
 
 int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<double>& ys_in,
                             std::vector<double>& w0s_in, std::vector<double>& j0s_in,
-                            double t_in, std::vector<double>& S_out,
-                            std::vector<double>& u1_out, std::vector<double>& u2_out,
-                            std::vector<double>& b1_out, std::vector<double>& b2_out
+                            double t_in, std::vector<double>& S_out
 ) {
     cout << "enter compute_source" << endl;
-
-    // velocity evaluation
-    u1s.assign(xs.size(), 0.0);
-    u2s.assign(xs.size(), 0.0);
-    evaluate_u_field(u1s, u2s, xs_in, ys_in, u_weights, t_in);
-
-    // B evaluation
-    b1s.assign(xs.size(), 0.0);
-    b2s.assign(xs.size(), 0.0);
-    evaluate_b_field(b1s, b2s, xs_in, ys_in, b_weights, t_in);
-    // for (size_t i = 0; i < b1s.size(); ++i) {
-    //     b1s[i] += 1.0;
-    // }
 
     // start interpolation
     u1s_grad_x.assign(xs.size(), 0.0);
@@ -724,8 +703,6 @@ int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<doub
         S_out[i] = 2.0 * (b1s_grad_x[i]*u2s_grad_x[i] + b2s_grad_x[i]*u2s_grad_y[i])
                  - 2.0 * (b1s_grad_y[i]*u1s_grad_x[i] + b2s_grad_y[i]*u1s_grad_y[i]);
     }
-    // hand U, B back so the caller can build U∓B
-    u1_out = u1s;  u2_out = u2s;  b1_out = b1s;  b2_out = b2s;
 
     return 0;
 }

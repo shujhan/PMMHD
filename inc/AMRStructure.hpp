@@ -160,6 +160,7 @@ struct AMRStructure {
                 double x_min, double x_max, double y_min, double y_max, 
                 int bcs, Field* calculate_e,
                 int quad, int num_steps, double dt, int method,
+                double B0x, double B0y,
                 int n_steps_remesh,
                 int n_steps_diag,
                 bool do_adaptively_refine_vorticity, double amr_epsilons_vorticity,
@@ -238,9 +239,7 @@ struct AMRStructure {
 
         int  compute_source_S(std::vector<double>& xs_in, std::vector<double>& ys_in,
                             std::vector<double>& w0s_in, std::vector<double>& j0s_in,
-                            double t_in, std::vector<double>& S_out,
-                            std::vector<double>& u1_out, std::vector<double>& u2_out,
-                            std::vector<double>& b1_out, std::vector<double>& b2_out);
+                            double t_in, std::vector<double>& S_out);
 
         void set_periodizer(Periodizer* p) { periodizer = p; }
 

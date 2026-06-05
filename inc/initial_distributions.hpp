@@ -35,6 +35,32 @@ class w0_alfven : public distribution {
 };
 
 
+class w0_polarized_alfven : public distribution {
+    public:
+        w0_polarized_alfven(double kx_w, double ky_w, double amp_w);
+        double operator() (double x, double y);
+        void print();
+    double kx;
+    double ky;
+    double k_norm;
+    double amp;
+};
+
+class w0_orszag_tang : public distribution {
+    public:
+        w0_orszag_tang(double kx_w, double ky_w, double amp_w);
+        double operator() (double x, double y);
+        void print();
+    double kx;
+    double ky;
+    double amp;
+};
+
+
+
+
+
+
 
 class j0_uniform : public distribution {
     public:
@@ -63,6 +89,29 @@ class j0_alfven: public distribution {
         double operator() (double x, double y);
         void print();
     double kx;
+    double amp;
+};
+
+
+class j0_polarized_alfven : public distribution {
+    public:
+        j0_polarized_alfven(double kx_j, double ky_j, double amp_j);
+        double operator() (double x, double y);
+        void print();
+    double kx;
+    double ky;
+    double k_norm;
+    double amp;
+};
+
+
+class j0_orszag_tang : public distribution {
+    public:
+        j0_orszag_tang(double kx_j, double ky_j, double amp_j);
+        double operator() (double x, double y);
+        void print();
+    double kx;
+    double ky;
     double amp;
 };
 

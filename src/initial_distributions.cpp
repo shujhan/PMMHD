@@ -36,6 +36,35 @@ void w0_alfven::print() {
 }
 
 
+// ---- w0_polarized_alfven----
+w0_polarized_alfven::w0_polarized_alfven(double kx_w, double ky_w, double amp_w):
+    kx(kx_w), ky(ky_w), amp(amp_w) {
+        k_norm = sqrt(kx*kx + ky*ky);
+    }
+
+double w0_polarized_alfven::operator()(double x, double y) {
+    return amp * k_norm * cos(kx * x + ky* y);
+}
+
+void w0_polarized_alfven::print() {
+    std::cout << "w0_polarized_alfven: amp * k_norm * cos(kx * x + ky * y)" << std::endl;
+}
+
+
+
+// ---- w0_orszag_tang ----
+w0_orszag_tang::w0_orszag_tang(double kx_w, double ky_w, double amp_w):
+    kx(kx_w), ky(ky_w), amp(amp_w) {}
+
+double w0_orszag_tang::operator()(double x, double y) {
+    return amp * (cos(kx * x) + cos(ky * y));
+}
+
+void w0_orszag_tang::print() {
+    std::cout << "w0_orszag_tang: amp * (cos(kx * x) + cos(ky * y))" << std::endl;
+}
+
+
 
 
 
@@ -76,3 +105,36 @@ double j0_alfven::operator()(double x, double y) {
 void j0_alfven::print() {
     std::cout << "j0_alfven distribution: -1.0 * amp * kx * sin(kx * x)" << std::endl;
 }
+
+
+// ---- j0_polarized_alfven----
+j0_polarized_alfven::j0_polarized_alfven(double kx_j, double ky_j, double amp_j):
+    kx(kx_j), ky(ky_j), amp(amp_j) {
+        k_norm = sqrt(kx*kx + ky*ky);
+    }
+
+double j0_polarized_alfven::operator()(double x, double y) {
+    return amp * k_norm * cos(kx* x + ky* y);
+}
+
+void j0_polarized_alfven::print() {
+    std::cout << "j0_polarized_alfven: amp * k_norm * cos(kx * x + ky * y)" << std::endl;
+}
+
+
+// ---- j0_orszag_tang ----
+j0_orszag_tang::j0_orszag_tang(double kx_j, double ky_j, double amp_j):
+    kx(kx_j), ky(ky_j), amp(amp_j) {}
+
+double j0_orszag_tang::operator()(double x, double y) {
+    return amp * (cos(kx * x) + 2 * cos(ky * y));
+}
+
+void j0_orszag_tang::print() {
+    std::cout << "j0_orszag_tang: amp * (cos(kx * x) + cos(ky * y))" << std::endl;
+}
+
+
+
+
+

@@ -87,15 +87,20 @@ int main(int argc, char** argv) {
     int n_steps_diag = deck.get<int>("diag_period", 1); 
     double dt = deck.get<double> ("dt", 0.5);
     int method = deck.get<int> ("method", 0);  // 0 is RK4, 1 is euler 
+
+    // get uniform B field 
+    double B0x = deck.get<double> ("B0x", 0.0);
+    double B0y = deck.get<double> ("B0y", 0.0);
+
     
     // get vorticity and current density distribution parameters 
-
     pt::ptree &initial_list_deck = deck.get_child("initial_list");
     auto it = initial_list_deck.begin();
 
     // get vorticity
     pt::ptree &vorticity_dk = it->second;
     double kx_vorticity = 2.0 * M_PI / Lx * vorticity_dk.get<double>("normalized_wavenumber",1.0);
+    double ky_vorticity = 2.0 * M_PI / Ly * vorticity_dk.get<double>("normalized_wavenumber_y",1.0);
     double amp_vorticity = vorticity_dk.get<double>("amp", 0.0);
     int ics_type_vorticity = vorticity_dk.get<int>("ics_type", 1);
     bool do_adaptively_refine_vorticity = vorticity_dk.get<bool> ("adaptively_refine", false);
@@ -105,6 +110,7 @@ int main(int argc, char** argv) {
     ++it; 
     pt::ptree &current_density_dk = it->second;
     double kx_j = 2.0 * M_PI / Lx * current_density_dk.get<double>("normalized_wavenumber",1.0);
+    double ky_j = 2.0 * M_PI / Ly * current_density_dk.get<double>("normalized_wavenumber_y",1.0);
     double amp_j = current_density_dk.get<double>("amp", 0.0);
     int ics_type_j = current_density_dk.get<int>("ics_type", 1);
     bool do_adaptively_refine_j = current_density_dk.get<bool> ("adaptively_refine", false);
@@ -121,6 +127,13 @@ int main(int argc, char** argv) {
             break;
         case 2: 
             w0 = new w0_alfven(kx_vorticity, amp_vorticity);
+            break;
+        case 3:
+            w0 = new w0_polarized_alfven(kx_vorticity, ky_vorticity, amp_vorticity);
+            break;
+        
+        case 4:
+            w0 = new w0_orszag_tang(kx_vorticity, ky_vorticity, amp_vorticity);
             break;
         
         default:
@@ -141,9 +154,14 @@ int main(int argc, char** argv) {
             j0 = new j0_alfven(kx_j, amp_j);
             break;
 
-        case 3: 
-            j0 = new j0_uniform();
+        case 3:
+            j0 = new j0_polarized_alfven(kx_j, ky_j, amp_j);
             break;
+
+        case 4:
+            j0 = new j0_orszag_tang(kx_j, ky_j, amp_j);
+            break;
+
 
         default:
             cout << "Using default initial conditions, all 1s" << endl;
@@ -235,6 +253,8 @@ int main(int argc, char** argv) {
     cout << "k_current_density = " << kx_j << ", amp_current_density = " << amp_j <<  endl;
     cout << "viscosity = " << nu << ", resistivity = " << mu <<  endl;
 
+    cout << "uniform background B0x = " << B0x << ", B0x = " << B0x <<  endl;
+
     if (do_adaptively_refine_vorticity) {
         cout << "Adaptively refining for vorticity, to height at most " << max_height << endl;
         cout << "Refinement epsilon(s) : " << amr_epsilons_vorticity << endl;
@@ -255,6 +275,7 @@ int main(int argc, char** argv) {
                 initial_height, y_height, max_height,
                 x_min, x_max, y_min, y_max, bcs,
                 calculate_field, quad, num_steps, dt, method,
+                B0x, B0y,
                 n_steps_remesh, n_steps_diag,
                 do_adaptively_refine_vorticity, amr_epsilons_vorticity,
                 do_adaptively_refine_j, amr_epsilons_j,greens_epsilon};
