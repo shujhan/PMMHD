@@ -15,6 +15,7 @@ target_include_directories(FieldObj PUBLIC ${INCLUDE_HEADERS})
 
 add_library(icsObj initial_distributions.cpp)
 add_library(PanelObj Panel.cpp)
+add_library(PeriodizerObj Periodizer.cpp)
 # target_include_directories(icsObj PUBLIC ${INCLUDE_HEADERS} ${Boost_INCLUDE})
 
 add_library(AMRObj_cpu  AMRStructure.cpp 
@@ -28,6 +29,7 @@ add_library(AMRObj_cpu  AMRStructure.cpp
 target_link_libraries(AMRObj_cpu    PUBLIC  PanelObj
                                             FieldObj
                                             icsObj
+                                            PeriodizerObj
                                             OpenMP::OpenMP_CXX
                                             $<$<CXX_COMPILER_ID:NVIDIA>:m>)
 target_include_directories(AMRObj_cpu PUBLIC    ${PROJECT_SOURCE_DIR}/inc_eigen/eigen-3.3.7

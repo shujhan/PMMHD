@@ -61,6 +61,7 @@ target_link_libraries     (PMMHD_cpu PUBLIC   OpenMP::OpenMP_CXX
                                                 FieldObj
                                                 PanelObj
                                                 icsObj
+                                                PeriodizerObj
                                                 AMRObj_cpu)
 target_include_directories(PMMHD_cpu PUBLIC ${INCLUDE_HEADERS})
 target_include_directories(PMMHD_cpu PUBLIC   inc)
@@ -95,6 +96,7 @@ if (ENABLE_GPU_BUILD)
                                                 FieldObj_gpu
                                                 PanelObj
                                                 icsObj
+                                                PeriodizerObj
                                                 AMRObj_cpu)
     target_include_directories(PMMHD_gpu PUBLIC ${INCLUDE_HEADERS})
     target_include_directories(PMMHD_gpu PUBLIC   inc)

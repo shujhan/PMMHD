@@ -159,13 +159,21 @@ int AMRStructure::init_fields() {
 int AMRStructure::euler() {
     const int N = (int)xs.size();
 
-    // q± at current mesh points
-    q_plus.assign(N, 0.0);  q_minus.assign(N, 0.0);
-    for (int i = 0; i < N; ++i) { q_plus[i]  = w0s[i] + j0s[i];
-                                  q_minus[i] = w0s[i] - j0s[i]; }
+    // // q± at current mesh points
+    // q_plus.assign(N, 0.0);  q_minus.assign(N, 0.0);
+    // for (int i = 0; i < N; ++i) { q_plus[i]  = w0s[i] + j0s[i];
+    //                               q_minus[i] = w0s[i] - j0s[i]; }
 
     // RHS at (X_n, t_n): fields + S on the current (structured) mesh
     std::vector<double> u1(N), u2(N), b1(N), b2(N), S(N);
+
+    // if (iter_num <= 1) {
+    //     u1 = u1s;
+    //     u2 = u2s;
+    //     b1 = b1s;
+    //     b2 = b2s;
+    // }
+
     compute_source_S(xs, ys, w0s, j0s, t, S, u1, u2, b1, b2);
 
     // two copies start co-located on the mesh, advect with U∓B

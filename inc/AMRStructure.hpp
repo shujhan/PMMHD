@@ -174,8 +174,9 @@ struct AMRStructure {
         // end getters
 
         // amr
-        // void refine_panels_refine_v(std::function<double (double,double)> w0, std::function<double (double,double)> j0,
-        //                 bool do_adaptively_refine_vorticity, bool do_adaptively_refine_j, bool is_initial_step);
+        void generate_mesh(std::function<double (double,double)> f0, 
+                            std::function<double (double,double)> f1, 
+                            bool do_adaptively_refine_vorticity, bool do_adaptively_refine_j, bool is_initial_step);
         void set_leaves_weights();
         void recursively_set_leaves_weights(int panel_ind);
 
