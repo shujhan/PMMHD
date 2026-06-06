@@ -51,10 +51,10 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
     
     bool is_initial_step = true;
     generate_mesh([&](double x, double y) { return (*w0)(x,y); }, [&](double x, double y) { return (*j0)(x,y); },do_adaptively_refine_vorticity, do_adaptively_refine_j, is_initial_step);
-    w0_beyond_boundary = *std::min_element(w0s.begin(), w0s.end() );
-    cout << "w0 extrapolating value is " << w0_beyond_boundary << endl;
-    j0_beyond_boundary = *std::min_element(j0s.begin(), j0s.end() );
-    cout << "j0 extrapolating value is " << j0_beyond_boundary << endl;
+    // w0_beyond_boundary = *std::min_element(w0s.begin(), w0s.end() );
+    // cout << "w0 extrapolating value is " << w0_beyond_boundary << endl;
+    // j0_beyond_boundary = *std::min_element(j0s.begin(), j0s.end() );
+    // cout << "j0 extrapolating value is " << j0_beyond_boundary << endl;
     u1s.assign(xs.size(), 0.0);
     u2s.assign(xs.size(), 0.0);
     b1s.assign(xs.size(), 0.0);
