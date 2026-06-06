@@ -194,6 +194,13 @@ struct AMRStructure {
         int find_leaf_containing_point_from_neighbor(double& tx, double& ty, bool& beyond_boundary, int leaf_ind, std::set<int>& history);
         // // int find_leaf_containing();
         void interpolate_to_initial_xys(std::vector<double>& q0s, std::vector<double>& xs, std::vector<double>& ys, int nx, int ny);
+        // scattered-point version of the remesh interpolant: interpolates q at the
+        // arbitrary points (tx_in, ty_in) from the deformed copy currently held in
+        // old_panels / old_xs / old_ys / old_q0s. Used to give freshly created AMR
+        // points the advected solution instead of the analytic initial condition.
+        void interpolate_q_at_points(std::vector<double>& q_out,
+                                     const std::vector<double>& tx_in,
+                                     const std::vector<double>& ty_in);
         // double interpolate_from_mesh(double xs, double vs, bool verbose);
         // void interpolate_from_mesh(std::vector<double> &values, std::vector<double>& x, std::vector<double>& v, bool verbose);
         // void interpolate_from_mesh_slow(std::vector<double> &values, std::vector<double>& x, std::vector<double>& v, bool verbose);

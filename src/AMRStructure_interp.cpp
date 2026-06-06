@@ -147,6 +147,70 @@ cout << "Done sorting" << endl;
 }
 
 
+void AMRStructure::interpolate_q_at_points(
+    std::vector<double>& q_out,
+    const std::vector<double>& tx_in,
+    const std::vector<double>& ty_in)
+{
+    const int npts = (int)tx_in.size();
+    q_out.assign(npts, 0.0);
+    if (npts == 0) { return; }
+
+    // Shift target x (and y under periodic bcs) into the principal frame of the
+    // deformed mesh, mirroring interpolate_to_initial_xys. Uses the corner points
+    // of the deformed copy currently in old_xs/old_ys.
+    std::vector<double> sx(npts), sy(npts);
+    shift_xs(sx, tx_in, ty_in);
+    for (int ii = 0; ii < npts; ++ii) { sy[ii] = ty_in[ii]; }
+
+    if (bcs == periodic_bcs) {
+        double x_bl = this->old_xs[0], y_bl = this->old_ys[0];
+        double x_tl = this->old_xs[2], y_tl = this->old_ys[2];
+        double x_br = this->old_xs[6], y_br = this->old_ys[6];
+        double x_tr = this->old_xs[8], y_tr = this->old_ys[8];
+
+        for (int ii = 0; ii < npts; ++ii) {
+            double x = sx[ii];
+            double y_temp = sy[ii];
+
+            bool ineq_bottom = (x_br - x_bl) * (y_temp - y_bl) >= (y_br - y_bl) * (x - x_bl);
+            int counter = 0;
+            while (!ineq_bottom) {
+                y_temp += Ly;
+                ineq_bottom = (x_br - x_bl) * (y_temp - y_bl) >= (y_br - y_bl) * (x - x_bl);
+                if (++counter > 10) { throw std::runtime_error("too many y shifts at bottom (scattered)!"); }
+            }
+            bool ineq_top = (x_tr - x_tl) * (y_temp - y_tl) <= (y_tr - y_tl) * (x - x_tl);
+            counter = 0;
+            while (!ineq_top) {
+                y_temp -= Ly;
+                ineq_top = (x_tr - x_tl) * (y_temp - y_tl) <= (y_tr - y_tl) * (x - x_tl);
+                if (++counter > 10) { throw std::runtime_error("too many y shifts at top (scattered)!"); }
+            }
+            sy[ii] = y_temp;
+        }
+    }
+
+    // Locate each point's leaf in old_panels via recursive descent (handles the
+    // periodic wraps internally, mutating sx/sy to the matching image), then group
+    // by panel and run the same per-panel biquadratic interpolant as the base grid.
+    std::vector<std::vector<int> > pts_by_panel(old_panels.size());
+    for (int ii = 0; ii < npts; ++ii) {
+        bool beyond_boundary = false;
+        int leaf = find_leaf_containing_xy_recursively(sx[ii], sy[ii], beyond_boundary, 0);
+        if (beyond_boundary) { leaf = 0; }
+        pts_by_panel[leaf].push_back(ii);
+    }
+
+    for (int panel_ind = 0; panel_ind < (int)old_panels.size(); ++panel_ind) {
+        if (!pts_by_panel[panel_ind].empty()) {
+            interpolate_from_panel_to_points(q_out, sx, sy, pts_by_panel[panel_ind],
+                                             panel_ind, use_limiter, limit_val);
+        }
+    }
+}
+
+
 void AMRStructure::shift_xs(std::vector<double>& shifted_xs, const std::vector<double>& xs, const std::vector<double>& ys) {
     bool verbose = false;
 

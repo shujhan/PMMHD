@@ -907,7 +907,30 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
             new_q_minus.push_back( f(new_xs.at(ii), new_ys.at(ii)) );
         }
     }
+    else if (do_adaptive_refine) {
+        // Remesh-time adaptive refinement. These are brand-new points that the
+        // structured interpolate_to_initial_xys pass in generate_mesh never saw
+        // (it only fills the uniform base grid). They must receive the *advected*
+        // solution, interpolated from the two deformed Lagrangian copies, then
+        // recovered into (w0, j0) -- exactly the same operation the base grid got.
+        // Filling them from (*w0)/(*j0) instead freezes every refined point at t=0,
+        // which is the blocky-artifact bug in the high-gradient regions.
+        std::vector<double> np_qp, np_qm;
+        old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
+        interpolate_q_at_points(np_qp, new_xs, new_ys);
+        old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
+        interpolate_q_at_points(np_qm, new_xs, new_ys);
+        for (int ii = 0; ii < new_xs.size(); ++ii) {
+            new_q_plus.push_back(np_qp[ii]);
+            new_q_minus.push_back(np_qm[ii]);
+            new_w0s.push_back(0.5 * (np_qp[ii] + np_qm[ii]));
+            new_j0s.push_back(0.5 * (np_qp[ii] - np_qm[ii]));
+        }
+    }
     else {
+        // Uniform pre-refinement in create_prerefined_mesh (do_adaptive_refine ==
+        // false): placeholders that interpolate_to_initial_xys overwrites for the
+        // whole base grid afterward, so a cheap fill is fine here.
         for (int ii = 0; ii < new_xs.size(); ++ii) {
             new_w0s.push_back( (*w0)(new_xs.at(ii), new_ys.at(ii)) );
             new_j0s.push_back( (*j0)(new_xs.at(ii), new_ys.at(ii)) );
