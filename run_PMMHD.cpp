@@ -280,13 +280,12 @@ int main(int argc, char** argv) {
                 do_adaptively_refine_vorticity, amr_epsilons_vorticity,
                 do_adaptively_refine_j, amr_epsilons_j,greens_epsilon};
                 
+    // print AMR structure info 
+    cout << amr << endl;
+
     // calculate fileds
     amr.set_periodizer(periodizer);
     amr.init_fields();
-    // amr.write_to_file();
-
-    // print AMR structure info 
-    cout << amr << endl;
 
     // run simulation
     auto pusher_start = high_resolution_clock::now();

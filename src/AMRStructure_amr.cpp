@@ -27,11 +27,7 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0,
         #ifdef DEBUG
         cout << "interpolating to grid " << endl;
         #endif
-        #ifdef DEBUG_L2
-        cout << "xs size " << xs.size() << endl;
-        cout << "ps size " << ps.size() << endl;
-        #endif
-
+        
         // Remesh each deformed Lagrangian copy back onto the fresh uniform grid.
         // Source = deformed mesh (old_panels + old_xs/old_ys + old_q0s),
         // target = the freshly built uniform grid points (xs, ys).
@@ -67,6 +63,14 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0,
             need_further_refinement = false;
             // auto amr_start = high_resolution_clock::now();
             refine_panels(f0, true, is_initial_step);
+            if (is_initial_step) {
+                for (int ii = 0; ii < xs.size(); ii++) {
+                    w0s[ii] = (*w0)(xs[ii],ys[ii]);
+                    j0s[ii] = (*j0)(xs[ii],ys[ii]);
+                    q_plus[ii] = w0s[ii] + j0s[ii];
+                    q_minus[ii] = w0s[ii] - j0s[ii];
+                }
+            }
             // auto amr_stop = high_resolution_clock::now();
             // add_time(amr_refine_time, duration_cast<duration<double>>(amr_stop-amr_start) );
 

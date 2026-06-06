@@ -168,27 +168,17 @@ std::ostream& operator<<(std::ostream& os, const AMRStructure& amr) {
     if (amr.need_further_refinement) { os << "Structure is not done being refined" << endl;}
     else { os << "Structure has reached full refinement" << endl; }
 
+    os << "#xs: " << amr.xs.size() << endl;
+    os << "#ys: " << amr.ys.size() << endl;
+    os << "#w0s: " << amr.w0s.size() << endl;
+    os << "#j0s: " << amr.j0s.size() << endl;
+    os << "#q_plus: " << amr.q_plus.size() << endl;
+    os << "#q_minus: " << amr.q_minus.size() << endl;
+
 
     os << "---------" << endl;
     os << "num steps: " <<  amr.iter_num << ", dt: " << amr.dt << endl;
     os << "---------" << endl;
-
-
-    // os << "Panels: " << endl << "==============" << endl;
-    // std::copy(amr.panels.begin(), amr.panels.end(), std::ostream_iterator<Panel>(os));
-    // os <<  "==============" << endl;
-
-    // os << "Point data" << endl << "==============" << endl;
-    // os << "xs, size = " << amr.xs.size() << endl;
-    // std::copy(amr.xs.begin(), amr.xs.end(), std::ostream_iterator<double>(os, " "));
-    // os << endl << "vs, size = " << amr.vs.size() << endl;
-    // std::copy(amr.vs.begin(), amr.vs.end(), std::ostream_iterator<double>(os, " "));
-    // os << endl << "fs, size = " << amr.fs.size() << endl;
-    // std::copy(amr.fs.begin(), amr.fs.end(), std::ostream_iterator<double>(os, " "));
-    // os << endl << "qw, size = " << amr.q_ws.size() << endl;
-    // std::copy(amr.q_ws.begin(), amr.q_ws.end(), std::ostream_iterator<double>(os, " "));
-    // os << endl << "es, size = " << amr. es.size() << endl;
-    // std::copy(amr.es.begin(), amr.es.end(), std::ostream_iterator<double>(os, " "));
 
     return os;
 }
