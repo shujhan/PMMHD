@@ -909,14 +909,19 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
     }
     else {
         for (int ii = 0; ii < new_xs.size(); ++ii) {
+            // Interpolate each new point's q+ and q- from the two deformed
+            // Lagrangian copies (source tree = old_panels + old_xs/old_ys/old_q0s).
             old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
-            new_q_plus.push_back( interpolate_from_mesh(new_xs.at(ii),new_ys.at(ii),false) );
+            double qp = interpolate_from_mesh(new_xs.at(ii), new_ys.at(ii), false);
             old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
-            new_q_minus.push_back( interpolate_from_mesh(new_xs.at(ii),new_ys.at(ii),false) );
-            for (int ii = 0; ii < new_xs.size(); ii++) {
-                new_w0s[ii] = 0.5 * (q_plus[ii] + q_minus[ii]);
-                new_j0s[ii] = 0.5 * (q_plus[ii] - q_minus[ii]);
-            }
+            double qm = interpolate_from_mesh(new_xs.at(ii), new_ys.at(ii), false);
+
+            // Recover (w0, j0) from THIS point's freshly interpolated (q+, q-),
+            // and grow new_* by push_back so their sizes match new_xs.
+            new_q_plus.push_back(qp);
+            new_q_minus.push_back(qm);
+            new_w0s.push_back(0.5 * (qp + qm));
+            new_j0s.push_back(0.5 * (qp - qm));
         }
     }
 

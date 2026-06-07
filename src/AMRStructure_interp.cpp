@@ -750,24 +750,58 @@ void AMRStructure::interpolate_from_panel_to_points(
 
 double AMRStructure::interpolate_from_mesh(double x, double y, bool verbose) {
 
-    // probably need to shift xs
+    // shift x into the principal periodic strip
     std::vector<double> xs(1,x);
     std::vector<double> shifted_xs(1,x);
     std::vector<double> ys(1,y);
-    // if (bcs==periodic_bcs) {
     shift_xs(shifted_xs, xs, ys);
-    // }
     double shifted_x = shifted_xs[0];
+    double shifted_y = y;
+
+    // also pull y back into the principal periodic strip when y is periodic,
+    // using the corners of the deformed copy currently in old_xs/old_ys --
+    // mirrors the per-point y-shift in interpolate_to_initial_xys so that the
+    // leaf search starts from the correct image before descending.
+    if (bcs == periodic_bcs) {
+        double x_bl = this->old_xs[0], y_bl = this->old_ys[0];
+        double x_tl = this->old_xs[2], y_tl = this->old_ys[2];
+        double x_br = this->old_xs[6], y_br = this->old_ys[6];
+        double x_tr = this->old_xs[8], y_tr = this->old_ys[8];
+
+        bool ineq_bottom = (x_br - x_bl) * (shifted_y - y_bl) >= (y_br - y_bl) * (shifted_x - x_bl);
+        int counter = 0;
+        while (!ineq_bottom) {
+            shifted_y += Ly;
+            ineq_bottom = (x_br - x_bl) * (shifted_y - y_bl) >= (y_br - y_bl) * (shifted_x - x_bl);
+            if (++counter > 10) {
+                throw std::runtime_error("too many y shifts at bottom (interpolate_from_mesh)!");
+            }
+        }
+
+        bool ineq_top = (x_tr - x_tl) * (shifted_y - y_tl) <= (y_tr - y_tl) * (shifted_x - x_tl);
+        counter = 0;
+        while (!ineq_top) {
+            shifted_y -= Ly;
+            ineq_top = (x_tr - x_tl) * (shifted_y - y_tl) <= (y_tr - y_tl) * (shifted_x - x_tl);
+            if (++counter > 10) {
+                throw std::runtime_error("too many y shifts at top (interpolate_from_mesh)!");
+            }
+        }
+    }
 
     bool beyond_boundary = false;
-    int leaf_containing = find_leaf_containing_xy_recursively(shifted_x,y,beyond_boundary,0);
+    // shifted_x / shifted_y are passed by reference and may be wrapped further
+    // by the recursive descent across periodic boundaries; the same (wrapped)
+    // values are then handed to interpolate_from_panel so the point and the
+    // leaf's vertices live in the same frame.
+    int leaf_containing = find_leaf_containing_xy_recursively(shifted_x, shifted_y, beyond_boundary, 0);
     if (beyond_boundary) {
         leaf_containing = 0;
     }
 
-    double val = interpolate_from_panel(shifted_x,y,leaf_containing, verbose);
+    double val = interpolate_from_panel(shifted_x, shifted_y, leaf_containing, verbose);
     if (verbose) {
-        cout << "(" << shifted_x << ", " << y << ") is in panel " << leaf_containing << ", f_interpolated(x,y) = " << val << endl;
+        cout << "(" << shifted_x << ", " << shifted_y << ") is in panel " << leaf_containing << ", f_interpolated(x,y) = " << val << endl;
     }
     return val;
 }
@@ -862,5 +896,3 @@ double AMRStructure::interpolate_from_panel(double x, double y, int panel_ind, b
         return val;
     }
 }
-
-
