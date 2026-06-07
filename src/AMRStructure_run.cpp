@@ -299,6 +299,84 @@ int AMRStructure::rk4() {
 
 
 
+// Nodal x/y derivatives of `field` on the 9 points of leaf `panel`.
+// Uses a centered cross-panel difference when the neighbor on that side is a
+// same-level leaf (so on a uniform mesh this reproduces the old result exactly),
+// and a second-order one-sided in-panel difference otherwise -- i.e. at any
+// coarse-fine interface or missing/refined neighbor, where reading a neighbor's
+// node with this panel's spacing is geometrically wrong.
+void AMRStructure::leaf_field_gradient(const std::vector<double>& field,
+                                       const Panel* panel,
+                                       double dx[9], double dy[9])
+{
+    const int* P = panel->point_inds;
+    double f[9];
+    for (int ii = 0; ii < 9; ++ii) { f[ii] = field[P[ii]]; }
+
+    double hx = xs[P[3]] - xs[P[0]];   // column spacing (points 0,3,6 increase in x)
+    double hy = ys[P[1]] - ys[P[0]];   // row spacing    (points 0,1,2 increase in y)
+
+    auto same_level_leaf = [&](int nbr) -> bool {
+        if (nbr < 0) { return false; }            // -1 (coarser) / -2 (domain boundary)
+        const Panel& q = panels[nbr];
+        return (q.child_inds_start < 0) && (q.level == panel->level);
+    };
+
+    // ---- x-derivatives ----
+    dx[3] = (f[6] - f[0]) / (2*hx);               // middle column: in-panel centered
+    dx[4] = (f[7] - f[1]) / (2*hx);
+    dx[5] = (f[8] - f[2]) / (2*hx);
+
+    if (same_level_leaf(panel->left_nbr_ind)) {
+        const int* L = panels[panel->left_nbr_ind].point_inds;
+        dx[0] = (f[3] - field[L[3]]) / (2*hx);
+        dx[1] = (f[4] - field[L[4]]) / (2*hx);
+        dx[2] = (f[5] - field[L[5]]) / (2*hx);
+    } else {                                      // forward one-sided, in-panel
+        dx[0] = (-3*f[0] + 4*f[3] - f[6]) / (2*hx);
+        dx[1] = (-3*f[1] + 4*f[4] - f[7]) / (2*hx);
+        dx[2] = (-3*f[2] + 4*f[5] - f[8]) / (2*hx);
+    }
+
+    if (same_level_leaf(panel->right_nbr_ind)) {
+        const int* R = panels[panel->right_nbr_ind].point_inds;
+        dx[6] = (field[R[3]] - f[3]) / (2*hx);
+        dx[7] = (field[R[4]] - f[4]) / (2*hx);
+        dx[8] = (field[R[5]] - f[5]) / (2*hx);
+    } else {                                      // backward one-sided, in-panel
+        dx[6] = (3*f[6] - 4*f[3] + f[0]) / (2*hx);
+        dx[7] = (3*f[7] - 4*f[4] + f[1]) / (2*hx);
+        dx[8] = (3*f[8] - 4*f[5] + f[2]) / (2*hx);
+    }
+
+    // ---- y-derivatives ----
+    dy[1] = (f[2] - f[0]) / (2*hy);               // middle row: in-panel centered
+    dy[4] = (f[5] - f[3]) / (2*hy);
+    dy[7] = (f[8] - f[6]) / (2*hy);
+
+    if (same_level_leaf(panel->bottom_nbr_ind)) {
+        const int* B = panels[panel->bottom_nbr_ind].point_inds;
+        dy[0] = (f[1] - field[B[1]]) / (2*hy);
+        dy[3] = (f[4] - field[B[4]]) / (2*hy);
+        dy[6] = (f[7] - field[B[7]]) / (2*hy);
+    } else {                                      // forward one-sided, in-panel
+        dy[0] = (-3*f[0] + 4*f[1] - f[2]) / (2*hy);
+        dy[3] = (-3*f[3] + 4*f[4] - f[5]) / (2*hy);
+        dy[6] = (-3*f[6] + 4*f[7] - f[8]) / (2*hy);
+    }
+
+    if (same_level_leaf(panel->top_nbr_ind)) {
+        const int* T = panels[panel->top_nbr_ind].point_inds;
+        dy[2] = (field[T[1]] - f[1]) / (2*hy);
+        dy[5] = (field[T[4]] - f[4]) / (2*hy);
+        dy[8] = (field[T[7]] - f[7]) / (2*hy);
+    } else {                                      // backward one-sided, in-panel
+        dy[2] = (3*f[2] - 4*f[1] + f[0]) / (2*hy);
+        dy[5] = (3*f[5] - 4*f[4] + f[3]) / (2*hy);
+        dy[8] = (3*f[8] - 4*f[7] + f[6]) / (2*hy);
+    }
+}
+
 int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<double>& ys_in,
                             std::vector<double>& w0s_in, std::vector<double>& j0s_in,
                             double t_in, std::vector<double>& S_out
@@ -321,377 +399,35 @@ int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<doub
     j_grad_y.assign(xs.size(), 0.0);
 
     // for each leaf panel, do centered finite difference
+    // For each leaf panel, fill nodal gradients of U and B (and w0/j0) using an
+    // AMR-aware stencil: centered across a same-level leaf neighbor (identical to
+    // the uniform-mesh result), one-sided in-panel at coarse-fine interfaces where
+    // a uniform-spacing cross-panel difference is geometrically invalid and was
+    // injecting spurious O(1) gradients into S at every refinement boundary.
     for (int panel_ind = 0; panel_ind < panels.size(); panel_ind++) {
         Panel* panel = &(panels[panel_ind]);
+        if (panel->child_inds_start > -1) { continue; } // leaves only
 
-        // only use leaf panels
-        if (panel->child_inds_start > -1) {
-            continue;
-        }
+        const int* P = panel->point_inds;
+        double dxv[9], dyv[9];
 
-        const int* panel_point_inds = panel->point_inds;
-        double panel_xs[9], panel_ys[9];
-        double panel_w0s[9], panel_j0s[9];
-        double panel_u1s[9], panel_u2s[9];
-        double panel_b1s[9], panel_b2s[9];
+        leaf_field_gradient(w0s, panel, dxv, dyv);
+        for (int ii = 0; ii < 9; ++ii) { vorticity_grad_x[P[ii]] = dxv[ii]; vorticity_grad_y[P[ii]] = dyv[ii]; }
 
-        for (int ii = 0; ii < 9; ++ii) {
-            int pind = panel_point_inds[ii];
-            panel_xs[ii]  = xs[pind];
-            panel_ys[ii]  = ys[pind];
-            panel_w0s[ii] = w0s[pind];
-            panel_j0s[ii] = j0s[pind];
-            panel_u1s[ii] = u1s[pind];
-            panel_u2s[ii] = u2s[pind];
-            panel_b1s[ii] = b1s[pind];
-            panel_b2s[ii] = b2s[pind];
-        }
+        leaf_field_gradient(j0s, panel, dxv, dyv);
+        for (int ii = 0; ii < 9; ++ii) { j_grad_x[P[ii]] = dxv[ii]; j_grad_y[P[ii]] = dyv[ii]; }
 
-        Panel* left_panel = &(panels[panel->left_nbr_ind]);
-        const int* left_panel_point_inds = left_panel->point_inds;
-        double left_panel_w0s[9], left_panel_j0s[9];
-        double left_panel_u1s[9], left_panel_u2s[9];
-        double left_panel_b1s[9], left_panel_b2s[9];
+        leaf_field_gradient(u1s, panel, dxv, dyv);
+        for (int ii = 0; ii < 9; ++ii) { u1s_grad_x[P[ii]] = dxv[ii]; u1s_grad_y[P[ii]] = dyv[ii]; }
 
-        for (int ii = 0; ii < 9; ++ii) {
-            int pind = left_panel_point_inds[ii];
-            left_panel_w0s[ii] = w0s[pind];
-            left_panel_j0s[ii] = j0s[pind];
-            left_panel_u1s[ii] = u1s[pind];
-            left_panel_u2s[ii] = u2s[pind];
-            left_panel_b1s[ii] = b1s[pind];
-            left_panel_b2s[ii] = b2s[pind];
-        }
+        leaf_field_gradient(u2s, panel, dxv, dyv);
+        for (int ii = 0; ii < 9; ++ii) { u2s_grad_x[P[ii]] = dxv[ii]; u2s_grad_y[P[ii]] = dyv[ii]; }
 
-        Panel* right_panel = &(panels[panel->right_nbr_ind]);
-        const int* right_panel_point_inds = right_panel->point_inds;
-        double right_panel_w0s[9], right_panel_j0s[9];
-        double right_panel_u1s[9], right_panel_u2s[9];
-        double right_panel_b1s[9], right_panel_b2s[9];
+        leaf_field_gradient(b1s, panel, dxv, dyv);
+        for (int ii = 0; ii < 9; ++ii) { b1s_grad_x[P[ii]] = dxv[ii]; b1s_grad_y[P[ii]] = dyv[ii]; }
 
-        for (int ii = 0; ii < 9; ++ii) {
-            int pind = right_panel_point_inds[ii];
-            right_panel_w0s[ii] = w0s[pind];
-            right_panel_j0s[ii] = j0s[pind];
-            right_panel_u1s[ii] = u1s[pind];
-            right_panel_u2s[ii] = u2s[pind];
-            right_panel_b1s[ii] = b1s[pind];
-            right_panel_b2s[ii] = b2s[pind];
-        }
-
-        double top_panel_w0s[9], top_panel_j0s[9];
-        double top_panel_u1s[9], top_panel_u2s[9];
-        double top_panel_b1s[9], top_panel_b2s[9];
-
-        if (bcs == 0) {
-            Panel* top_panel = &(panels[panel->top_nbr_ind]);
-            const int* top_panel_point_inds = top_panel->point_inds;
-            for (int ii = 0; ii < 9; ++ii) {
-                int pind = top_panel_point_inds[ii];
-                top_panel_u1s[ii] = u1s[pind];
-                top_panel_u2s[ii] = u2s[pind];
-                top_panel_b1s[ii] = b1s[pind];
-                top_panel_b2s[ii] = b2s[pind];
-            }
-        }
-        else {
-            if (panel->top_nbr_ind > -2) {
-                Panel* top_panel = &(panels[panel->top_nbr_ind]);
-                const int* top_panel_point_inds = top_panel->point_inds;
-                for (int ii = 0; ii < 9; ++ii) {
-                    int pind = top_panel_point_inds[ii];
-                    top_panel_u1s[ii] = u1s[pind];
-                    top_panel_u2s[ii] = u2s[pind];
-                    top_panel_b1s[ii] = b1s[pind];
-                    top_panel_b2s[ii] = b2s[pind];
-                }
-            }
-        }
-
-
-        double bottom_panel_w0s[9], bottom_panel_j0s[9];
-        double bottom_panel_u1s[9], bottom_panel_u2s[9];
-        double bottom_panel_b1s[9], bottom_panel_b2s[9];
-        if (panel->bottom_nbr_ind > -2) {
-            Panel* bottom_panel = &(panels[panel->bottom_nbr_ind]);
-            const int* bottom_panel_point_inds = bottom_panel->point_inds;
-            for (int ii = 0; ii < 9; ++ii) {
-                int pind = bottom_panel_point_inds[ii];
-                bottom_panel_w0s[ii] = w0s[pind];
-                bottom_panel_j0s[ii] = j0s[pind];
-                bottom_panel_u1s[ii] = u1s[pind];
-                bottom_panel_u2s[ii] = u2s[pind];
-                bottom_panel_b1s[ii] = b1s[pind];
-                bottom_panel_b2s[ii] = b2s[pind];
-            }
-        }
-
-        std::vector<double> dx_j0(9, 0.0);
-        std::vector<double> dx_w0(9, 0.0);
-        std::vector<double> dx_u1s(9, 0.0);
-        std::vector<double> dx_u2s(9, 0.0);
-        std::vector<double> dx_b1s(9, 0.0);
-        std::vector<double> dx_b2s(9, 0.0);
-
-        std::vector<double> dy_j0(9, 0.0);
-        std::vector<double> dy_w0(9, 0.0);
-        std::vector<double> dy_u1s(9, 0.0);
-        std::vector<double> dy_u2s(9, 0.0);
-        std::vector<double> dy_b1s(9, 0.0);
-        std::vector<double> dy_b2s(9, 0.0);
-
-        /////////////// j0 /////////////
-        double hx = panel_xs[3] - panel_xs[0];
-        dx_j0[0] = (panel_j0s[3] - left_panel_j0s[3]) / (2 * hx);
-        dx_j0[3] = (panel_j0s[6] - panel_j0s[0]) / (2 * hx);
-        dx_j0[6] = (right_panel_j0s[3] - panel_j0s[3]) / (2 * hx);
-
-        dx_j0[1] = (panel_j0s[4] - left_panel_j0s[4]) / (2 * hx);
-        dx_j0[4] = (panel_j0s[7] - panel_j0s[1]) / (2 * hx);
-        dx_j0[7] = (right_panel_j0s[4] - panel_j0s[4]) / (2 * hx);
-
-        dx_j0[2] = (panel_j0s[5] - left_panel_j0s[5]) / (2 * hx);
-        dx_j0[5] = (panel_j0s[8] - panel_j0s[2]) / (2 * hx);
-        dx_j0[8] = (right_panel_j0s[5] - panel_j0s[5]) / (2 * hx);
-
-        double hy = panel_ys[1] - panel_ys[0];
-        if (panel->bottom_nbr_ind > -2) {
-            dy_j0[0] = (panel_j0s[1] - bottom_panel_j0s[1]) / (2 * hy);
-            dy_j0[3] = (panel_j0s[4] - bottom_panel_j0s[4]) / (2 * hy);
-            dy_j0[6] = (panel_j0s[7] - bottom_panel_j0s[7]) / (2 * hy);
-        }
-        else {
-            dy_j0[0] = (-3 * (panel_j0s[0] - panel_j0s[1]) + (panel_j0s[1] - panel_j0s[2])) / (2 * hy);
-            dy_j0[3] = (-3 * (panel_j0s[3] - panel_j0s[4]) + (panel_j0s[4] - panel_j0s[5])) / (2 * hy);
-            dy_j0[6] = (-3 * (panel_j0s[6] - panel_j0s[7]) + (panel_j0s[7] - panel_j0s[8])) / (2 * hy);
-        }
-
-        dy_j0[1] = (panel_j0s[2] - panel_j0s[0]) / (2 * hy);
-        dy_j0[4] = (panel_j0s[5] - panel_j0s[3]) / (2 * hy);
-        dy_j0[7] = (panel_j0s[8] - panel_j0s[6]) / (2 * hy);
-
-        if (panel->top_nbr_ind > -2) {
-            dy_j0[2] = (top_panel_j0s[1] - panel_j0s[1]) / (2 * hy);
-            dy_j0[5] = (top_panel_j0s[4] - panel_j0s[4]) / (2 * hy);
-            dy_j0[8] = (top_panel_j0s[7] - panel_j0s[7]) / (2 * hy);
-        }
-        else {
-            dy_j0[2] = (-3 * (panel_j0s[0] - panel_j0s[1]) + (panel_j0s[1] - panel_j0s[2])) / (2 * hy);
-            dy_j0[5] = (-3 * (panel_j0s[3] - panel_j0s[4]) + (panel_j0s[4] - panel_j0s[5])) / (2 * hy);
-            dy_j0[8] = (-3 * (panel_j0s[6] - panel_j0s[7]) + (panel_j0s[7] - panel_j0s[8])) / (2 * hy);
-        }
-
-        //////////// w0 ///////////////
-        dx_w0[0] = (panel_w0s[3] - left_panel_w0s[3]) / (2 * hx);
-        dx_w0[3] = (panel_w0s[6] - panel_w0s[0]) / (2 * hx);
-        dx_w0[6] = (right_panel_w0s[3] - panel_w0s[3]) / (2 * hx);
-
-        dx_w0[1] = (panel_w0s[4] - left_panel_w0s[4]) / (2 * hx);
-        dx_w0[4] = (panel_w0s[7] - panel_w0s[1]) / (2 * hx);
-        dx_w0[7] = (right_panel_w0s[4] - panel_w0s[4]) / (2 * hx);
-
-        dx_w0[2] = (panel_w0s[5] - left_panel_w0s[5]) / (2 * hx);
-        dx_w0[5] = (panel_w0s[8] - panel_w0s[2]) / (2 * hx);
-        dx_w0[8] = (right_panel_w0s[5] - panel_w0s[5]) / (2 * hx);
-
-        if (panel->bottom_nbr_ind > -2) {
-            dy_w0[0] = (panel_w0s[1] - bottom_panel_w0s[1]) / (2 * hy);
-            dy_w0[3] = (panel_w0s[4] - bottom_panel_w0s[4]) / (2 * hy);
-            dy_w0[6] = (panel_w0s[7] - bottom_panel_w0s[7]) / (2 * hy);
-        }
-        else {
-            dy_w0[0] = (-3 * (panel_w0s[0] - panel_w0s[1]) + (panel_w0s[1] - panel_w0s[2])) / (2 * hy);
-            dy_w0[3] = (-3 * (panel_w0s[3] - panel_w0s[4]) + (panel_w0s[4] - panel_w0s[5])) / (2 * hy);
-            dy_w0[6] = (-3 * (panel_w0s[6] - panel_w0s[7]) + (panel_w0s[7] - panel_w0s[8])) / (2 * hy);
-        }
-
-        dy_w0[1] = (panel_w0s[2] - panel_w0s[0]) / (2 * hy);
-        dy_w0[4] = (panel_w0s[5] - panel_w0s[3]) / (2 * hy);
-        dy_w0[7] = (panel_w0s[8] - panel_w0s[6]) / (2 * hy);
-
-        if (panel->top_nbr_ind > -2) {
-            dy_w0[2] = (top_panel_w0s[1] - panel_w0s[1]) / (2 * hy);
-            dy_w0[5] = (top_panel_w0s[4] - panel_w0s[4]) / (2 * hy);
-            dy_w0[8] = (top_panel_w0s[7] - panel_w0s[7]) / (2 * hy);
-        }
-        else {
-            dy_w0[2] = (-3 * (panel_w0s[0] - panel_w0s[1]) + (panel_w0s[1] - panel_w0s[2])) / (2 * hy);
-            dy_w0[5] = (-3 * (panel_w0s[3] - panel_w0s[4]) + (panel_w0s[4] - panel_w0s[5])) / (2 * hy);
-            dy_w0[8] = (-3 * (panel_w0s[6] - panel_w0s[7]) + (panel_w0s[7] - panel_w0s[8])) / (2 * hy);
-        }
-
-        //////////// u1s ///////////////
-        dx_u1s[0] = (panel_u1s[3] - left_panel_u1s[3]) / (2 * hx);
-        dx_u1s[3] = (panel_u1s[6] - panel_u1s[0]) / (2 * hx);
-        dx_u1s[6] = (right_panel_u1s[3] - panel_u1s[3]) / (2 * hx);
-
-        dx_u1s[1] = (panel_u1s[4] - left_panel_u1s[4]) / (2 * hx);
-        dx_u1s[4] = (panel_u1s[7] - panel_u1s[1]) / (2 * hx);
-        dx_u1s[7] = (right_panel_u1s[4] - panel_u1s[4]) / (2 * hx);
-
-        dx_u1s[2] = (panel_u1s[5] - left_panel_u1s[5]) / (2 * hx);
-        dx_u1s[5] = (panel_u1s[8] - panel_u1s[2]) / (2 * hx);
-        dx_u1s[8] = (right_panel_u1s[5] - panel_u1s[5]) / (2 * hx);
-
-        if (panel->bottom_nbr_ind > -2) {
-            dy_u1s[0] = (panel_u1s[1] - bottom_panel_u1s[1]) / (2 * hy);
-            dy_u1s[3] = (panel_u1s[4] - bottom_panel_u1s[4]) / (2 * hy);
-            dy_u1s[6] = (panel_u1s[7] - bottom_panel_u1s[7]) / (2 * hy);
-        }
-        else {
-            dy_u1s[0] = (-3 * (panel_u1s[0] - panel_u1s[1]) + (panel_u1s[1] - panel_u1s[2])) / (2 * hy);
-            dy_u1s[3] = (-3 * (panel_u1s[3] - panel_u1s[4]) + (panel_u1s[4] - panel_u1s[5])) / (2 * hy);
-            dy_u1s[6] = (-3 * (panel_u1s[6] - panel_u1s[7]) + (panel_u1s[7] - panel_u1s[8])) / (2 * hy);
-        }
-
-        dy_u1s[1] = (panel_u1s[2] - panel_u1s[0]) / (2 * hy);
-        dy_u1s[4] = (panel_u1s[5] - panel_u1s[3]) / (2 * hy);
-        dy_u1s[7] = (panel_u1s[8] - panel_u1s[6]) / (2 * hy);
-
-        if (panel->top_nbr_ind > -2) {
-            dy_u1s[2] = (top_panel_u1s[1] - panel_u1s[1]) / (2 * hy);
-            dy_u1s[5] = (top_panel_u1s[4] - panel_u1s[4]) / (2 * hy);
-            dy_u1s[8] = (top_panel_u1s[7] - panel_u1s[7]) / (2 * hy);
-        }
-        else {
-            dy_u1s[2] = (-3 * (panel_u1s[0] - panel_u1s[1]) + (panel_u1s[1] - panel_u1s[2])) / (2 * hy);
-            dy_u1s[5] = (-3 * (panel_u1s[3] - panel_u1s[4]) + (panel_u1s[4] - panel_u1s[5])) / (2 * hy);
-            dy_u1s[8] = (-3 * (panel_u1s[6] - panel_u1s[7]) + (panel_u1s[7] - panel_u1s[8])) / (2 * hy);
-        }
-
-        //////////// u2s ///////////////
-        dx_u2s[0] = (panel_u2s[3] - left_panel_u2s[3]) / (2 * hx);
-        dx_u2s[3] = (panel_u2s[6] - panel_u2s[0]) / (2 * hx);
-        dx_u2s[6] = (right_panel_u2s[3] - panel_u2s[3]) / (2 * hx);
-
-        dx_u2s[1] = (panel_u2s[4] - left_panel_u2s[4]) / (2 * hx);
-        dx_u2s[4] = (panel_u2s[7] - panel_u2s[1]) / (2 * hx);
-        dx_u2s[7] = (right_panel_u2s[4] - panel_u2s[4]) / (2 * hx);
-
-        dx_u2s[2] = (panel_u2s[5] - left_panel_u2s[5]) / (2 * hx);
-        dx_u2s[5] = (panel_u2s[8] - panel_u2s[2]) / (2 * hx);
-        dx_u2s[8] = (right_panel_u2s[5] - panel_u2s[5]) / (2 * hx);
-
-        if (panel->bottom_nbr_ind > -2) {
-            dy_u2s[0] = (panel_u2s[1] - bottom_panel_u2s[1]) / (2 * hy);
-            dy_u2s[3] = (panel_u2s[4] - bottom_panel_u2s[4]) / (2 * hy);
-            dy_u2s[6] = (panel_u2s[7] - bottom_panel_u2s[7]) / (2 * hy);
-        }
-        else {
-            dy_u2s[0] = (-3 * (panel_u2s[0] - panel_u2s[1]) + (panel_u2s[1] - panel_u2s[2])) / (2 * hy);
-            dy_u2s[3] = (-3 * (panel_u2s[3] - panel_u2s[4]) + (panel_u2s[4] - panel_u2s[5])) / (2 * hy);
-            dy_u2s[6] = (-3 * (panel_u2s[6] - panel_u2s[7]) + (panel_u2s[7] - panel_u2s[8])) / (2 * hy);
-        }
-
-        dy_u2s[1] = (panel_u2s[2] - panel_u2s[0]) / (2 * hy);
-        dy_u2s[4] = (panel_u2s[5] - panel_u2s[3]) / (2 * hy);
-        dy_u2s[7] = (panel_u2s[8] - panel_u2s[6]) / (2 * hy);
-
-        if (panel->top_nbr_ind > -2) {
-            dy_u2s[2] = (top_panel_u2s[1] - panel_u2s[1]) / (2 * hy);
-            dy_u2s[5] = (top_panel_u2s[4] - panel_u2s[4]) / (2 * hy);
-            dy_u2s[8] = (top_panel_u2s[7] - panel_u2s[7]) / (2 * hy);
-        }
-        else {
-            dy_u2s[2] = (-3 * (panel_u2s[0] - panel_u2s[1]) + (panel_u2s[1] - panel_u2s[2])) / (2 * hy);
-            dy_u2s[5] = (-3 * (panel_u2s[3] - panel_u2s[4]) + (panel_u2s[4] - panel_u2s[5])) / (2 * hy);
-            dy_u2s[8] = (-3 * (panel_u2s[6] - panel_u2s[7]) + (panel_u2s[7] - panel_u2s[8])) / (2 * hy);
-        }
-
-        //////////// b1s ///////////////
-        dx_b1s[0] = (panel_b1s[3] - left_panel_b1s[3]) / (2 * hx);
-        dx_b1s[3] = (panel_b1s[6] - panel_b1s[0]) / (2 * hx);
-        dx_b1s[6] = (right_panel_b1s[3] - panel_b1s[3]) / (2 * hx);
-
-        dx_b1s[1] = (panel_b1s[4] - left_panel_b1s[4]) / (2 * hx);
-        dx_b1s[4] = (panel_b1s[7] - panel_b1s[1]) / (2 * hx);
-        dx_b1s[7] = (right_panel_b1s[4] - panel_b1s[4]) / (2 * hx);
-
-        dx_b1s[2] = (panel_b1s[5] - left_panel_b1s[5]) / (2 * hx);
-        dx_b1s[5] = (panel_b1s[8] - panel_b1s[2]) / (2 * hx);
-        dx_b1s[8] = (right_panel_b1s[5] - panel_b1s[5]) / (2 * hx);
-
-        if (panel->bottom_nbr_ind > -2) {
-            dy_b1s[0] = (panel_b1s[1] - bottom_panel_b1s[1]) / (2 * hy);
-            dy_b1s[3] = (panel_b1s[4] - bottom_panel_b1s[4]) / (2 * hy);
-            dy_b1s[6] = (panel_b1s[7] - bottom_panel_b1s[7]) / (2 * hy);
-        }
-        else {
-            dy_b1s[0] = (-3 * (panel_b1s[0] - panel_b1s[1]) + (panel_b1s[1] - panel_b1s[2])) / (2 * hy);
-            dy_b1s[3] = (-3 * (panel_b1s[3] - panel_b1s[4]) + (panel_b1s[4] - panel_b1s[5])) / (2 * hy);
-            dy_b1s[6] = (-3 * (panel_b1s[6] - panel_b1s[7]) + (panel_b1s[7] - panel_b1s[8])) / (2 * hy);
-        }
-
-        dy_b1s[1] = (panel_b1s[2] - panel_b1s[0]) / (2 * hy);
-        dy_b1s[4] = (panel_b1s[5] - panel_b1s[3]) / (2 * hy);
-        dy_b1s[7] = (panel_b1s[8] - panel_b1s[6]) / (2 * hy);
-
-        if (panel->top_nbr_ind > -2) {
-            dy_b1s[2] = (top_panel_b1s[1] - panel_b1s[1]) / (2 * hy);
-            dy_b1s[5] = (top_panel_b1s[4] - panel_b1s[4]) / (2 * hy);
-            dy_b1s[8] = (top_panel_b1s[7] - panel_b1s[7]) / (2 * hy);
-        }
-        else {
-            dy_b1s[2] = (-3 * (panel_b1s[0] - panel_b1s[1]) + (panel_b1s[1] - panel_b1s[2])) / (2 * hy);
-            dy_b1s[5] = (-3 * (panel_b1s[3] - panel_b1s[4]) + (panel_b1s[4] - panel_b1s[5])) / (2 * hy);
-            dy_b1s[8] = (-3 * (panel_b1s[6] - panel_b1s[7]) + (panel_b1s[7] - panel_b1s[8])) / (2 * hy);
-        }
-
-        //////////// b2s ///////////////
-        dx_b2s[0] = (panel_b2s[3] - left_panel_b2s[3]) / (2 * hx);
-        dx_b2s[3] = (panel_b2s[6] - panel_b2s[0]) / (2 * hx);
-        dx_b2s[6] = (right_panel_b2s[3] - panel_b2s[3]) / (2 * hx);
-
-        dx_b2s[1] = (panel_b2s[4] - left_panel_b2s[4]) / (2 * hx);
-        dx_b2s[4] = (panel_b2s[7] - panel_b2s[1]) / (2 * hx);
-        dx_b2s[7] = (right_panel_b2s[4] - panel_b2s[4]) / (2 * hx);
-
-        dx_b2s[2] = (panel_b2s[5] - left_panel_b2s[5]) / (2 * hx);
-        dx_b2s[5] = (panel_b2s[8] - panel_b2s[2]) / (2 * hx);
-        dx_b2s[8] = (right_panel_b2s[5] - panel_b2s[5]) / (2 * hx);
-
-        if (panel->bottom_nbr_ind > -2) {
-            dy_b2s[0] = (panel_b2s[1] - bottom_panel_b2s[1]) / (2 * hy);
-            dy_b2s[3] = (panel_b2s[4] - bottom_panel_b2s[4]) / (2 * hy);
-            dy_b2s[6] = (panel_b2s[7] - bottom_panel_b2s[7]) / (2 * hy);
-        }
-        else {
-            dy_b2s[0] = (-3 * (panel_b2s[0] - panel_b2s[1]) + (panel_b2s[1] - panel_b2s[2])) / (2 * hy);
-            dy_b2s[3] = (-3 * (panel_b2s[3] - panel_b2s[4]) + (panel_b2s[4] - panel_b2s[5])) / (2 * hy);
-            dy_b2s[6] = (-3 * (panel_b2s[6] - panel_b2s[7]) + (panel_b2s[7] - panel_b2s[8])) / (2 * hy);
-        }
-
-        dy_b2s[1] = (panel_b2s[2] - panel_b2s[0]) / (2 * hy);
-        dy_b2s[4] = (panel_b2s[5] - panel_b2s[3]) / (2 * hy);
-        dy_b2s[7] = (panel_b2s[8] - panel_b2s[6]) / (2 * hy);
-
-        if (panel->top_nbr_ind > -2) {
-            dy_b2s[2] = (top_panel_b2s[1] - panel_b2s[1]) / (2 * hy);
-            dy_b2s[5] = (top_panel_b2s[4] - panel_b2s[4]) / (2 * hy);
-            dy_b2s[8] = (top_panel_b2s[7] - panel_b2s[7]) / (2 * hy);
-        }
-        else {
-            dy_b2s[2] = (-3 * (panel_b2s[0] - panel_b2s[1]) + (panel_b2s[1] - panel_b2s[2])) / (2 * hy);
-            dy_b2s[5] = (-3 * (panel_b2s[3] - panel_b2s[4]) + (panel_b2s[4] - panel_b2s[5])) / (2 * hy);
-            dy_b2s[8] = (-3 * (panel_b2s[6] - panel_b2s[7]) + (panel_b2s[7] - panel_b2s[8])) / (2 * hy);
-        }
-
-        for (int ii = 0; ii < 9; ++ii) {
-            int pind = panel_point_inds[ii];
-            vorticity_grad_x[pind] = dx_w0[ii];
-            j_grad_x[pind]         = dx_j0[ii];
-            u1s_grad_x[pind]       = dx_u1s[ii];
-            u2s_grad_x[pind]       = dx_u2s[ii];
-            b1s_grad_x[pind]       = dx_b1s[ii];
-            b2s_grad_x[pind]       = dx_b2s[ii];
-
-            vorticity_grad_y[pind] = dy_w0[ii];
-            j_grad_y[pind]         = dy_j0[ii];
-            u1s_grad_y[pind]       = dy_u1s[ii];
-            u2s_grad_y[pind]       = dy_u2s[ii];
-            b1s_grad_y[pind]       = dy_b1s[ii];
-            b2s_grad_y[pind]       = dy_b2s[ii];
-        }
+        leaf_field_gradient(b2s, panel, dxv, dyv);
+        for (int ii = 0; ii < 9; ++ii) { b2s_grad_x[P[ii]] = dxv[ii]; b2s_grad_y[P[ii]] = dyv[ii]; }
     }
 
     // S term (same as two-panel): built directly from the U and B gradients.

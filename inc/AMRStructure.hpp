@@ -241,6 +241,10 @@ struct AMRStructure {
                             std::vector<double>& w0s_in, std::vector<double>& j0s_in,
                             double t_in, std::vector<double>& S_out);
 
+        // AMR-aware nodal gradient of `field` on a leaf panel's 9 points.
+        void leaf_field_gradient(const std::vector<double>& field, const Panel* panel,
+                                 double dx[9], double dy[9]);
+
         void set_periodizer(Periodizer* p) { periodizer = p; }
 
         // io
