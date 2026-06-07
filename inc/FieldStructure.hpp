@@ -204,7 +204,8 @@ class U_Treecode : public Field {
         double sq_theta;
         const double pi = 3.14159265358979323846;
 
-        size_t numpars_s = 0;
+        size_t numpars_s = 0; // number of sources (tree is built over these)
+        size_t numpars_t = 0; // number of targets (field is evaluated only at these)
 
         // =========================
         // Data arrays
@@ -212,6 +213,10 @@ class U_Treecode : public Field {
         double* lambda;       // weights
         double* particles_x;  // sources x (reordered)
         double* particles_y;  // sources y (reordered)
+
+        // target flag in reordered order: is_target[i] == 1 if reordered
+        // source i is also a target (i.e. one of the first numpars_t points)
+        int* is_target;
 
         // // direct sum result
         // double* velo_ds_x;

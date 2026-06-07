@@ -123,7 +123,7 @@ U_Treecode::U_Treecode(double L_, double epsilon_,
                                    int max_target_)
     : L(L_), epsilon(epsilon_), mac(mac_), degree(degree_),
       max_source(max_source_), max_target(max_target_), 
-      lambda(nullptr), particles_x(nullptr), particles_y(nullptr), velo_tc_reord_x(nullptr), velo_tc_reord_y(nullptr), 
+      lambda(nullptr), particles_x(nullptr), particles_y(nullptr), is_target(nullptr), velo_tc_reord_x(nullptr), velo_tc_reord_y(nullptr), 
       velo_tc_noreord_x(nullptr), velo_tc_noreord_y(nullptr), 
       tree_members{nullptr, nullptr}, leaf_members{nullptr, nullptr}, iList(nullptr), cList(nullptr)
       {
@@ -160,13 +160,18 @@ void U_Treecode::operator()(double* e1s, double* e2s,
                                  double* x_vals, int nx,
                                  double* y_vals, double* q_ws, int ny)
 {
-    numpars_s = (size_t)nx;
+    // Sources are the ny entries of x_vals/y_vals/q_ws; the tree is built over
+    // them. Targets are the first nx entries (a subset of the sources): the
+    // field is evaluated only there. nx == ny recovers the source==target case.
+    numpars_s = (size_t)ny;
+    numpars_t = (size_t)nx;
     // Make sure no false allocations
     cleanup();
     // Allocate internal arrays
     lambda      = new double[numpars_s];
     particles_x = new double[numpars_s];
     particles_y = new double[numpars_s];
+    is_target   = new int[numpars_s];
 
     if (mode == periodic_xy) {
         for (size_t i = 0; i < numpars_s; i++) {
@@ -188,6 +193,7 @@ void U_Treecode::operator()(double* e1s, double* e2s,
 std::cout << "Running with OpenACC" << std::endl;
 #pragma acc enter data copyin(lambda[0:numpars_s])
 #pragma acc enter data copyin(particles_x[0:numpars_s], particles_y[0:numpars_s])
+#pragma acc enter data create(is_target[0:numpars_s])
 #else
 std::cout << "Running without OpenACC" << std::endl;
 #endif
@@ -207,8 +213,8 @@ std::cout << "Running without OpenACC" << std::endl;
     // Run BLTC treecode
     compute_RHS_BLTC();
 
-    // copy result back to output arrays
-    for (size_t i = 0; i < numpars_s; i++) {
+    // copy result back to output arrays (only the numpars_t targets are valid)
+    for (size_t i = 0; i < numpars_t; i++) {
         e1s[i] = velo_tc_noreord_x[i];
         e2s[i] = velo_tc_noreord_y[i];
     }
@@ -216,6 +222,7 @@ std::cout << "Running without OpenACC" << std::endl;
 #if OPENACC_ENABLED
 #pragma acc exit data delete(lambda[0:numpars_s])
 #pragma acc exit data delete(particles_x[0:numpars_s], particles_y[0:numpars_s])
+#pragma acc exit data delete(is_target[0:numpars_s])
 #pragma acc exit data delete(velo_tc_reord_x[0:numpars_s], velo_tc_reord_y[0:numpars_s])
 #pragma acc exit data delete(velo_tc_noreord_x[0:numpars_s], velo_tc_noreord_y[0:numpars_s])
 #endif
@@ -243,6 +250,7 @@ void U_Treecode::cleanup() {
     if (lambda)      { delete[] lambda;      lambda = nullptr; }
     if (particles_x) { delete[] particles_x; particles_x = nullptr; }
     if (particles_y) { delete[] particles_y; particles_y = nullptr; }
+    if (is_target)   { delete[] is_target;   is_target = nullptr; }
 
     if (velo_tc_reord_x)   { delete[] velo_tc_reord_x;   velo_tc_reord_x = nullptr; }
     if (velo_tc_reord_y)   { delete[] velo_tc_reord_y;   velo_tc_reord_y = nullptr; }
@@ -293,9 +301,16 @@ void U_Treecode::compute_RHS_BLTC()
     build_tree_init();
     build_tree_2D_Recursive(0, 0, particles_x, particles_y, pt_temp_index, pt_temp_old_index);
 
+    // mark which reordered sources are also targets (original index < numpars_t).
+    // Targets are the first numpars_t input points (the center block).
+    for (size_t i = 0; i < numpars_s; i++) {
+        is_target[i] = (pt_temp_old_index[i] < (int)numpars_t) ? 1 : 0;
+    }
+
 #if OPENACC_ENABLED
 #pragma acc update device(particles_x[0:numpars_s], particles_y[0:numpars_s])
 #pragma acc update device(lambda[0:numpars_s])
+#pragma acc update device(is_target[0:numpars_s])
 #endif
 
     assert(node_count == tree.size());
@@ -1002,6 +1017,7 @@ void U_Treecode::Call_BL()
 #pragma acc kernels copyin(leaf_count) \
 present(leaf_members[0:2][0:leaf_count], \
 particles_x[0:numpars_s], particles_y[0:numpars_s], \
+is_target[0:numpars_s], \
 iList[0:leaf_count], \
 velo_tc_reord_x[0:numpars_s], velo_tc_reord_y[0:numpars_s], \
 cList)
@@ -1023,6 +1039,8 @@ cList)
         #pragma acc loop vector(128) independent
 #endif
         for (size_t ii = batch_limit_1; ii <= batch_limit_2; ii++) {
+            if (!is_target[ii]) continue; // only evaluate at target points
+
             double tempx = 0.0;
             double tempy = 0.0;
 
@@ -1073,6 +1091,7 @@ void U_Treecode::Call_Ds()
 present(leaf_members[0:2][0:leaf_count], \
 tree_members[0:2][0:node_count], \
 particles_x[0:numpars_s], particles_y[0:numpars_s], \
+is_target[0:numpars_s], \
 iList[0:leaf_count], \
 lambda[0:numpars_s], \
 velo_tc_reord_x[0:numpars_s], velo_tc_reord_y[0:numpars_s], \
@@ -1095,6 +1114,8 @@ cList)
         #pragma acc loop vector(128) independent
 #endif
         for (size_t ii = limit_1_b; ii <= limit_2_b; ii++) {
+            if (!is_target[ii]) continue; // only evaluate at target points
+
             double tempx = 0.0;
             double tempy = 0.0;
 
@@ -1148,6 +1169,7 @@ void U_Treecode::Call_BL_free_space()
 #pragma acc kernels copyin(leaf_count) \
 present(leaf_members[0:2][0:leaf_count], \
 particles_x[0:numpars_s], particles_y[0:numpars_s], \
+is_target[0:numpars_s], \
 iList[0:leaf_count], \
 velo_tc_reord_x[0:numpars_s], velo_tc_reord_y[0:numpars_s], \
 cList)
@@ -1169,6 +1191,8 @@ cList)
         #pragma acc loop vector(128) independent
 #endif
         for (size_t ii = batch_limit_1; ii <= batch_limit_2; ii++) {
+            if (!is_target[ii]) continue; // only evaluate at target points
+
             double tempx = 0.0;
             double tempy = 0.0;
 
@@ -1214,6 +1238,7 @@ void U_Treecode::Call_DS_free_space()
 present(leaf_members[0:2][0:leaf_count], \
 tree_members[0:2][0:node_count], \
 particles_x[0:numpars_s], particles_y[0:numpars_s], \
+is_target[0:numpars_s], \
 iList[0:leaf_count], \
 lambda[0:numpars_s], \
 velo_tc_reord_x[0:numpars_s], velo_tc_reord_y[0:numpars_s], \
@@ -1236,6 +1261,8 @@ cList)
         #pragma acc loop vector(128) independent
 #endif
         for (size_t ii = limit_1_b; ii <= limit_2_b; ii++) {
+            if (!is_target[ii]) continue; // only evaluate at target points
+
             double tempx = 0.0;
             double tempy = 0.0;
 

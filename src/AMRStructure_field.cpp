@@ -49,8 +49,9 @@ int AMRStructure::evaluate_u_field(std::vector<double>& u1s_local, std::vector<d
         std::vector<double> u1tmp(n9, 0.0), u2tmp(n9, 0.0);
         KernelMode km = periodic_xy;   // free-space 2D Biot-Savart kernel branch
         calculate_e->set_mode(km);
+        // sources: all n9 image points; targets: the first n_local (center block)
         (*calculate_e)(u1tmp.data(), u2tmp.data(),
-                       xtmp.data(), n9,
+                       xtmp.data(), n_local,
                        ytmp.data(), wtmp.data(), n9);
 
         for (int i = 0; i < n_local; ++i) {
@@ -143,8 +144,9 @@ int AMRStructure::evaluate_b_field(std::vector<double>& b1s_local, std::vector<d
         std::vector<double> b1tmp(n9, 0.0), b2tmp(n9, 0.0);
         KernelMode km = periodic_xy;
         calculate_e->set_mode(km);
+        // sources: all n9 image points; targets: the first n_local (center block)
         (*calculate_e)(b1tmp.data(), b2tmp.data(),
-                       xtmp.data(), n9,
+                       xtmp.data(), n_local,
                        ytmp.data(), wtmp.data(), n9);
 
         for (int i = 0; i < n_local; ++i) {
@@ -312,4 +314,3 @@ int AMRStructure::evaluate_b_field(std::vector<double>& b1s_local, std::vector<d
 //                     ytemp_cpy.data(), ws_temp_cpy.data(), ytemp_cpy.size());
 //     return 0;
 // }
-
