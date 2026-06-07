@@ -70,6 +70,30 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0,
                     q_plus[ii] = w0s[ii] + j0s[ii];
                     q_minus[ii] = w0s[ii] - j0s[ii];
                 }
+            } else {
+                // int nx_points = 2*npanels_x + 1;
+                // int ny_points = 2*npanels_y + 1;
+                // old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
+                // interpolate_to_initial_xys(q_plus, xs, ys, nx_points, ny_points);
+                // old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
+                // interpolate_to_initial_xys(q_minus, xs, ys, nx_points, ny_points);
+                // for (int ii = 0; ii < xs.size(); ii++) {
+                //     w0s[ii] = 0.5 * (q_plus[ii] + q_minus[ii]);
+                //     j0s[ii] = 0.5 * (q_plus[ii] - q_minus[ii]);
+                // }
+
+                // Robustly value the points created this pass (and re-value the
+                // rest, harmlessly) through the corner-safe neighbor-walk, so
+                // test_panel sees correct w0/j0 and the final mesh is already
+                // filled -- no separate post-loop pass needed.
+                old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
+                interpolate_q_scattered(q_plus);
+                old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
+                interpolate_q_scattered(q_minus);
+                for (int ii = 0; ii < xs.size(); ii++) {
+                    w0s[ii] = 0.5 * (q_plus[ii] + q_minus[ii]);
+                    j0s[ii] = 0.5 * (q_plus[ii] - q_minus[ii]);
+                }
             }
             // auto amr_stop = high_resolution_clock::now();
             // add_time(amr_refine_time, duration_cast<duration<double>>(amr_stop-amr_start) );
@@ -899,30 +923,17 @@ void AMRStructure::refine_panels(std::function<double (double,double)> f, bool d
     new_q_plus.reserve(new_xs.size() );
     new_q_minus.reserve(new_xs.size() );
 
-    if (is_initial_step) {
-        for (int ii = 0; ii < new_xs.size(); ++ii) {
-            new_w0s.push_back( f(new_xs.at(ii), new_ys.at(ii)) );
-            new_j0s.push_back( f(new_xs.at(ii), new_ys.at(ii)) );
-            new_q_plus.push_back( f(new_xs.at(ii), new_ys.at(ii)) );
-            new_q_minus.push_back( f(new_xs.at(ii), new_ys.at(ii)) );
-        }
-    }
-    else {
-        for (int ii = 0; ii < new_xs.size(); ++ii) {
-            // Interpolate each new point's q+ and q- from the two deformed
-            // Lagrangian copies (source tree = old_panels + old_xs/old_ys/old_q0s).
-            old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
-            double qp = interpolate_from_mesh(new_xs.at(ii), new_ys.at(ii), false);
-            old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
-            double qm = interpolate_from_mesh(new_xs.at(ii), new_ys.at(ii), false);
-
-            // Recover (w0, j0) from THIS point's freshly interpolated (q+, q-),
-            // and grow new_* by push_back so their sizes match new_xs.
-            new_q_plus.push_back(qp);
-            new_q_minus.push_back(qm);
-            new_w0s.push_back(0.5 * (qp + qm));
-            new_j0s.push_back(0.5 * (qp - qm));
-        }
+    // refine_panels is now purely topological for values: new points get
+    // placeholders here and are filled by the value pass in generate_mesh
+    // (analytic ICs on the initial step; otherwise interpolate_to_initial_xys for
+    // the base grid and interpolate_q_scattered after each adaptive pass). This
+    // drops the per-point recursive interpolation whose result was overwritten
+    // anyway, and routes every value through the corner-robust neighbor-walk.
+    for (int ii = 0; ii < new_xs.size(); ++ii) {
+        new_w0s.push_back(0.0);
+        new_j0s.push_back(0.0);
+        new_q_plus.push_back(0.0);
+        new_q_minus.push_back(0.0);
     }
 
 

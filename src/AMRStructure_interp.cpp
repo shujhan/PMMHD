@@ -748,6 +748,91 @@ void AMRStructure::interpolate_from_panel_to_points(
 }
 
 
+// Robust remesh of the entire current mesh (base grid + AMR-refined points) from
+// the deformed source copy. Mirrors interpolate_to_initial_xys: shift into the
+// principal periodic strip, sort by (y,x), bootstrap the first point with the
+// recursive search, then resolve every subsequent point by the neighbor-walk
+// search seeded from the previous (spatially adjacent) point. The neighbor-walk
+// re-centers the periodic image relative to the local leaf in BOTH x and y, so it
+// resolves the doubly-periodic, sheared corners that the per-point recursive
+// descent misroutes -- which is what produced the corner speckle on q+/q-.
+void AMRStructure::interpolate_q_scattered(std::vector<double>& q0s) {
+    int n = xs.size();
+
+    std::vector<double> shifted_xs(n);
+    shift_xs(shifted_xs, xs, ys);
+    std::vector<double> shifted_ys(ys);
+
+    if (bcs == periodic_bcs) {
+        double x_bl = old_xs[0], y_bl = old_ys[0];
+        double x_tl = old_xs[2], y_tl = old_ys[2];
+        double x_br = old_xs[6], y_br = old_ys[6];
+        double x_tr = old_xs[8], y_tr = old_ys[8];
+        for (int ii = 0; ii < n; ++ii) {
+            double x = shifted_xs[ii];
+            double yt = shifted_ys[ii];
+            bool ineq_bottom = (x_br - x_bl) * (yt - y_bl) >= (y_br - y_bl) * (x - x_bl);
+            int counter = 0;
+            while (!ineq_bottom) {
+                yt += Ly;
+                ineq_bottom = (x_br - x_bl) * (yt - y_bl) >= (y_br - y_bl) * (x - x_bl);
+                if (++counter > 10) { throw std::runtime_error("too many y shifts at bottom (scattered)!"); }
+            }
+            bool ineq_top = (x_tr - x_tl) * (yt - y_tl) <= (y_tr - y_tl) * (x - x_tl);
+            counter = 0;
+            while (!ineq_top) {
+                yt -= Ly;
+                ineq_top = (x_tr - x_tl) * (yt - y_tl) <= (y_tr - y_tl) * (x - x_tl);
+                if (++counter > 10) { throw std::runtime_error("too many y shifts at top (scattered)!"); }
+            }
+            shifted_ys[ii] = yt;
+        }
+    }
+
+    std::vector<int> sort_indices(n);
+    for (int ii = 0; ii < n; ++ii) { sort_indices[ii] = ii; }
+    double sort_threshold = initial_dy / 10.0;
+    std::sort(sort_indices.begin(), sort_indices.end(),
+        [&](int a, int b) {
+            if (fabs(shifted_ys[a] - shifted_ys[b]) >= sort_threshold) { return shifted_ys[a] < shifted_ys[b]; }
+            return shifted_xs[a] < shifted_xs[b];
+        });
+
+    std::vector<double> sortxs(n), sortys(n), sortq0s(n);
+    for (int ii = 0; ii < n; ++ii) { sortxs[ii] = shifted_xs[sort_indices[ii]]; sortys[ii] = shifted_ys[sort_indices[ii]]; }
+
+    std::vector<int> leaf_of(n);
+    bool beyond_boundary = false;
+    int leaf = find_leaf_containing_xy_recursively(sortxs[0], sortys[0], beyond_boundary, 0);
+    leaf_of[0] = beyond_boundary ? 0 : leaf;
+
+    for (int ii = 1; ii < n; ++ii) {
+        beyond_boundary = false;
+        int seed = leaf_of[ii-1];
+        if (seed <= 0) {
+            // previous point fell back to root: re-bootstrap with the recursive search
+            int lf = find_leaf_containing_xy_recursively(sortxs[ii], sortys[ii], beyond_boundary, 0);
+            leaf_of[ii] = beyond_boundary ? 0 : lf;
+        } else {
+            std::set<int> history;
+            history.emplace(seed);
+            int lf = find_leaf_containing_point_from_neighbor(sortxs[ii], sortys[ii], beyond_boundary, seed, history);
+            leaf_of[ii] = beyond_boundary ? 0 : lf;
+        }
+    }
+
+    std::vector<std::vector<int> > point_in_leaf_panels_by_inds(old_panels.size());
+    for (int ii = 0; ii < n; ++ii) { point_in_leaf_panels_by_inds[leaf_of[ii]].push_back(ii); }
+
+    for (int panel_ind = 0; panel_ind < (int)old_panels.size(); ++panel_ind) {
+        if (point_in_leaf_panels_by_inds[panel_ind].size() > 0) {
+            interpolate_from_panel_to_points(sortq0s, sortxs, sortys,
+                point_in_leaf_panels_by_inds[panel_ind], panel_ind, use_limiter, limit_val);
+        }
+    }
+    for (int ii = 0; ii < n; ++ii) { q0s[sort_indices[ii]] = sortq0s[ii]; }
+}
+
 double AMRStructure::interpolate_from_mesh(double x, double y, bool verbose) {
 
     // shift x into the principal periodic strip
