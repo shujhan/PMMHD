@@ -71,39 +71,29 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> f0,
                     q_minus[ii] = w0s[ii] - j0s[ii];
                 }
             } else {
-                // int nx_points = 2*npanels_x + 1;
-                // int ny_points = 2*npanels_y + 1;
-                // old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
-                // interpolate_to_initial_xys(q_plus, xs, ys, nx_points, ny_points);
-                // old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
-                // interpolate_to_initial_xys(q_minus, xs, ys, nx_points, ny_points);
-                // for (int ii = 0; ii < xs.size(); ii++) {
-                //     w0s[ii] = 0.5 * (q_plus[ii] + q_minus[ii]);
-                //     j0s[ii] = 0.5 * (q_plus[ii] - q_minus[ii]);
-                // }
-
-                // // Robustly value the points created this pass (and re-value the
-                // // rest, harmlessly) through the corner-safe neighbor-walk, so
-                // // test_panel sees correct w0/j0 and the final mesh is already
-                // // filled -- no separate post-loop pass needed.
-                // old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
-                // interpolate_q_scattered(q_plus);
-                // old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
-                // interpolate_q_scattered(q_minus);
-                // for (int ii = 0; ii < xs.size(); ii++) {
-                //     w0s[ii] = 0.5 * (q_plus[ii] + q_minus[ii]);
-                //     j0s[ii] = 0.5 * (q_plus[ii] - q_minus[ii]);
-                // }
+                // Robustly value the points created this pass (and re-value the
+                // rest, harmlessly) through the corner-safe neighbor-walk, so
+                // test_panel sees correct w0/j0 and the final mesh is already
+                // filled -- no separate post-loop pass needed.
+                old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
+                interpolate_q_scattered(q_plus);
+                old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
+                interpolate_q_scattered(q_minus);
                 for (int ii = 0; ii < xs.size(); ii++) {
-                    old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
-                    double qp = interpolate_from_mesh(new_xs.at(ii), new_ys.at(ii), false);
-                    old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
-                    double qm = interpolate_from_mesh(new_xs.at(ii), new_ys.at(ii), false);
-                    q_plus[ii] = qp;
-                    q_minus[ii] = qm;
                     w0s[ii] = 0.5 * (q_plus[ii] + q_minus[ii]);
                     j0s[ii] = 0.5 * (q_plus[ii] - q_minus[ii]);
                 }
+
+                // for (int ii = 0; ii < xs.size(); ii++) {
+                //     old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
+                //     double qp = interpolate_from_mesh(xs[ii], ys[ii], false);   
+                //     old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
+                //     double qm = interpolate_from_mesh(xs[ii], ys[ii], false);
+                //     q_plus[ii]  = qp;
+                //     q_minus[ii] = qm;
+                //     w0s[ii] = 0.5 * (q_plus[ii] + q_minus[ii]);
+                //     j0s[ii] = 0.5 * (q_plus[ii] - q_minus[ii]);
+                // }
             }
             // auto amr_stop = high_resolution_clock::now();
             // add_time(amr_refine_time, duration_cast<duration<double>>(amr_stop-amr_start) );
