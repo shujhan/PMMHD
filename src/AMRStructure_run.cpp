@@ -188,113 +188,96 @@ int AMRStructure::euler() {
 
 
 int AMRStructure::rk4() {
-    // NOT IMPLEMENTED for the Elsasser (q+/q-) scheme yet.
-    // The body below is the old in-place omega/j RK4: it calls compute_rhs_state
-    // (now replaced by compute_source_S) and never fills xs_plus/q_plus/..., so it is
-    // inconsistent with euler() and remesh(). Disabled for now -- use method>0 (euler).
-    std::cerr << "rk4() is not implemented for the q+/q- scheme yet; "
-                 "run with method>0 to use euler." << std::endl;
-    return 1;
+    // Classic RK4 for the Elsasser (q+/q-) transport, built as a 4-stage
+    // generalisation of euler(), same idea as multi_species' rk4_step. Each
+    // stage evaluates exactly the slopes euler() uses:
+    //     q+ copy advects with (U - B), source +S
+    //     q- copy advects with (U + B), source -S
+    // multi_species can sample its field at scattered displaced points, so it
+    // never remeshes between stages. Here S needs U/B gradients from grid FD,
+    // so each stage state is formed like a full euler step: push the two copies
+    // off the base grid, remesh them back onto the (fixed) grid via
+    // interpolate_to_initial_xys, recover w/j and weights, refresh U/B fields.
+    //
+    // The grid (xs, ys, panels) is held FIXED across the 4 stages so the four
+    // slope sets live at the same points and combine. AMR is applied once per
+    // step at the step()-level remesh() (the grid we enter with was already
+    // refined there); re-refining between stages would change the point count
+    // and make the k1..k4 combine ill-defined. With AMR off the fixed grid is
+    // just the uniform grid, so the same path serves both cases.
+    const int N = (int)xs.size();
+    const int nx_points = 2 * npanels_x + 1;
+    const int ny_points = 2 * npanels_y + 1;
 
-#if 0
-    cout << "enter rk4" << endl;
-    const int xs_size = (int)xs.size();
+    // base q+/q- at the fixed grid (held fixed; every stage state branches off these)
+    std::vector<double> qp0 = q_plus;
+    std::vector<double> qm0 = q_minus;
 
-    // Stage storage: k1, k2, k3, k4 for x, y, w and j
-    std::vector<double> k1_u1s(xs_size, 0.0), k1_u2s(xs_size, 0.0), k1_dws(xs_size, 0.0), k1_djs(xs_size, 0.0);
-    std::vector<double> k2_u1s(xs_size, 0.0), k2_u2s(xs_size, 0.0), k2_dws(xs_size, 0.0), k2_djs(xs_size, 0.0);
-    std::vector<double> k3_u1s(xs_size, 0.0), k3_u2s(xs_size, 0.0), k3_dws(xs_size, 0.0), k3_djs(xs_size, 0.0);
-    std::vector<double> k4_u1s(xs_size, 0.0), k4_u2s(xs_size, 0.0), k4_dws(xs_size, 0.0), k4_djs(xs_size, 0.0);
+    // per-stage slopes at the fixed grid: dx/dt, dy/dt, dq/dt for each copy
+    std::vector<double> kx_p(N), ky_p(N), kq_p(N);   // q+ copy
+    std::vector<double> kx_m(N), ky_m(N), kq_m(N);   // q- copy
 
-    // Temporary positions
-    std::vector<double> xs2(xs_size), ys2(xs_size), ws2(xs_size), js2(xs_size);
-    std::vector<double> xs3(xs_size), ys3(xs_size), ws3(xs_size), js3(xs_size);
-    std::vector<double> xs4(xs_size), ys4(xs_size), ws4(xs_size), js4(xs_size);
+    // RK4 weighted-sum accumulators (the dt/6 is applied at the final combine)
+    std::vector<double> sx_p(N, 0.0), sy_p(N, 0.0), sq_p(N, 0.0);
+    std::vector<double> sx_m(N, 0.0), sy_m(N, 0.0), sq_m(N, 0.0);
 
-    // ------------------------------------------------------------
-    // Stage 1 : k1 = (u1s, u2s, k1_dws, k1_djs)
-    // ------------------------------------------------------------
-    
-    compute_rhs_state(xs, ys, w0s, j0s, t, k1_u1s, k1_u2s, k1_dws, k1_djs);
+    std::vector<double> S(N);
 
-    
-    // ------------------------------------------------------------
-    // Stage 2
-    // xs2 = xs + dt/2 * k1_u1s
-    // ys2 = ys + dt/2 * k1_u2s
-    // ws2 = ws + dt/2 * k1_w
-    // js2 = js + dt/2 * k1_j
-    // ------------------------------------------------------------
-    for (int i = 0; i < xs_size; ++i) {
-        xs2[i] = xs[i] + 0.5 * dt * k1_u1s[i];
-        ys2[i] = ys[i] + 0.5 * dt * k1_u2s[i];
-        ws2[i] = w0s[i] + 0.5 * dt * k1_dws[i];
-        js2[i] = j0s[i] + 0.5 * dt * k1_djs[i];
+    // stage substep fraction (offset from base) and combine weight
+    const double stage_c[4] = {0.0, 0.5, 0.5, 1.0};
+    const double stage_b[4] = {1.0, 2.0, 2.0, 1.0};
+
+    for (int stage = 0; stage < 4; ++stage) {
+        // --- slopes at the current stage state ---
+        // Fields (u1s/u2s/b1s/b2s) are already current on the fixed grid: from
+        // the previous step's init_fields() at stage 0, and from this routine's
+        // own init_fields() (below) at later stages.
+        compute_source_S(xs, ys, w0s, j0s, t + stage_c[stage] * dt, S);
+        for (int i = 0; i < N; ++i) {
+            kx_p[i] = u1s[i] - b1s[i];  ky_p[i] = u2s[i] - b2s[i];  kq_p[i] =  S[i];
+            kx_m[i] = u1s[i] + b1s[i];  ky_m[i] = u2s[i] + b2s[i];  kq_m[i] = -S[i];
+        }
+
+        // accumulate this stage into the RK4 sum
+        const double b = stage_b[stage];
+        for (int i = 0; i < N; ++i) {
+            sx_p[i] += b * kx_p[i];  sy_p[i] += b * ky_p[i];  sq_p[i] += b * kq_p[i];
+            sx_m[i] += b * kx_m[i];  sy_m[i] += b * ky_m[i];  sq_m[i] += b * kq_m[i];
+        }
+
+        // --- form the next stage state (push copies, remesh back, fields) ---
+        if (stage < 3) {
+            const double c = stage_c[stage + 1];   // 0.5, 0.5, 1.0
+            for (int i = 0; i < N; ++i) {
+                xs_plus[i]  = xs[i] + c * dt * kx_p[i];
+                ys_plus[i]  = ys[i] + c * dt * ky_p[i];
+                q_plus[i]   = qp0[i] + c * dt * kq_p[i];
+
+                xs_minus[i] = xs[i] + c * dt * kx_m[i];
+                ys_minus[i] = ys[i] + c * dt * ky_m[i];
+                q_minus[i]  = qm0[i] + c * dt * kq_m[i];
+            }
+
+            remesh();
+            init_fields();   // refresh U/B for the next stage's slope evaluation
+        }
     }
 
-    // rebuild u_weight and b_weight terms 
-    // multiply new w/j after pushing 
-    for (int i = 0; i < u_weights.size(); i++) {
-        u_weights[i] = weights[i] * ws2[i];
-        b_weights[i] = weights[i] * js2[i];
-    }
+    // --- final RK4 combine ---
+    // Push the two copies off the base grid by dt/6 * (k1 + 2k2 + 2k3 + k4).
+    // step() then calls remesh() (which AMR-refines and recovers w/j on the new
+    // grid) followed by init_fields(), exactly as it does after euler().
+    for (int i = 0; i < N; ++i) {
+        xs_plus[i]  = xs[i] + (dt / 6.0) * sx_p[i];
+        ys_plus[i]  = ys[i] + (dt / 6.0) * sy_p[i];
+        q_plus[i]   = qp0[i] + (dt / 6.0) * sq_p[i];
 
-    compute_rhs_state(xs2, ys2, ws2, js2, t + 0.5 * dt,
-                            k2_u1s, k2_u2s, k2_dws, k2_djs);
-
-    // ------------------------------------------------------------
-    // Stage 3
-    // ------------------------------------------------------------
-    for (int i = 0; i < xs_size; ++i) {
-        xs3[i] = xs[i] + 0.5 * dt * k2_u1s[i];
-        ys3[i] = ys[i] + 0.5 * dt * k2_u2s[i];
-        ws3[i] = w0s[i] + 0.5 * dt * k2_dws[i];
-        js3[i] = j0s[i] + 0.5 * dt * k2_djs[i];
-    }
-
-    for (int i = 0; i < u_weights.size(); i++) {
-        u_weights[i] = weights[i] * ws3[i];
-        b_weights[i] = weights[i] * js3[i];
-    }
-
-    compute_rhs_state(xs3, ys3, ws3, js3, t + 0.5 * dt,
-                            k3_u1s, k3_u2s, k3_dws, k3_djs);
-
-    // ------------------------------------------------------------
-    // Stage 4
-    // ------------------------------------------------------------
-    for (int i = 0; i < xs_size; ++i) {
-        xs4[i] = xs[i] + dt * k3_u1s[i];
-        ys4[i] = ys[i] + dt * k3_u2s[i];
-        ws4[i] = w0s[i] + dt * k3_dws[i];
-        js4[i] = j0s[i] + dt * k3_djs[i];
-    }
-
-    for (int i = 0; i < u_weights.size(); i++) {
-        u_weights[i] = weights[i] * ws4[i];
-        b_weights[i] = weights[i] * js4[i];
-    }
-
-    compute_rhs_state(xs4, ys4, ws4, js4, t + dt,
-                            k4_u1s, k4_u2s, k4_dws, k4_djs);
-
-    // ------------------------------------------------------------
-    // Final RK4 update
-    // x uses (k1_u1s, k2_u1s, k3_u1s, k4_u1s)
-    // y uses (k1_u2s, k2_u2s, k3_u2s, k4_u2s)
-    // w uses (k1_dws, k2_dws, k3_dws, k4_dws)
-    // j uses (k1_djs, k2_djs, k3_djs, k4_djs)
-    // ------------------------------------------------------------
-    for (int i = 0; i < xs_size; ++i) {
-        xs[i] += (dt / 6.0) * (k1_u1s[i] + 2.0 * k2_u1s[i] + 2.0 * k3_u1s[i] + k4_u1s[i]);
-        ys[i] += (dt / 6.0) * (k1_u2s[i] + 2.0 * k2_u2s[i] + 2.0 * k3_u2s[i] + k4_u2s[i]);
-
-        w0s[i] += (dt / 6.0) * (k1_dws[i] + 2.0 * k2_dws[i] + 2.0 * k3_dws[i] + k4_dws[i]);
-        j0s[i] += (dt / 6.0) * (k1_djs[i] + 2.0 * k2_djs[i] + 2.0 * k3_djs[i] + k4_djs[i]);
+        xs_minus[i] = xs[i] + (dt / 6.0) * sx_m[i];
+        ys_minus[i] = ys[i] + (dt / 6.0) * sy_m[i];
+        q_minus[i]  = qm0[i] + (dt / 6.0) * sq_m[i];
     }
 
     return 0;
-#endif
 }
 
 
