@@ -258,8 +258,19 @@ int AMRStructure::rk4() {
                 q_minus[i]  = qm0[i] + c * dt * kq_m[i];
             }
 
-            remesh();
-            init_fields();   // refresh U/B for the next stage's slope evaluation
+            old_panels = panels;
+            old_xs = xs_plus;  old_ys = ys_plus;  old_q0s = q_plus;
+            interpolate_to_initial_xys(q_plus, xs, ys, nx_points, ny_points);
+            old_xs = xs_minus; old_ys = ys_minus; old_q0s = q_minus;
+            interpolate_to_initial_xys(q_minus, xs, ys, nx_points, ny_points);
+
+            for (int i = 0; i < N; ++i) {
+                w0s[i] = 0.5 * (q_plus[i] + q_minus[i]);
+                j0s[i] = 0.5 * (q_plus[i] - q_minus[i]);
+                u_weights[i] = weights[i] * w0s[i];
+                b_weights[i] = weights[i] * j0s[i];
+            }
+            init_fields(); 
         }
     }
 
