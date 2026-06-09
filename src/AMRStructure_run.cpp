@@ -208,6 +208,7 @@ int AMRStructure::rk4() {
     const int N = (int)xs.size();
     const int nx_points = 2 * npanels_x + 1;
     const int ny_points = 2 * npanels_y + 1;
+    xs_plus = xs;  ys_plus = ys;  xs_minus = xs;  ys_minus = ys;
 
     // base q+/q- at the fixed grid (held fixed; every stage state branches off these)
     std::vector<double> qp0 = q_plus;

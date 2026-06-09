@@ -126,6 +126,52 @@ cout << "Done sorting" << endl;
         }
     }    
 
+
+    //////////////////////// //////////////////////// //////////////////////// //////////////////////// 
+    //////////////////////// Maybe no need, just need to refine dt and dx dy  //////////////////////// 
+    //////////////////////// //////////////////////// //////////////////////// //////////////////////// 
+
+    // // Repair neighbor-walk failures before depositing points into panels.
+    // // find_leaf_containing_point_from_neighbor can terminate on a cycle and
+    // // return a leaf that does NOT contain the target point (where the deformed
+    // // source mesh is sheared/folded -- current sheets). That point would be
+    // // interpolated from the wrong panel, producing an isolated outlier; RK4
+    // // feeds those back into the stage slopes, so the specks compound. For any
+    // // point not inside its assigned leaf, redo the search with a recursive
+    // // descent from the root (the method that seeds the first point).
+    // auto point_in_old_leaf = [&](double tx, double ty, int pl) -> bool {
+    //     const Panel& P = old_panels[pl];
+    //     double x_bl=old_xs[P.point_inds[0]], y_bl=old_ys[P.point_inds[0]];
+    //     double x_tl=old_xs[P.point_inds[2]], y_tl=old_ys[P.point_inds[2]];
+    //     double x_mid=old_xs[P.point_inds[4]], y_mid=old_ys[P.point_inds[4]];
+    //     double x_br=old_xs[P.point_inds[6]], y_br=old_ys[P.point_inds[6]];
+    //     double x_tr=old_xs[P.point_inds[8]], y_tr=old_ys[P.point_inds[8]];
+    //     if (tx - x_mid >= Lx/2) tx -= Lx;
+    //     if (tx - x_mid < -Lx/2) tx += Lx;
+    //     if (bcs == periodic_bcs) {
+    //         if (ty - y_mid >= Ly/2) ty -= Ly;
+    //         if (ty - y_mid < -Ly/2) ty += Ly;
+    //     }
+    //     bool r =(x_tr-x_br)*(ty-y_br) >= (y_tr-y_br)*(tx-x_br);
+    //     bool l =(x_tl-x_bl)*(ty-y_bl) <= (y_tl-y_bl)*(tx-x_bl);
+    //     bool tp=(x_tr-x_tl)*(ty-y_tl) <= (y_tr-y_tl)*(tx-x_tl);
+    //     bool bt=(x_br-x_bl)*(ty-y_bl) >= (y_br-y_bl)*(tx-x_bl);
+    //     return r && l && tp && bt;
+    // };
+    // for (int ii = 0; ii < (int)leaf_panel_of_points.size(); ++ii) {
+    //     if (!point_in_old_leaf(sortxs[ii], sortys[ii], leaf_panel_of_points[ii])) {
+    //         bool bb = false;
+    //         double rx = sortxs[ii], ry = sortys[ii];
+    //         int rl = find_leaf_containing_xy_recursively(rx, ry, bb, 0);
+    //         if (!bb && rl >= 0 && rl < (int)old_panels.size()) {
+    //             leaf_panel_of_points[ii] = rl;
+    //         }
+    //     }
+    // }
+
+
+
+
     for (int ii = 0; ii < leaf_panel_of_points.size(); ++ii) {
         point_in_leaf_panels_by_inds[leaf_panel_of_points[ii]].push_back(ii);
     }
