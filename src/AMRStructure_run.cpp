@@ -188,9 +188,8 @@ int AMRStructure::euler() {
 
 
 int AMRStructure::rk4() {
-    // Classic RK4 for the Elsasser (q+/q-) transport, built as a 4-stage
-    // generalisation of euler(), same idea as multi_species' rk4_step. Each
-    // stage evaluates exactly the slopes euler() uses:
+    // Classic RK4 for the Elsasser (q+/q-) transport, same idea as
+    // multi_species' rk4_step:
     //     q+ copy advects with (U - B), source +S
     //     q- copy advects with (U + B), source -S
     // multi_species can sample its field at scattered displaced points, so it
@@ -198,6 +197,10 @@ int AMRStructure::rk4() {
     // so each stage state is formed like a full euler step: push the two copies
     // off the base grid, remesh them back onto the (fixed) grid via
     // interpolate_to_initial_xys, recover w/j and weights, refresh U/B fields.
+    // The stage SLOPES are then sampled at the displaced stage positions by
+    // biquadratic interpolation from the regular base grid (k_j = v at
+    // X + c_j*dt*k_{j-1}, the classical RK4 evaluation point); sampling at the
+    // base grid point instead would miss (v.grad)v and reduce to 1st order.
     //
     // The grid (xs, ys, panels) is held FIXED across the 4 stages so the four
     // slope sets live at the same points and combine. AMR is applied once per
@@ -223,20 +226,53 @@ int AMRStructure::rk4() {
     std::vector<double> sx_m(N, 0.0), sy_m(N, 0.0), sq_m(N, 0.0);
 
     std::vector<double> S(N);
+    std::vector<double> field_tmp(N);   // scratch: composite grid field (u-/+b) handed to old_q0s
 
     // stage substep fraction (offset from base) and combine weight
     const double stage_c[4] = {0.0, 0.5, 0.5, 1.0};
     const double stage_b[4] = {1.0, 2.0, 2.0, 1.0};
 
     for (int stage = 0; stage < 4; ++stage) {
-        // --- slopes at the current stage state ---
-        // Fields (u1s/u2s/b1s/b2s) are already current on the fixed grid: from
-        // the previous step's init_fields() at stage 0, and from this routine's
-        // own init_fields() (below) at later stages.
+        // --- slopes at the current stage state, AT THE DISPLACED POSITIONS ---
+        // Classical RK4 needs k_j = v(X + c_j*dt*k_{j-1}, t + c_j*dt): the stage
+        // field sampled where the trial copy has moved to, not at the base grid
+        // point. init_fields() (below) supplies the time-advanced field on the
+        // grid; here that grid field is biquadratically sampled at the displaced
+        // stage positions (xs_plus/ys_plus for the q+ copy, xs_minus/ys_minus for
+        // the q- copy). Reading u1s[i] directly instead drops the (v.grad)v term
+        // from the trajectory expansion and degrades the whole scheme to 1st
+        // order. S is sampled the same way: dq/dt = +/-S is accumulated along
+        // the trajectory, not at the start point. The source mesh for this
+        // sampling is the REGULAR base grid, so the neighbor-walk leaf search is
+        // robust (the sheared-mesh failure mode does not apply here).
         compute_source_S(xs, ys, w0s, j0s, t + stage_c[stage] * dt, S);
-        for (int i = 0; i < N; ++i) {
-            kx_p[i] = u1s[i] - b1s[i];  ky_p[i] = u2s[i] - b2s[i];  kq_p[i] =  S[i];
-            kx_m[i] = u1s[i] + b1s[i];  ky_m[i] = u2s[i] + b2s[i];  kq_m[i] = -S[i];
+        if (stage == 0) {
+            // stage-1 displaced positions coincide with the grid; read directly
+            for (int i = 0; i < N; ++i) {
+                kx_p[i] = u1s[i] - b1s[i];  ky_p[i] = u2s[i] - b2s[i];  kq_p[i] =  S[i];
+                kx_m[i] = u1s[i] + b1s[i];  ky_m[i] = u2s[i] + b2s[i];  kq_m[i] = -S[i];
+            }
+        } else {
+            old_panels = panels;  old_xs = xs;  old_ys = ys;   // source = regular base grid
+
+            for (int i = 0; i < N; ++i) { field_tmp[i] = u1s[i] - b1s[i]; }
+            old_q0s = field_tmp;
+            interpolate_to_initial_xys(kx_p, xs_plus, ys_plus, nx_points, ny_points);
+            for (int i = 0; i < N; ++i) { field_tmp[i] = u2s[i] - b2s[i]; }
+            old_q0s = field_tmp;
+            interpolate_to_initial_xys(ky_p, xs_plus, ys_plus, nx_points, ny_points);
+            old_q0s = S;
+            interpolate_to_initial_xys(kq_p, xs_plus, ys_plus, nx_points, ny_points);
+
+            for (int i = 0; i < N; ++i) { field_tmp[i] = u1s[i] + b1s[i]; }
+            old_q0s = field_tmp;
+            interpolate_to_initial_xys(kx_m, xs_minus, ys_minus, nx_points, ny_points);
+            for (int i = 0; i < N; ++i) { field_tmp[i] = u2s[i] + b2s[i]; }
+            old_q0s = field_tmp;
+            interpolate_to_initial_xys(ky_m, xs_minus, ys_minus, nx_points, ny_points);
+            old_q0s = S;
+            interpolate_to_initial_xys(kq_m, xs_minus, ys_minus, nx_points, ny_points);
+            for (int i = 0; i < N; ++i) { kq_m[i] = -kq_m[i]; }   // q- carries -S
         }
 
         // accumulate this stage into the RK4 sum
