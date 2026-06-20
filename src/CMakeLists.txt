@@ -24,6 +24,7 @@ add_library(AMRObj_cpu  AMRStructure.cpp
                     AMRStructure_field.cpp
                     AMRStructure_run.cpp
                     AMRStructure_interp.cpp
+                    AMRStructure_diagnostics.cpp
                     )
 
 target_link_libraries(AMRObj_cpu    PUBLIC  PanelObj

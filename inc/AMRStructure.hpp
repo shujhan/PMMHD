@@ -34,6 +34,17 @@ enum BCType   { periodic_bcs = 0, open_bcs = 1 };
 enum QuadType { trap = 0, simpsons = 1 };
 
 
+// quadrature-integrated ideal-MHD invariants, dumped to diagnostics.csv
+struct MHDDiagnostics {
+    int    iter;
+    double t;
+    double E_kin;   // 0.5 * sum w_i (u1^2 + u2^2)
+    double E_mag;   // 0.5 * sum w_i (b1^2 + b2^2)
+    double E_tot;   // E_kin + E_mag
+    double H_C;     // cross helicity: sum w_i (u1 b1 + u2 b2)
+};
+
+
 
 struct AMRStructure {
     std::string sim_dir;
@@ -256,6 +267,11 @@ struct AMRStructure {
         int write_to_file();
         int write_to_file(bool pre_remesh);
         // void print_panel_points();
+
+        // diagnostics (conservation tracking) -- AMRStructure_diagnostics.cpp
+        MHDDiagnostics compute_diagnostics();
+        int write_diagnostics(const MHDDiagnostics& d);
+
 
         // profiling
         // void add_time(ProfileTypes prof_type, duration<double> op_time);

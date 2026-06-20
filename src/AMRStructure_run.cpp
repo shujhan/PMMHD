@@ -7,12 +7,14 @@ int AMRStructure::run() {
     }
 
     write_to_file();
+    write_diagnostics(compute_diagnostics());
     return 0;
 }
 
 int AMRStructure::step() {
     if (iter_num % n_steps_diag == 0) {
         write_to_file();
+        write_diagnostics(compute_diagnostics());   // <-- conservative 
     }
     iter_num += 1;
     std::cout << "step " << iter_num << std::endl;
