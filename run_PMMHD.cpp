@@ -135,6 +135,11 @@ int main(int argc, char** argv) {
         case 4:
             w0 = new w0_orszag_tang(kx_vorticity, ky_vorticity, amp_vorticity);
             break;
+
+        case 5:
+            w0 = new w0_kraus_maj(kx_vorticity, ky_vorticity, amp_vorticity);
+            break;
+
         
         default:
             cout << "Using default initial conditions, all 1s" << endl;
@@ -160,6 +165,10 @@ int main(int argc, char** argv) {
 
         case 4:
             j0 = new j0_orszag_tang(kx_j, ky_j, amp_j);
+            break;
+
+        case 5:
+            j0 = new j0_kraus_maj(kx_j, ky_j, amp_j);
             break;
 
 

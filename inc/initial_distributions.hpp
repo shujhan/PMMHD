@@ -58,6 +58,19 @@ class w0_orszag_tang : public distribution {
 
 
 
+// Ideal/inviscid Orszag-Tang (Kraus & Maj 2018):
+//   phi = 2 sin(ky*y) - 2 cos(kx*x),  u0 = curl(phi)
+//   => omega = laplacian(phi) = 2 ky^2 sin(ky*y) - 2 kx^2 cos(kx*x)
+class w0_kraus_maj : public distribution {
+    public:
+        w0_kraus_maj(double kx_w, double ky_w, double amp_w);
+        double operator() (double x, double y);
+        void print();
+    double kx;
+    double ky;
+    double amp;
+};
+
 
 
 
@@ -117,3 +130,21 @@ class j0_orszag_tang : public distribution {
 
 
 #endif
+
+
+// Ideal/inviscid Orszag-Tang (Kraus & Maj 2018):
+//   psi = cos(2 ky*y) - 2 cos(kx*x)  (out-of-plane vector potential A_z)
+//   j = -laplacian(psi) = 4 ky^2 cos(2 ky*y) - 2 kx^2 cos(kx*x)
+class j0_kraus_maj : public distribution {
+    public:
+        j0_kraus_maj(double kx_j, double ky_j, double amp_j);
+        double operator() (double x, double y);
+        void print();
+    double kx;
+    double ky;
+    double amp;
+};
+
+
+
+
