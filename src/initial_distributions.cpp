@@ -66,19 +66,31 @@ void w0_orszag_tang::print() {
 
 
 
+// // ---- w0_kraus_maj ----
+// // omega = laplacian(phi), phi = 2 sin(ky*y) - 2 cos(kx*x)
+// w0_kraus_maj::w0_kraus_maj(double kx_w, double ky_w, double amp_w):
+//     kx(kx_w), ky(ky_w), amp(amp_w) {}
+
+// double w0_kraus_maj::operator()(double x, double y) {
+//     return amp * (sin(ky * y) - cos(kx * x));
+// }
+
+// void w0_kraus_maj::print() {
+//     std::cout << "w0_kraus_maj: amp * (-2 ky^2 sin(ky*y) + 2 kx^2 cos(kx*x))" << std::endl;
+// }
+
 // ---- w0_kraus_maj ----
 // omega = laplacian(phi), phi = 2 sin(ky*y) - 2 cos(kx*x)
 w0_kraus_maj::w0_kraus_maj(double kx_w, double ky_w, double amp_w):
     kx(kx_w), ky(ky_w), amp(amp_w) {}
 
 double w0_kraus_maj::operator()(double x, double y) {
-    return amp * (sin(ky * y) - cos(kx * x));
+    return amp * (-2.0 * ky * ky * sin(ky * y) + 2.0 * kx * kx * cos(kx * x));
 }
 
 void w0_kraus_maj::print() {
     std::cout << "w0_kraus_maj: amp * (-2 ky^2 sin(ky*y) + 2 kx^2 cos(kx*x))" << std::endl;
 }
-
 
 
 
@@ -149,13 +161,26 @@ void j0_orszag_tang::print() {
 }
 
 
+// // ---- j0_kraus_maj ----
+// // j = -laplacian(psi), psi = cos(2 ky*y) - 2 cos(kx*x)
+// j0_kraus_maj::j0_kraus_maj(double kx_j, double ky_j, double amp_j):
+//     kx(kx_j), ky(ky_j), amp(amp_j) {}
+
+// double j0_kraus_maj::operator()(double x, double y) {
+//     return amp * (2 * cos(ky * y) - cos(kx * x));
+// }
+
+// void j0_kraus_maj::print() {
+//     std::cout << "j0_kraus_maj: amp * (4 ky^2 cos(2 ky*y) - 2 kx^2 cos(kx*x))" << std::endl;
+// }
+
 // ---- j0_kraus_maj ----
 // j = -laplacian(psi), psi = cos(2 ky*y) - 2 cos(kx*x)
 j0_kraus_maj::j0_kraus_maj(double kx_j, double ky_j, double amp_j):
     kx(kx_j), ky(ky_j), amp(amp_j) {}
 
 double j0_kraus_maj::operator()(double x, double y) {
-    return amp * (2 * cos(ky * y) - cos(kx * x));
+    return amp * (4.0 * ky * ky * cos(2.0 * ky * y) - 2.0 * kx * kx * cos(kx * x));
 }
 
 void j0_kraus_maj::print() {
