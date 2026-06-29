@@ -66,6 +66,8 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                     for(int k = 0; k < ny; k++) {
                         double x_diff = x_vals[i] - x_vals[k];
                         double y_diff = y_vals[i] - y_vals[k];
+                        // try skipping, no regularization
+                        if (x_diff == 0.0 && y_diff == 0.0) continue; 
                         double r2 = x_diff * x_diff + y_diff * y_diff + epsilon * epsilon;
                         u1 -= (1.0 / (2.0 * pi)) * y_diff / r2 * q_ws[k];
                         u2 += (1.0 / (2.0 * pi)) * x_diff / r2 * q_ws[k];
@@ -1213,7 +1215,8 @@ cList)
                     int j = kk % PP;
                     double x_diff = p_x - cList[far_index].t1[i];
                     double y_diff = p_y - cList[far_index].t2[j];
-
+                    // try skipping, no regularization
+                    if (x_diff == 0.0 && y_diff == 0.0) continue; 
                     double r2 = x_diff * x_diff + y_diff * y_diff + epsilon * epsilon;
                     tempx -= (1.0 / (2.0 * pi)) * y_diff / r2 * cList[far_index].moments[kk];
                     tempy += (1.0 / (2.0 * pi)) * x_diff / r2 * cList[far_index].moments[kk];
@@ -1279,7 +1282,8 @@ cList)
                 for (size_t jj = limit_1_c; jj <= limit_2_c; jj++) {
                     double x_diff = particles_x[ii] - particles_x[jj];
                     double y_diff = particles_y[ii] - particles_y[jj];
-
+                    // try skipping, no regularization
+                    if (x_diff == 0.0 && y_diff == 0.0) continue; 
                     double r2 = x_diff * x_diff + y_diff * y_diff + epsilon * epsilon;
                     tempx -= (1.0 / (2.0 * pi)) * y_diff / r2 * lambda[jj];
                     tempy += (1.0 / (2.0 * pi)) * x_diff / r2 * lambda[jj];

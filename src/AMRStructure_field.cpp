@@ -105,6 +105,31 @@ int AMRStructure::evaluate_u_field(std::vector<double>& u1s_local, std::vector<d
 
         // ---------- Step E: add proxy correction at the particles ----------
         periodizer->add_correction(xs_local, ys_local, u1s_local, u2s_local);
+
+        // ---------- Step F: project onto the zero-mean gauge ----------
+        // The doubly-periodic Biot-Savart velocity of a zero-mean vorticity is
+        // defined only up to a uniform constant. The 3x3-image near sum carries a
+        // spurious mean (truncation of the infinite periodic sum) that the
+        // jump-only wall matching does not remove, leaving a phantom mean flow
+        // that inflates E_kin and uniformly advects the field. Subtract the
+        // quadrature-weighted domain mean to restore the zero-mean gauge.
+        {
+            const bool use_w = ((int)weights.size() == n_local);
+            double m1 = 0.0, m2 = 0.0, wsum = 0.0;
+            for (int i = 0; i < n_local; ++i) {
+                const double wq = use_w ? weights[i] : 1.0;
+                m1 += wq * u1s_local[i];
+                m2 += wq * u2s_local[i];
+                wsum += wq;
+            }
+            if (wsum != 0.0) {
+                m1 /= wsum; m2 /= wsum;
+                for (int i = 0; i < n_local; ++i) {
+                    u1s_local[i] -= m1;
+                    u2s_local[i] -= m2;
+                }
+            }
+        }
     }
     else {
         // channel case (periodic x, open y): unchanged, use analytic channel kernel
@@ -200,6 +225,29 @@ int AMRStructure::evaluate_b_field(std::vector<double>& b1s_local, std::vector<d
 
         // ---------- Step E: add proxy correction at the particles ----------
         periodizer->add_correction(xs_local, ys_local, b1s_local, b2s_local);
+
+        // ---------- Step F: project onto the zero-mean gauge ----------
+        // Same fix as in evaluate_u_field: remove the spurious mean left by the
+        // near-sum truncation. This zeroes the mean of the Biot-Savart part of B;
+        // the physical background field B0x/B0y is added by the caller afterward,
+        // so the total mean B is exactly (B0x, B0y) as intended.
+        {
+            const bool use_w = ((int)weights.size() == n_local);
+            double m1 = 0.0, m2 = 0.0, wsum = 0.0;
+            for (int i = 0; i < n_local; ++i) {
+                const double wq = use_w ? weights[i] : 1.0;
+                m1 += wq * b1s_local[i];
+                m2 += wq * b2s_local[i];
+                wsum += wq;
+            }
+            if (wsum != 0.0) {
+                m1 /= wsum; m2 /= wsum;
+                for (int i = 0; i < n_local; ++i) {
+                    b1s_local[i] -= m1;
+                    b2s_local[i] -= m2;
+                }
+            }
+        }
     }
     else {
         // channel case (periodic x, open y): unchanged
