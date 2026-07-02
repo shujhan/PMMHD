@@ -140,6 +140,10 @@ int main(int argc, char** argv) {
             w0 = new w0_kraus_maj(kx_vorticity, ky_vorticity, amp_vorticity);
             break;
 
+        case 6:
+            w0 = new w0_coalescence(kx_vorticity, ky_vorticity, amp_vorticity);
+            break;
+
         
         default:
             cout << "Using default initial conditions, all 1s" << endl;
@@ -169,6 +173,10 @@ int main(int argc, char** argv) {
 
         case 5:
             j0 = new j0_kraus_maj(kx_j, ky_j, amp_j);
+            break;
+
+        case 6:
+            j0 = new j0_coalescence(kx_j, ky_j, amp_j);
             break;
 
 
@@ -314,4 +322,3 @@ int main(int argc, char** argv) {
     delete periodizer;
     return 0;
 }
-

@@ -73,6 +73,23 @@ class w0_kraus_maj : public distribution {
 
 
 
+// Coalescence seed (Bhattacharjee et al. 2009 setup):
+//   phi = amp * (cos(kx*x) - cos(ky*y)),  u0 = curl(phi)
+//   => omega = laplacian(phi) = amp * (ky^2 cos(ky*y) - kx^2 cos(kx*x))
+// Small amp (~1e-3) breaks the symmetry of the four-flux-tube equilibrium
+// and pushes same-sign current islands toward each other along the diagonal.
+class w0_coalescence : public distribution {
+    public:
+        w0_coalescence(double kx_w, double ky_w, double amp_w);
+        double operator() (double x, double y);
+        void print();
+    double kx;
+    double ky;
+    double amp;
+};
+
+
+
 
 
 class j0_uniform : public distribution {
@@ -147,4 +164,16 @@ class j0_kraus_maj : public distribution {
 
 
 
-
+// Coalescence / four-flux-tube equilibrium (Bhattacharjee et al. 2009):
+//   psi = A0 sin(kx*x) sin(ky*y)
+//   => j = -laplacian(psi) = A0 (kx^2 + ky^2) sin(kx*x) sin(ky*y)
+// Pass amp = A0 (kx^2 + ky^2); for kx = ky = 1 and A0 = 1, amp = 2.
+class j0_coalescence : public distribution {
+    public:
+        j0_coalescence(double kx_j, double ky_j, double amp_j);
+        double operator() (double x, double y);
+        void print();
+    double kx;
+    double ky;
+    double amp;
+};

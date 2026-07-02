@@ -723,8 +723,23 @@ void AMRStructure::interpolate_from_panel_to_points(
         std::vector<double> dxs(point_inds.size()), dys(point_inds.size());
         for (int ii = 0; ii < point_inds.size(); ++ii) {
             int pind = point_inds[ii];
-            dxs[ii] = xs[pind] - panel_xs[4];
-            dys[ii] = ys[pind] - panel_ys[4];
+            double tx = xs[pind];
+            double ty = ys[pind];
+            // Fold the target into the panel's periodic frame before forming
+            // offsets. The leaf search and shift_xs can leave the stored
+            // coordinate at a periodic image of the frame the assigned panel
+            // lives in (e.g. an x_max-column target shifted to ~-0 while its
+            // panel sits at the right edge); evaluating the biquadratic with
+            // the raw offset then extrapolates across the whole domain and
+            // deposits an O(1) defect. Same fold as point_in_old_leaf.
+            if (tx - panel_xs[4] >= Lx / 2) { tx -= Lx; }
+            if (tx - panel_xs[4] < -Lx / 2) { tx += Lx; }
+            if (bcs == periodic_bcs) {
+                if (ty - panel_ys[4] >= Ly / 2) { ty -= Ly; }
+                if (ty - panel_ys[4] < -Ly / 2) { ty += Ly; }
+            }
+            dxs[ii] = tx - panel_xs[4];
+            dys[ii] = ty - panel_ys[4];
         }
         for (int ii = 0; ii < 9; ii ++) {
             panel_dx[ii] = panel_xs[ii] - panel_xs[4];

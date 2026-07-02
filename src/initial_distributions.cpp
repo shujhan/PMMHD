@@ -94,6 +94,21 @@ void w0_kraus_maj::print() {
 
 
 
+// ---- w0_coalescence ----
+// omega = laplacian(phi), phi = amp * (cos(kx*x) - cos(ky*y))
+w0_coalescence::w0_coalescence(double kx_w, double ky_w, double amp_w):
+    kx(kx_w), ky(ky_w), amp(amp_w) {}
+
+double w0_coalescence::operator()(double x, double y) {
+    return amp * (ky * ky * cos(ky * y) - kx * kx * cos(kx * x));
+}
+
+void w0_coalescence::print() {
+    std::cout << "w0_coalescence: amp * (ky^2 cos(ky*y) - kx^2 cos(kx*x))" << std::endl;
+}
+
+
+
 
 // ---- j0_uniform ----
 j0_uniform::j0_uniform() {}
@@ -185,4 +200,19 @@ double j0_kraus_maj::operator()(double x, double y) {
 
 void j0_kraus_maj::print() {
     std::cout << "j0_kraus_maj: amp * (4 ky^2 cos(2 ky*y) - 2 kx^2 cos(kx*x))" << std::endl;
+}
+
+
+
+// ---- j0_coalescence ----
+// j = -laplacian(psi), psi = A0 sin(kx*x) sin(ky*y), amp = A0 (kx^2 + ky^2)
+j0_coalescence::j0_coalescence(double kx_j, double ky_j, double amp_j):
+    kx(kx_j), ky(ky_j), amp(amp_j) {}
+
+double j0_coalescence::operator()(double x, double y) {
+    return amp * sin(kx * x) * sin(ky * y);
+}
+
+void j0_coalescence::print() {
+    std::cout << "j0_coalescence: amp * sin(kx*x) * sin(ky*y)" << std::endl;
 }
