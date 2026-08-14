@@ -6,6 +6,8 @@ int AMRStructure::run() {
         step();
     }
 
+    evaluate_potential(phis, xs, ys, u_weights, t);
+    evaluate_potential(psis, xs, ys, b_weights, t);
     write_to_file();
     write_diagnostics(compute_diagnostics());
     return 0;
@@ -13,6 +15,8 @@ int AMRStructure::run() {
 
 int AMRStructure::step() {
     if (iter_num % n_steps_diag == 0) {
+        evaluate_potential(phis, xs, ys, u_weights, t);
+        evaluate_potential(psis, xs, ys, b_weights, t);
         write_to_file();
         write_diagnostics(compute_diagnostics());   // <-- conservative 
     }

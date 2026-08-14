@@ -117,6 +117,13 @@ struct AMRStructure {
     std::vector<double> j_laplacian;
 
 
+    // scalar potentials: phis = stream function (lap phi = omega, u = grad^perp phi)
+    //                    psis = magnetic flux function (lap psi = j, B = grad^perp psi)
+    // computed only at diagnostic dumps; contours of psis are field lines.
+    std::vector<double> phis, psis;
+
+
+
     //source terms calculation
     double nu,mu; // nu: fluid viscosity, mu: resistivity
     std::vector<double> B_dot_grad_j;
@@ -224,6 +231,14 @@ struct AMRStructure {
         // b1 and b2, use b_weights 
         int evaluate_b_field(std::vector<double>& b1s_local, std::vector<double>& b2s_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
         
+        // phis, use u_weights
+        int evaluate_phis(std::vector<double>& phis_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        // psis, use b_weights 
+        int evaluate_psis(std::vector<double>& psis_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
+        
+
+
+
         // // gradients evaluation
         // int evaluate_u1s_grad(std::vector<double>& u1s_grad_x_local, std::vector<double>& u1s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
         // int evaluate_u2s_grad(std::vector<double>& u2s_grad_x_local, std::vector<double>& u2s_grad_y_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);

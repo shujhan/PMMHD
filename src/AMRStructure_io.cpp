@@ -17,6 +17,8 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
     std::ofstream u2s_file;
     std::ofstream b1s_file;
     std::ofstream b2s_file;
+    std::ofstream phis_file;
+    std::ofstream psis_file;
 
 
     std::string remesh_str = "";
@@ -34,6 +36,13 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
     u2s_file.open(sim_dir + "simulation_output/u2s/u2s_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary); 
     b1s_file.open(sim_dir + "simulation_output/b1s/b1s_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary); 
     b2s_file.open(sim_dir + "simulation_output/b2s/b2s_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary); 
+    phis_file.open(sim_dir + "simulation_output/phis/phis_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary); 
+    psis_file.open(sim_dir + "simulation_output/psis/psis_" + remesh_str  + std::to_string(iter_num), std::ios::out | std::ios::binary); 
+
+    // potentials are only filled at diagnostic dumps; keep the record length
+    // consistent if this dump happens outside that path.
+    if (phis.size() != xs.size()) { phis.assign(xs.size(), 0.0); }
+    if (psis.size() != xs.size()) { psis.assign(xs.size(), 0.0); }
 
     std::cout << "#xs " << xs.size() << std::endl;
     std::cout << "#ys " << ys.size() << std::endl;
@@ -46,8 +55,10 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
     std::cout << "#u2s " << u2s.size() << std::endl;
     std::cout << "#b1s " << b1s.size() << std::endl;
     std::cout << "#b2s " << b2s.size() << std::endl;
+    std::cout << "#phis " << phis.size() << std::endl;
+    std::cout << "#psis " << psis.size() << std::endl;
 
-    if (!xs_file | !ys_file | !w0s_file | !j0s_file | !q_plus_file | !q_minus_file | !u1s_file | !u2s_file | !b1s_file | !b2s_file) {
+    if (!xs_file | !ys_file | !w0s_file | !j0s_file | !q_plus_file | !q_minus_file | !u1s_file | !u2s_file | !b1s_file | !b2s_file | !phis_file | !psis_file) {
         cout << "Unable to open step " << iter_num << " particle data files" << endl;
         return 1;
     }
@@ -65,6 +76,8 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
         double u2 = u2s[ii];
         double b1 = b1s[ii];
         double b2 = b2s[ii];
+        double phi = phis[ii];
+        double psi = psis[ii];
         xs_file.write((char *) &x, sizeof(double));
         ys_file.write((char *) &y, sizeof(double));
         w0s_file.write((char *) &w0, sizeof(double));
@@ -76,10 +89,12 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
         u2s_file.write((char *) &u2, sizeof(double));
         b1s_file.write((char *) &b1, sizeof(double));
         b2s_file.write((char *) &b2, sizeof(double));
+        phis_file.write((char *) &phi, sizeof(double));
+        psis_file.write((char *) &psi, sizeof(double));
     }
 
     if (!xs_file.good() | !ys_file.good() | !w0s_file.good() | !j0s_file.good() 
-        | !q_plus_file.good() |!q_minus_file.good() | !u1s_file.good() | !u2s_file.good() | !b1s_file.good() | !b2s_file.good()) {
+        | !q_plus_file.good() |!q_minus_file.good() | !u1s_file.good() | !u2s_file.good() | !b1s_file.good() | !b2s_file.good() | !phis_file.good() | !psis_file.good()) {
         cout << "Error occurred writing step " << iter_num << " particle data files." << endl;
         return 1;
     }
@@ -94,6 +109,8 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
     u2s_file.close();
     b1s_file.close();
     b2s_file.close();
+    phis_file.close();
+    psis_file.close();
     // cout << "Successfully wrote step " << iter_num << " particle data files" << endl;
 
     return 0;
@@ -244,4 +261,3 @@ std::ostream& operator<<(std::ostream& os, const AMRStructure& amr) {
 //     cout <<  time_operations[eval_time].count() / num_operations[eval_time] << " seconds per evaluation " << endl;
 //     cout <<". Total file writing time " << time_operations[file_time].count() << " seconds" << endl;
 // }
-

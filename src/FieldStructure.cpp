@@ -78,6 +78,61 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                 }
             break;
 
+
+        case original_potentials:
+            cout << "orginal kernel for potentials: " <<endl;
+            #ifdef OPENACC_ENABLED
+            #pragma acc parallel loop independent
+            #else
+            #pragma omp parallel for
+            #endif
+                for (int i = 0; i < nx; i++) {
+                    double u1 = 0.0;
+                    double u2 = 0.0;
+                #ifdef OPENACC_ENABLED
+                #pragma acc loop independent reduction(+:u1, u2)
+                #endif
+                    for(int k = 0; k < ny; k++) {
+                        double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
+                        double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
+                        double denom = cosh(y_diff) - cos(x_diff) + epsilon * epsilon;
+                        // u1 -= 1/4/pi*logf(cosh(y_diff) - cos(x_diff) + epsilon * epsilon) * q_ws[k];
+                        u1 += 0.25/pi * log(denom) * q_ws[k];   
+                    }
+                    u1s[i] = u1;
+                }
+            break;
+
+
+        case periodic_xy_potentials:
+            cout << "periodic in x and y kernel, using free space kernel for potentials: " <<endl;
+            #ifdef OPENACC_ENABLED
+            #pragma acc parallel loop independent
+            #else
+            #pragma omp parallel for
+            #endif
+                for (int i = 0; i < nx; i++) {
+                    double u1 = 0.0;
+                    double u2 = 0.0;
+                #ifdef OPENACC_ENABLED
+                #pragma acc loop independent reduction(+:u1, u2)
+                #endif
+                    for(int k = 0; k < ny; k++) {
+                        double x_diff = x_vals[i] - x_vals[k];
+                        double y_diff = y_vals[i] - y_vals[k];
+                        // try skipping, no regularization
+                        // was: if (x_diff == 0.0 && y_diff == 0.0) continue;
+                        // if (x_diff*x_diff + y_diff*y_diff < 1e-16) continue;   // skip self + coincident periodic images
+                        double r2 = x_diff * x_diff + y_diff * y_diff + epsilon * epsilon;
+                        u1 += 0.25/pi * log(r2) * q_ws[k];
+                    }
+                    u1s[i] = u1;
+                }
+            break;
+
+
+
+
         default:
             cout << "orginal kernel: " <<endl;
             #ifdef OPENACC_ENABLED
@@ -1303,6 +1358,293 @@ cList)
 
 
 
+
+
+
+
+
+void U_Treecode::Call_BL_potentials()
+{
+    cout << "enter orginal Call_BL for potentials" << endl;
+
+#if OPENACC_ENABLED
+#pragma acc kernels copyin(leaf_count) \
+present(leaf_members[0:2][0:leaf_count], \
+particles_x[0:numpars_s], particles_y[0:numpars_s], \
+is_target[0:numpars_s], \
+iList[0:leaf_count], \
+velo_tc_reord_x[0:numpars_s], velo_tc_reord_y[0:numpars_s], \
+cList)
+{ // Begin acc kernels region
+#endif
+
+#if OPENACC_ENABLED
+    #pragma acc loop independent
+#endif
+    for (size_t leaf_index = 0; leaf_index < leaf_count; leaf_index++) {
+        size_t batch_limit_1 = leaf_members[0][leaf_index];
+        size_t batch_limit_2 = leaf_members[1][leaf_index];
+
+        size_t far_list_size = iList[leaf_index].far_list_size;
+
+        // cout << "far_list_size for leaf " << leaf_index << ": " << far_list_size <<endl;
+
+#if OPENACC_ENABLED
+        #pragma acc loop vector(128) independent
+#endif
+        for (size_t ii = batch_limit_1; ii <= batch_limit_2; ii++) {
+            if (!is_target[ii]) continue; // only evaluate at target points
+
+            double tempx = 0.0;
+            double tempy = 0.0;
+
+            double p_x = particles_x[ii];
+            double p_y = particles_y[ii];
+
+#if OPENACC_ENABLED
+            #pragma acc loop seq
+#endif
+            for (size_t jj = 0; jj < far_list_size; jj++) {
+                size_t far_index = iList[leaf_index].far_list[jj];
+
+#if OPENACC_ENABLED
+                #pragma acc loop seq
+#endif
+                for (int kk = 0; kk < Pflat; kk++) {
+                    int i = kk / PP;
+                    int j = kk % PP;
+
+                    double x_diff = p_x - cList[far_index].t1[i];
+                    double y_diff = p_y - cList[far_index].t2[j];
+                    double denom = cosh(2* pi / L * y_diff) - cos(2* pi / L * x_diff) + epsilon * epsilon;
+                    // tempx -= 0.5/L * sinh(2 * pi / L *  y_diff) / denom * cList[far_index].moments[kk];
+                    tempx += 0.25/pi * log(denom) *  cList[far_index].moments[kk];
+                } // kk
+            } // jj
+
+            velo_tc_reord_x[ii] += tempx;
+        } // ii
+    } // leaf_index
+#if OPENACC_ENABLED
+} // End acc kernels region
+#endif
+}
+
+void U_Treecode::Call_Ds()
+{
+    cout << "enter original Call_DS" << endl; 
+#if OPENACC_ENABLED
+#pragma acc kernels copyin(leaf_count) \
+present(leaf_members[0:2][0:leaf_count], \
+tree_members[0:2][0:node_count], \
+particles_x[0:numpars_s], particles_y[0:numpars_s], \
+is_target[0:numpars_s], \
+iList[0:leaf_count], \
+lambda[0:numpars_s], \
+velo_tc_reord_x[0:numpars_s], velo_tc_reord_y[0:numpars_s], \
+cList)
+{ // Begin acc kernels region
+#endif
+
+#if OPENACC_ENABLED
+    #pragma acc loop independent
+#endif
+    for (size_t leaf_index = 0; leaf_index < leaf_count; leaf_index++) {
+        size_t limit_1_b = leaf_members[0][leaf_index];
+        size_t limit_2_b = leaf_members[1][leaf_index];
+
+        size_t near_list_size = iList[leaf_index].near_list_size;
+
+        // cout << "near_list_size for leaf " << leaf_index << ": " << near_list_size <<endl;
+
+#if OPENACC_ENABLED
+        #pragma acc loop vector(128) independent
+#endif
+        for (size_t ii = limit_1_b; ii <= limit_2_b; ii++) {
+            if (!is_target[ii]) continue; // only evaluate at target points
+
+            double tempx = 0.0;
+            double tempy = 0.0;
+
+#if OPENACC_ENABLED
+            #pragma acc loop seq
+#endif
+            for (size_t kk = 0; kk < near_list_size; kk++) {
+                size_t limit_1_c = tree_members[0][iList[leaf_index].near_list[kk]];
+                size_t limit_2_c = tree_members[1][iList[leaf_index].near_list[kk]];
+
+#if OPENACC_ENABLED
+                #pragma acc loop seq
+#endif
+                for (size_t jj = limit_1_c; jj <= limit_2_c; jj++) {
+                    // double ff0 = lambda[jj];
+                    // double ff1 = lambda[jj];
+
+                    // double xx = particles_x[ii] - particles_x[jj];
+                    // double yy = particles_y[ii] - particles_y[jj];
+
+                    // double R2 = xx * xx + yy * yy;
+
+                    // tempx += -yy / (R2 + delta2) * ff0;
+                    // tempy += xx / (R2 + delta2) * ff1;
+                    double x_diff = particles_x[ii] - particles_x[jj];
+                    double y_diff = particles_y[ii] - particles_y[jj];
+                    double denom = cosh(2* pi / L * y_diff) - cos(2* pi / L * x_diff) + epsilon * epsilon;
+                    // tempx -= 0.5/L * sinh(2 * pi / L *  y_diff) / denom * lambda[jj];
+                    tempx += 0.25/pi * log(denom) *  lambda[jj];
+                } // jj
+            } // kk
+
+            velo_tc_reord_x[ii] += tempx;
+        } // ii
+    } // size_t leaf_index
+#if OPENACC_ENABLED
+} // End acc kernels region
+#endif
+}
+
+
+
+
+void U_Treecode::Call_BL_periodic_xy_potentials()
+{
+    cout << "enter Call_BL_periodic_xy_potentials" << endl;
+
+#if OPENACC_ENABLED
+#pragma acc kernels copyin(leaf_count) \
+present(leaf_members[0:2][0:leaf_count], \
+particles_x[0:numpars_s], particles_y[0:numpars_s], \
+is_target[0:numpars_s], \
+iList[0:leaf_count], \
+velo_tc_reord_x[0:numpars_s], velo_tc_reord_y[0:numpars_s], \
+cList)
+{ // Begin acc kernels region
+#endif
+
+#if OPENACC_ENABLED
+    #pragma acc loop independent
+#endif
+    for (size_t leaf_index = 0; leaf_index < leaf_count; leaf_index++) {
+        size_t batch_limit_1 = leaf_members[0][leaf_index];
+        size_t batch_limit_2 = leaf_members[1][leaf_index];
+
+        size_t far_list_size = iList[leaf_index].far_list_size;
+
+        // cout << "far_list_size for leaf " << leaf_index << ": " << far_list_size <<endl;
+
+#if OPENACC_ENABLED
+        #pragma acc loop vector(128) independent
+#endif
+        for (size_t ii = batch_limit_1; ii <= batch_limit_2; ii++) {
+            if (!is_target[ii]) continue; // only evaluate at target points
+
+            double tempx = 0.0;
+            double tempy = 0.0;
+
+            double p_x = particles_x[ii];
+            double p_y = particles_y[ii];
+
+#if OPENACC_ENABLED
+            #pragma acc loop seq
+#endif
+            for (size_t jj = 0; jj < far_list_size; jj++) {
+                size_t far_index = iList[leaf_index].far_list[jj];
+
+#if OPENACC_ENABLED
+                #pragma acc loop seq
+#endif
+                for (int kk = 0; kk < Pflat; kk++) {
+                    int i = kk / PP;
+                    int j = kk % PP;
+                    double x_diff = p_x - cList[far_index].t1[i];
+                    double y_diff = p_y - cList[far_index].t2[j];
+                    // try skipping, no regularization
+                    // if (x_diff*x_diff + y_diff*y_diff < 1e-16) continue;
+                    double r2 = x_diff * x_diff + y_diff * y_diff + epsilon * epsilon;
+                    // tempx -= (1.0 / (2.0 * pi)) * y_diff / r2 * cList[far_index].moments[kk];
+                    tempx += 0.25/pi * log(r2) * cList[far_index].moments[kk];
+                } // kk
+            } // jj
+
+            velo_tc_reord_x[ii] += tempx;
+        } // ii
+    } // leaf_index
+#if OPENACC_ENABLED
+} // End acc kernels region
+#endif
+}
+
+
+void U_Treecode::Call_DS_periodic_xy_potentials()
+{
+    cout << "enter Call_periodic_xy_potentials" << endl;
+#if OPENACC_ENABLED
+#pragma acc kernels copyin(leaf_count) \
+present(leaf_members[0:2][0:leaf_count], \
+tree_members[0:2][0:node_count], \
+particles_x[0:numpars_s], particles_y[0:numpars_s], \
+is_target[0:numpars_s], \
+iList[0:leaf_count], \
+lambda[0:numpars_s], \
+velo_tc_reord_x[0:numpars_s], velo_tc_reord_y[0:numpars_s], \
+cList)
+{ // Begin acc kernels region
+#endif
+
+#if OPENACC_ENABLED
+    #pragma acc loop independent
+#endif
+    for (size_t leaf_index = 0; leaf_index < leaf_count; leaf_index++) {
+        size_t limit_1_b = leaf_members[0][leaf_index];
+        size_t limit_2_b = leaf_members[1][leaf_index];
+
+        size_t near_list_size = iList[leaf_index].near_list_size;
+
+        // cout << "near_list_size for leaf " << leaf_index << ": " << near_list_size <<endl;
+
+#if OPENACC_ENABLED
+        #pragma acc loop vector(128) independent
+#endif
+        for (size_t ii = limit_1_b; ii <= limit_2_b; ii++) {
+            if (!is_target[ii]) continue; // only evaluate at target points
+
+            double tempx = 0.0;
+            double tempy = 0.0;
+
+#if OPENACC_ENABLED
+            #pragma acc loop seq
+#endif
+            for (size_t kk = 0; kk < near_list_size; kk++) {
+                size_t limit_1_c = tree_members[0][iList[leaf_index].near_list[kk]];
+                size_t limit_2_c = tree_members[1][iList[leaf_index].near_list[kk]];
+
+#if OPENACC_ENABLED
+                #pragma acc loop seq
+#endif
+                for (size_t jj = limit_1_c; jj <= limit_2_c; jj++) {
+                    double x_diff = particles_x[ii] - particles_x[jj];
+                    double y_diff = particles_y[ii] - particles_y[jj];
+                    // try skipping, no regularization
+                    // if (x_diff*x_diff + y_diff*y_diff < 1e-16) continue;
+                    double r2 = x_diff * x_diff + y_diff * y_diff + epsilon * epsilon;
+                    // tempx -= (1.0 / (2.0 * pi)) * y_diff / r2 * lambda[jj];
+                    tempx += 0.25/pi * log(r2) * lambda[jj];
+                } // jj
+            } // kk
+
+            velo_tc_reord_x[ii] += tempx;
+        } // ii
+    } // size_t leaf_index
+#if OPENACC_ENABLED
+} // End acc kernels region
+#endif
+}
+
+
+
+
+
+
 void U_Treecode::Compute_SUM()
 {
     switch (mode)
@@ -1317,6 +1659,16 @@ void U_Treecode::Compute_SUM()
             Call_BL_free_space();
             Call_DS_free_space();
             break;
+
+        case original_potentials:
+            Call_BL_potentials();
+            Call_DS_potentials();
+
+        case periodic_xy_potentials:
+            Call_BL_periodic_xy_potentials();
+            Call_DS_periodic_xy_potentials();
+
+
 
         // case free_space:
         //     Call_BL_free_space();

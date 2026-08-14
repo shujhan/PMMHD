@@ -12,6 +12,7 @@ enum KernelMode {
     // vorticity_grad for vorticity_grad_x, vorticity_grad_x, j_grad_x, j_grad_y
     // laplacian  vorticity_laplacian, j_laplacian
     original, periodic_xy,
+    original_potentials, periodic_xy_potentials,
     u1_grad, u2_grad, vorticity_grad, laplacian
 };
 
@@ -166,6 +167,11 @@ class U_Treecode : public Field {
         void Call_BL_free_space(); 
         void Call_DS_free_space();
 
+        void Call_BL_potentials();
+        void Call_DS_potentials();
+
+        void Call_BL_periodic_xy_potentials();
+        void Call_DS_periodic_xy_potentials();
         // void Call_BL_u1_grad(); 
         // void Call_DS_u1_grad(); 
 

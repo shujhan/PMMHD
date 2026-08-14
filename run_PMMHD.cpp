@@ -217,7 +217,7 @@ int main(int argc, char** argv) {
     Periodizer* periodizer = nullptr;
     if (bcs == 0) {
         periodizer = new Periodizer(x_min, x_max, y_min, y_max, greens_epsilon, calculate_field,
-                        100, 30, 1.5);  // was 80, 30, 1.4
+                        100, 30, 1.5);  // was 100, 30, 1.5
         periodizer->precompute_Q();
     }
 

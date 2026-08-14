@@ -146,8 +146,6 @@ class j0_orszag_tang : public distribution {
 };
 
 
-#endif
-
 
 // Ideal/inviscid Orszag-Tang (Kraus & Maj 2018):
 //   psi = cos(2 ky*y) - 2 cos(kx*x)  (out-of-plane vector potential A_z)
@@ -177,3 +175,5 @@ class j0_coalescence : public distribution {
     double ky;
     double amp;
 };
+
+#endif
