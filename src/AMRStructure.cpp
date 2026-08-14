@@ -59,6 +59,8 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
     u2s.assign(xs.size(), 0.0);
     b1s.assign(xs.size(), 0.0);
     b2s.assign(xs.size(), 0.0);
+    phis.assign(xs.size(), 0.0);
+    psis.assign(xs.size(), 0.0);
 }
 
 

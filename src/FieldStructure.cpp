@@ -1430,7 +1430,7 @@ cList)
 #endif
 }
 
-void U_Treecode::Call_Ds()
+void U_Treecode::Call_DS_potentials()
 {
     cout << "enter original Call_DS" << endl; 
 #if OPENACC_ENABLED
@@ -1663,11 +1663,12 @@ void U_Treecode::Compute_SUM()
         case original_potentials:
             Call_BL_potentials();
             Call_DS_potentials();
+            break;
 
         case periodic_xy_potentials:
             Call_BL_periodic_xy_potentials();
             Call_DS_periodic_xy_potentials();
-
+            break;
 
 
         // case free_space:

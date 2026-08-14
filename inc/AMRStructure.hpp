@@ -232,11 +232,7 @@ struct AMRStructure {
         int evaluate_b_field(std::vector<double>& b1s_local, std::vector<double>& b2s_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
         
         // phis, use u_weights
-        int evaluate_phis(std::vector<double>& phis_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
-        // psis, use b_weights 
-        int evaluate_psis(std::vector<double>& psis_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
-        
-
+        int evaluate_potential(std::vector<double>& phis_local, std::vector<double>& xs_local,std::vector<double>& ys_local,std::vector<double>& ws_local,double t);
 
 
         // // gradients evaluation
