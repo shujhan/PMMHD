@@ -122,16 +122,16 @@ void j0_uniform::print() {
 }
 
 // ---- current sheet ----
-j0_current_sheet::j0_current_sheet(double kx_j, double amp_j):
-    kx(kx_j), amp(amp_j) {}
+j0_current_sheet::j0_current_sheet(double kx_j, double amp_j, double thickness):
+    kx(kx_j), amp(amp_j) , a(thickness){}
 
 double j0_current_sheet::operator()(double x, double y) {
-    return 1.0 / (std::cosh(y) * std::cosh(y)) * ( 1 + amp * cos(kx * x));
+    return 1.0 / a / (std::cosh(y/a) * std::cosh(y/a)) * ( 1 + amp * cos(kx * x));
 }
 
 
 void j0_current_sheet::print() {
-    std::cout << "j0_current_sheet distribution: 1.0 / (cosh(y))^2 * ( 1 + amp * cos(kx * x))" << std::endl;
+    std::cout << "j0_current_sheet distribution: 1.0 / a / (cosh(y/a))^2 * ( 1 + amp * cos(kx * x))" << std::endl;
 }
 
 

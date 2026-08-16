@@ -112,6 +112,7 @@ int main(int argc, char** argv) {
     double kx_j = 2.0 * M_PI / Lx * current_density_dk.get<double>("normalized_wavenumber",1.0);
     double ky_j = 2.0 * M_PI / Ly * current_density_dk.get<double>("normalized_wavenumber_y",1.0);
     double amp_j = current_density_dk.get<double>("amp", 0.0);
+    double thickness = current_density_dk.get<double>("thickness", 1.0);
     int ics_type_j = current_density_dk.get<int>("ics_type", 1);
     bool do_adaptively_refine_j = current_density_dk.get<bool> ("adaptively_refine", false);
     double amr_epsilons_j = current_density_dk.get<double>("amr_epsilons",0.1);
@@ -156,7 +157,7 @@ int main(int argc, char** argv) {
     switch (ics_type_j)
     {
         case 1: // for current density
-            j0 = new j0_current_sheet(kx_j, amp_j);
+            j0 = new j0_current_sheet(kx_j, amp_j, thickness);
             break;
 
         case 2: 

@@ -274,6 +274,8 @@ int AMRStructure::evaluate_potential(std::vector<double>& potentials_local,
                                    std::vector<double>& ws_local, double t)
 {
     const int n_local = (int)xs_local.size();
+    potentials_local.assign(n_local, 0.0);
+    if (n_local == 0) { return 0; }
 
     if (bcs == periodic_bcs) {
         // ---------- Step A: build 9x image list, 3x3 near sum at PARTICLES ----------
