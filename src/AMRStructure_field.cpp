@@ -80,8 +80,8 @@ int AMRStructure::evaluate_u_field(std::vector<double>& u1s_local, std::vector<d
                 double dx = tx - xtmp[k];
                 double dy = ty - ytmp[k];
                 // was: if (x_diff == 0.0 && y_diff == 0.0) continue;
-                // if (dx*dx + dy*dy < 1e-16) continue;   // skip self + coincident periodic images
                 double r2 = dx * dx + dy * dy + eps * eps;
+                if (r2 < 1e-16) continue;   // skip self + coincident periodic images
                 s1 -= (1.0 / (2.0 * pi)) * dy / r2 * wtmp[k];
                 s2 += (1.0 / (2.0 * pi)) * dx / r2 * wtmp[k];
             }
@@ -202,8 +202,8 @@ int AMRStructure::evaluate_b_field(std::vector<double>& b1s_local, std::vector<d
                 double dx = tx - xtmp[k];
                 double dy = ty - ytmp[k];
                 // was: if (x_diff == 0.0 && y_diff == 0.0) continue;
-                // if (dx*dx + dy*dy < 1e-16) continue;   // skip self + coincident periodic images
                 double r2 = dx * dx + dy * dy + eps * eps;
+                if (r2 < 1e-16) continue;
                 s1 -= (1.0 / (2.0 * pi)) * dy / r2 * wtmp[k];
                 s2 += (1.0 / (2.0 * pi)) * dx / r2 * wtmp[k];
             }

@@ -42,6 +42,7 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                         double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
                         double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
                         double denom = cosh(y_diff) - cos(x_diff) + epsilon * epsilon;
+                        if (denom < 1e-14) continue;
                         u1 -= 0.5/L * sinh(y_diff) / denom * q_ws[k];
                         u2 += 0.5/L * sin(x_diff) / denom * q_ws[k];
                     }
@@ -68,8 +69,8 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                         double y_diff = y_vals[i] - y_vals[k];
                         // try skipping, no regularization
                         // was: if (x_diff == 0.0 && y_diff == 0.0) continue;
-                        // if (x_diff*x_diff + y_diff*y_diff < 1e-16) continue;   // skip self + coincident periodic images
                         double r2 = x_diff * x_diff + y_diff * y_diff + epsilon * epsilon;
+                        if (r2 < 1e-14) continue;
                         u1 -= (1.0 / (2.0 * pi)) * y_diff / r2 * q_ws[k];
                         u2 += (1.0 / (2.0 * pi)) * x_diff / r2 * q_ws[k];
                     }
@@ -96,6 +97,7 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                         double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
                         double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
                         double denom = cosh(y_diff) - cos(x_diff) + epsilon * epsilon;
+                        if (denom < 1e-14) continue;
                         // u1 -= 1/4/pi*logf(cosh(y_diff) - cos(x_diff) + epsilon * epsilon) * q_ws[k];
                         u1 += 0.25/pi * log(denom) * q_ws[k];   
                     }
@@ -122,8 +124,8 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                         double y_diff = y_vals[i] - y_vals[k];
                         // try skipping, no regularization
                         // was: if (x_diff == 0.0 && y_diff == 0.0) continue;
-                        // if (x_diff*x_diff + y_diff*y_diff < 1e-16) continue;   // skip self + coincident periodic images
                         double r2 = x_diff * x_diff + y_diff * y_diff + epsilon * epsilon;
+                        if (r2 < 1e-14) continue;
                         u1 += 0.25/pi * log(r2) * q_ws[k];
                     }
                     u1s[i] = u1;
@@ -150,6 +152,7 @@ void U_DirectSum::operator() (double* u1s, double* u2s, double* x_vals, int nx,
                         double x_diff = 2*pi/ L * (x_vals[i] - x_vals[k]);
                         double y_diff = 2*pi/ L * (y_vals[i] - y_vals[k]);
                         double denom = cosh(y_diff) - cos(x_diff) + epsilon * epsilon;
+                        if (denom < 1e-14) continue;
                         u1 -= 0.5/L * sinh(y_diff) / denom * q_ws[k];
                         u2 += 0.5/L * sin(x_diff) / denom * q_ws[k];
                     }
@@ -1127,6 +1130,7 @@ cList)
                     double x_diff = p_x - cList[far_index].t1[i];
                     double y_diff = p_y - cList[far_index].t2[j];
                     double denom = cosh(2* pi / L * y_diff) - cos(2* pi / L * x_diff) + epsilon * epsilon;
+                    if (denom < 1e-14) continue;
                     tempx -= 0.5/L * sinh(2 * pi / L *  y_diff) / denom * cList[far_index].moments[kk];
                     tempy += 0.5/L * sin(2 * pi / L * x_diff) / denom * cList[far_index].moments[kk];
                 } // kk
@@ -1201,6 +1205,7 @@ cList)
                     double x_diff = particles_x[ii] - particles_x[jj];
                     double y_diff = particles_y[ii] - particles_y[jj];
                     double denom = cosh(2* pi / L * y_diff) - cos(2* pi / L * x_diff) + epsilon * epsilon;
+                    if (denom < 1e-14) continue;
                     tempx -= 0.5/L * sinh(2 * pi / L *  y_diff) / denom * lambda[jj];
                     tempy += 0.5/L * sin(2 * pi / L * x_diff) / denom * lambda[jj];
                 } // jj
@@ -1272,8 +1277,8 @@ cList)
                     double x_diff = p_x - cList[far_index].t1[i];
                     double y_diff = p_y - cList[far_index].t2[j];
                     // try skipping, no regularization
-                    // if (x_diff*x_diff + y_diff*y_diff < 1e-16) continue;
                     double r2 = x_diff * x_diff + y_diff * y_diff + epsilon * epsilon;
+                    if (r2 < 1e-14) continue;
                     tempx -= (1.0 / (2.0 * pi)) * y_diff / r2 * cList[far_index].moments[kk];
                     tempy += (1.0 / (2.0 * pi)) * x_diff / r2 * cList[far_index].moments[kk];
                 } // kk
@@ -1339,8 +1344,8 @@ cList)
                     double x_diff = particles_x[ii] - particles_x[jj];
                     double y_diff = particles_y[ii] - particles_y[jj];
                     // try skipping, no regularization
-                    // if (x_diff*x_diff + y_diff*y_diff < 1e-16) continue;
                     double r2 = x_diff * x_diff + y_diff * y_diff + epsilon * epsilon;
+                    if (r2 < 1e-14) continue;
                     tempx -= (1.0 / (2.0 * pi)) * y_diff / r2 * lambda[jj];
                     tempy += (1.0 / (2.0 * pi)) * x_diff / r2 * lambda[jj];
                 } // jj
@@ -1417,6 +1422,7 @@ cList)
                     double x_diff = p_x - cList[far_index].t1[i];
                     double y_diff = p_y - cList[far_index].t2[j];
                     double denom = cosh(2* pi / L * y_diff) - cos(2* pi / L * x_diff) + epsilon * epsilon;
+                    if (denom < 1e-14) continue;
                     // tempx -= 0.5/L * sinh(2 * pi / L *  y_diff) / denom * cList[far_index].moments[kk];
                     tempx += 0.25/pi * log(denom) *  cList[far_index].moments[kk];
                 } // kk
@@ -1490,6 +1496,7 @@ cList)
                     double x_diff = particles_x[ii] - particles_x[jj];
                     double y_diff = particles_y[ii] - particles_y[jj];
                     double denom = cosh(2* pi / L * y_diff) - cos(2* pi / L * x_diff) + epsilon * epsilon;
+                    if (denom < 1e-14) continue;
                     // tempx -= 0.5/L * sinh(2 * pi / L *  y_diff) / denom * lambda[jj];
                     tempx += 0.25/pi * log(denom) *  lambda[jj];
                 } // jj
@@ -1559,9 +1566,8 @@ cList)
                     double x_diff = p_x - cList[far_index].t1[i];
                     double y_diff = p_y - cList[far_index].t2[j];
                     // try skipping, no regularization
-                    // if (x_diff*x_diff + y_diff*y_diff < 1e-16) continue;
                     double r2 = x_diff * x_diff + y_diff * y_diff + epsilon * epsilon;
-                    // tempx -= (1.0 / (2.0 * pi)) * y_diff / r2 * cList[far_index].moments[kk];
+                    if (r2 < 1e-14) continue;
                     tempx += 0.25/pi * log(r2) * cList[far_index].moments[kk];
                 } // kk
             } // jj
@@ -1625,9 +1631,8 @@ cList)
                     double x_diff = particles_x[ii] - particles_x[jj];
                     double y_diff = particles_y[ii] - particles_y[jj];
                     // try skipping, no regularization
-                    // if (x_diff*x_diff + y_diff*y_diff < 1e-16) continue;
                     double r2 = x_diff * x_diff + y_diff * y_diff + epsilon * epsilon;
-                    // tempx -= (1.0 / (2.0 * pi)) * y_diff / r2 * lambda[jj];
+                    if (r2 < 1e-14) continue;
                     tempx += 0.25/pi * log(r2) * lambda[jj];
                 } // jj
             } // kk
