@@ -268,7 +268,7 @@ int AMRStructure::rk4() {
             for (int i = 0; i < N; ++i) { field_tmp[i] = u2s[i] - b2s[i]; }
             old_q0s = field_tmp;
             interpolate_to_initial_xys(ky_p, xs_plus, ys_plus, nx_points, ny_points);
-             old_q0s = rhs_plus;
+            old_q0s = rhs_plus;
             interpolate_to_initial_xys(kq_p, xs_plus, ys_plus, nx_points, ny_points);
 
             for (int i = 0; i < N; ++i) { field_tmp[i] = u1s[i] + b1s[i]; }
@@ -279,7 +279,6 @@ int AMRStructure::rk4() {
             interpolate_to_initial_xys(ky_m, xs_minus, ys_minus, nx_points, ny_points);
             old_q0s = rhs_minus;
             interpolate_to_initial_xys(kq_m, xs_minus, ys_minus, nx_points, ny_points);
-            for (int i = 0; i < N; ++i) { kq_m[i] = -kq_m[i]; }   // q- carries -S
         }
 
         // accumulate this stage into the RK4 sum
