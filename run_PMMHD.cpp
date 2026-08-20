@@ -204,12 +204,15 @@ int main(int argc, char** argv) {
         }
     }
     else {
+        KernelMode m = original;
         if (use_treecode > 0) {
             calculate_field = new U_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
+            calculate_field->set_mode(m);
             cout << "using treecode: periodic in x and open in y" << endl;
         }
         else {
             calculate_field = new U_DirectSum(Lx, greens_epsilon);
+            calculate_field->set_mode(m);
             cout << "using direct sum: periodic in x and open in y" << endl;
         }
     }

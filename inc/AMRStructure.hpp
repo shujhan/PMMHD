@@ -262,13 +262,17 @@ struct AMRStructure {
         //         std::vector<double>& j0s_in, double t_in, std::vector<double>& dxs_dt, std::vector<double>& dys_dt, std::vector<double>& dw0s_dt, std::vector<double>& dj0s_dt);
 
 
-        int  compute_source_S(std::vector<double>& xs_in, std::vector<double>& ys_in,
+        int  compute_source(std::vector<double>& xs_in, std::vector<double>& ys_in,
                             std::vector<double>& w0s_in, std::vector<double>& j0s_in,
                             double t_in, std::vector<double>& S_out);
 
         // AMR-aware nodal gradient of `field` on a leaf panel's 9 points.
         void leaf_field_gradient(const std::vector<double>& field, const Panel* panel,
                                  double dx[9], double dy[9]);
+
+        void leaf_field_laplacian(const std::vector<double>& field,
+                                            const Panel* panel,
+                                            double laplacian[9]);                    
 
         void set_periodizer(Periodizer* p) { periodizer = p; }
 

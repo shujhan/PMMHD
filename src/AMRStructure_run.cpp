@@ -174,7 +174,7 @@ int AMRStructure::euler() {
     // RHS at (X_n, t_n): fields + S on the current (structured) mesh
     std::vector<double> S(N);
 
-    compute_source_S(xs, ys, w0s, j0s, t, S);
+    compute_source(xs, ys, w0s, j0s, t, S);
 
     // two copies start co-located on the mesh, advect with U∓B
     xs_plus = xs;  ys_plus = ys;  xs_minus = xs;  ys_minus = ys;
@@ -251,7 +251,7 @@ int AMRStructure::rk4() {
         // the trajectory, not at the start point. The source mesh for this
         // sampling is the REGULAR base grid, so the neighbor-walk leaf search is
         // robust (the sheared-mesh failure mode does not apply here).
-        compute_source_S(xs, ys, w0s, j0s, t + stage_c[stage] * dt, S);
+        compute_source(xs, ys, w0s, j0s, t + stage_c[stage] * dt, S);
         if (stage == 0) {
             // stage-1 displaced positions coincide with the grid; read directly
             for (int i = 0; i < N; ++i) {
@@ -414,7 +414,100 @@ void AMRStructure::leaf_field_gradient(const std::vector<double>& field,
     }
 }
 
-int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<double>& ys_in,
+
+
+
+// finite difference to calculate laplacian of q+, q- 
+// assume it's uniform mesh for now, the right and left boundary use periodicity,
+// the top and bottom boundary assum the points beyand boundary have value 0. 
+// if mesh is not uniform, and neighbours have diffrent level, the points within one panel(same col or row) share same double derivative
+void AMRStructure::leaf_field_laplacian(const std::vector<double>& field,
+                                       const Panel* panel,
+                                       double laplacian[9])
+{
+    const int* P = panel->point_inds;
+    double f[9];
+    for (int ii = 0; ii < 9; ++ii) { f[ii] = field[P[ii]]; }
+
+    double hx = xs[P[3]] - xs[P[0]];   // column spacing (points 0,3,6 increase in x)
+    double hy = ys[P[1]] - ys[P[0]];   // row spacing    (points 0,1,2 increase in y)
+
+    double d2x[9]; double d2y[9];
+
+    auto same_level_leaf = [&](int nbr) -> bool {
+        if (nbr < 0) { return false; }            // -1 (coarser) / -2 (domain boundary)
+        const Panel& q = panels[nbr];
+        return (q.child_inds_start < 0) && (q.level == panel->level);
+    };
+
+    // ---- x-double derivatives ----
+    d2x[3] = (f[6] - 2 * f[3] + f[0]) / (hx*hx);               // middle column: in-panel centered
+    d2x[4] = (f[7] - 2 * f[4] + f[1]) / (hx*hx);
+    d2x[5] = (f[8] - 2 * f[5] + f[2]) / (hx*hx);
+
+    if (same_level_leaf(panel->left_nbr_ind)) {
+        const int* L = panels[panel->left_nbr_ind].point_inds;
+        d2x[0] = (f[3] - 2 * f[0] + field[L[3]]) / (hx*hx);
+        d2x[1] = (f[4] - 2 * f[1] + field[L[4]]) / (hx*hx);
+        d2x[2] = (f[5] - 2 * f[2] + field[L[5]]) / (hx*hx);
+    } else {                                    
+        d2x[0] = d2x[3];
+        d2x[1] = d2x[4];
+        d2x[2] = d2x[5];
+    }
+
+    if (same_level_leaf(panel->right_nbr_ind)) {
+        const int* R = panels[panel->right_nbr_ind].point_inds;
+        d2x[6] = (field[R[3]] - 2 * f[6] + f[3]) / (hx*hx);
+        d2x[7] = (field[R[4]] - 2 * f[7] + f[4]) / (hx*hx);
+        d2x[8] = (field[R[5]] - 2 * f[8] + f[5]) / (hx*hx);
+    } else {                                    
+        d2x[6] = d2x[3];
+        d2x[7] = d2x[4];
+        d2x[8] = d2x[5];
+    }
+
+
+    // ---- y-double derivatives ----
+    d2y[1] = (f[2] - 2 * f[1] + f[0]) / (hy*hy);               // middle row: in-panel centered
+    d2y[4] = (f[5] - 2 * f[4] + f[3]) / (hy*hy);
+    d2y[7] = (f[8] - 2 * f[7] + f[6]) / (hy*hy);
+
+    if (same_level_leaf(panel->bottom_nbr_ind)) {
+        const int* B = panels[panel->bottom_nbr_ind].point_inds;
+        d2y[0] = (f[1] - 2 * f[0] + field[B[1]]) / (hy*hy);
+        d2y[3] = (f[4] - 2 * f[3] + field[B[4]]) / (hy*hy);
+        d2y[6] = (f[7] - 2 * f[6] + field[B[7]]) / (hy*hy);
+    } else {                                     
+        d2y[0] = d2y[1];
+        d2y[3] = d2y[4];
+        d2y[6] = d2y[7];
+    }
+
+    if (same_level_leaf(panel->top_nbr_ind)) {
+        const int* T = panels[panel->top_nbr_ind].point_inds;
+        d2y[2] = (field[T[1]] - 2 * f[2] + f[1]) / (hy*hy);
+        d2y[5] = (field[T[4]] - 2 * f[5] + f[4]) / (hy*hy);
+        d2y[8] = (field[T[7]] - 2 * f[8] + f[7]) / (hy*hy);
+    } else {                                     
+        d2y[2] = d2y[1];
+        d2y[5] = d2y[4];
+        d2y[8] = d2y[7];
+    }
+
+ for (int ii = 0; ii < 9; ++ii) { laplacian[ii] = d2x[ii] + d2y[ii]; }
+    
+}
+
+
+
+
+
+
+
+
+
+int AMRStructure::compute_source( std::vector<double>& xs_in, std::vector<double>& ys_in,
                             std::vector<double>& w0s_in, std::vector<double>& j0s_in,
                             double t_in, std::vector<double>& S_out
 ) {
@@ -434,6 +527,9 @@ int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<doub
     vorticity_grad_y.assign(xs.size(), 0.0);
     j_grad_x.assign(xs.size(), 0.0);
     j_grad_y.assign(xs.size(), 0.0);
+
+    vorticity_laplacian.assign(xs.size(), 0.0);
+    j_laplacian.assign(xs.size(), 0.0);
 
     // for each leaf panel, do centered finite difference
     // For each leaf panel, fill nodal gradients of U and B (and w0/j0) using an
@@ -465,6 +561,15 @@ int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<doub
 
         leaf_field_gradient(b2s, panel, dxv, dyv);
         for (int ii = 0; ii < 9; ++ii) { b2s_grad_x[P[ii]] = dxv[ii]; b2s_grad_y[P[ii]] = dyv[ii]; }
+
+
+        if (nu > 0 || mu > 0) { // nu: fluid viscosity, mu: resistivity
+            double laplacian_w[9], laplacian_j[9];
+            leaf_field_laplacian(w0s, panel, laplacian_w);
+            for (int ii = 0; ii < 9; ++ii) { vorticity_laplacian[P[ii]] = laplacian_w[ii];}
+            leaf_field_laplacian(j0s, panel, laplacian_j);
+            for (int ii = 0; ii < 9; ++ii) { vorticity_grad_x[P[ii]] = laplacian_j[ii];}
+        }
     }
 
     // S term (same as two-panel): built directly from the U and B gradients.
@@ -475,6 +580,12 @@ int AMRStructure::compute_source_S( std::vector<double>& xs_in, std::vector<doub
     for (int i = 0; i < xs.size(); ++i) {
         S_out[i] = 2.0 * (b1s_grad_x[i]*u2s_grad_x[i] + b2s_grad_x[i]*u2s_grad_y[i])
                  - 2.0 * (b1s_grad_y[i]*u1s_grad_x[i] + b2s_grad_y[i]*u1s_grad_y[i]);
+    }
+
+    if (nu > 0 || mu > 0) { // nu: fluid viscosity, mu: resistivity
+        for (int i = 0; i < xs.size(); ++i) {
+            S_out[i] += nu * vorticity_laplacian[i] + mu * j_laplacian[i];
+        }
     }
 
     return 0;
