@@ -172,20 +172,21 @@ int AMRStructure::euler() {
     const int N = (int)xs.size();
 
     // RHS at (X_n, t_n): fields + S on the current (structured) mesh
-    std::vector<double> S(N);
-
-    compute_source(xs, ys, w0s, j0s, t, S);
+    // std::vector<double> S(N);
+    compute_source(xs, ys, w0s, j0s, t);
 
     // two copies start co-located on the mesh, advect with U∓B
     xs_plus = xs;  ys_plus = ys;  xs_minus = xs;  ys_minus = ys;
     for (int i = 0; i < N; ++i) {
         xs_plus[i]  += dt * (u1s[i] - b1s[i]);
         ys_plus[i]  += dt * (u2s[i] - b2s[i]);
-        q_plus[i]   += dt * S[i];
+        // q_plus[i]   += dt * S[i];
+        q_plus[i]  += dt * rhs_plus[i];
 
         xs_minus[i] += dt * (u1s[i] + b1s[i]);
         ys_minus[i] += dt * (u2s[i] + b2s[i]);
-        q_minus[i]  -= dt * S[i];
+        // q_minus[i]  -= dt * S[i];
+        q_minus[i] += dt * rhs_minus[i];
     }
     return 0;
 }
@@ -231,7 +232,7 @@ int AMRStructure::rk4() {
     std::vector<double> sx_p(N, 0.0), sy_p(N, 0.0), sq_p(N, 0.0);
     std::vector<double> sx_m(N, 0.0), sy_m(N, 0.0), sq_m(N, 0.0);
 
-    std::vector<double> S(N);
+    // std::vector<double> S(N);
     std::vector<double> field_tmp(N);   // scratch: composite grid field (u-/+b) handed to old_q0s
 
     // stage substep fraction (offset from base) and combine weight
@@ -251,12 +252,12 @@ int AMRStructure::rk4() {
         // the trajectory, not at the start point. The source mesh for this
         // sampling is the REGULAR base grid, so the neighbor-walk leaf search is
         // robust (the sheared-mesh failure mode does not apply here).
-        compute_source(xs, ys, w0s, j0s, t + stage_c[stage] * dt, S);
+        compute_source(xs, ys, w0s, j0s, t + stage_c[stage] * dt);
         if (stage == 0) {
             // stage-1 displaced positions coincide with the grid; read directly
             for (int i = 0; i < N; ++i) {
-                kx_p[i] = u1s[i] - b1s[i];  ky_p[i] = u2s[i] - b2s[i];  kq_p[i] =  S[i];
-                kx_m[i] = u1s[i] + b1s[i];  ky_m[i] = u2s[i] + b2s[i];  kq_m[i] = -S[i];
+                kx_p[i] = u1s[i] - b1s[i];  ky_p[i] = u2s[i] - b2s[i];  kq_p[i] = rhs_plus[i];;
+                kx_m[i] = u1s[i] + b1s[i];  ky_m[i] = u2s[i] + b2s[i];  kq_m[i] = rhs_minus[i];
             }
         } else {
             old_panels = panels;  old_xs = xs;  old_ys = ys;   // source = regular base grid
@@ -267,7 +268,7 @@ int AMRStructure::rk4() {
             for (int i = 0; i < N; ++i) { field_tmp[i] = u2s[i] - b2s[i]; }
             old_q0s = field_tmp;
             interpolate_to_initial_xys(ky_p, xs_plus, ys_plus, nx_points, ny_points);
-            old_q0s = S;
+             old_q0s = rhs_plus;
             interpolate_to_initial_xys(kq_p, xs_plus, ys_plus, nx_points, ny_points);
 
             for (int i = 0; i < N; ++i) { field_tmp[i] = u1s[i] + b1s[i]; }
@@ -276,7 +277,7 @@ int AMRStructure::rk4() {
             for (int i = 0; i < N; ++i) { field_tmp[i] = u2s[i] + b2s[i]; }
             old_q0s = field_tmp;
             interpolate_to_initial_xys(ky_m, xs_minus, ys_minus, nx_points, ny_points);
-            old_q0s = S;
+            old_q0s = rhs_minus;
             interpolate_to_initial_xys(kq_m, xs_minus, ys_minus, nx_points, ny_points);
             for (int i = 0; i < N; ++i) { kq_m[i] = -kq_m[i]; }   // q- carries -S
         }
@@ -509,7 +510,7 @@ void AMRStructure::leaf_field_laplacian(const std::vector<double>& field,
 
 int AMRStructure::compute_source( std::vector<double>& xs_in, std::vector<double>& ys_in,
                             std::vector<double>& w0s_in, std::vector<double>& j0s_in,
-                            double t_in, std::vector<double>& S_out
+                            double t_in
 ) {
     cout << "enter compute_source" << endl;
 
@@ -568,25 +569,42 @@ int AMRStructure::compute_source( std::vector<double>& xs_in, std::vector<double
             leaf_field_laplacian(w0s, panel, laplacian_w);
             for (int ii = 0; ii < 9; ++ii) { vorticity_laplacian[P[ii]] = laplacian_w[ii];}
             leaf_field_laplacian(j0s, panel, laplacian_j);
-            for (int ii = 0; ii < 9; ++ii) { vorticity_grad_x[P[ii]] = laplacian_j[ii];}
+            for (int ii = 0; ii < 9; ++ii) { j_laplacian[P[ii]] = laplacian_j[ii];}
         }
     }
 
-    // S term (same as two-panel): built directly from the U and B gradients.
-    // Note: the old tendency RHS (dw0s_dt / dj0s_dt with nu*Laplacian, B.grad terms)
-    // is intentionally gone -- in the Elsasser split, transport carries only the ideal
-    // coupling through S, and dissipation is applied separately after remesh.
-    S_out.assign(xs.size(), 0.0);
+
+    // S_out.assign(xs.size(), 0.0);
+    // for (int i = 0; i < xs.size(); ++i) {
+    //     S_out[i] = 2.0 * (b1s_grad_x[i]*u2s_grad_x[i] + b2s_grad_x[i]*u2s_grad_y[i])
+    //              - 2.0 * (b1s_grad_y[i]*u1s_grad_x[i] + b2s_grad_y[i]*u1s_grad_y[i]);
+    // }
+
+    // q+ and q- see the SAME viscous term and OPPOSITE resistive terms, so that
+    //   dw/dt = nu*lap(w)              (from the symmetric part)
+    //   dj/dt = mu*lap(j) + S          (from the antisymmetric part)
+    // Folding dissipation into S would make it antisymmetric and cancel it out of w.
+    rhs_plus.assign(xs.size(), 0.0);
+    rhs_minus.assign(xs.size(), 0.0);
+
     for (int i = 0; i < xs.size(); ++i) {
-        S_out[i] = 2.0 * (b1s_grad_x[i]*u2s_grad_x[i] + b2s_grad_x[i]*u2s_grad_y[i])
+        rhs_plus[i] = 2.0 * (b1s_grad_x[i]*u2s_grad_x[i] + b2s_grad_x[i]*u2s_grad_y[i])
                  - 2.0 * (b1s_grad_y[i]*u1s_grad_x[i] + b2s_grad_y[i]*u1s_grad_y[i]);
+        rhs_minus[i] = -1 * rhs_plus[i];
     }
 
-    if (nu > 0 || mu > 0) { // nu: fluid viscosity, mu: resistivity
+
+    if (nu > 0 || mu > 0) {
         for (int i = 0; i < xs.size(); ++i) {
-            S_out[i] += nu * vorticity_laplacian[i] + mu * j_laplacian[i];
+            const double dw = nu * vorticity_laplacian[i];   // 0 if nu == 0
+            const double dj = mu * j_laplacian[i];           // 0 if mu == 0
+            rhs_plus[i]  += dw + dj;
+            rhs_minus[i] += dw - dj;
         }
     }
+
+
 
     return 0;
 }
+

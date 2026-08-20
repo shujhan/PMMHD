@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
     int ics_type_vorticity = vorticity_dk.get<int>("ics_type", 1);
     bool do_adaptively_refine_vorticity = vorticity_dk.get<bool> ("adaptively_refine", false);
     double amr_epsilons_vorticity = vorticity_dk.get<double>("amr_epsilons",0.1);
-    double nu = vorticity_dk.get<double>("viscosity",1e-5);
+    double nu = vorticity_dk.get<double>("viscosity",0.0);
     // get current density 
     ++it; 
     pt::ptree &current_density_dk = it->second;
@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
     int ics_type_j = current_density_dk.get<int>("ics_type", 1);
     bool do_adaptively_refine_j = current_density_dk.get<bool> ("adaptively_refine", false);
     double amr_epsilons_j = current_density_dk.get<double>("amr_epsilons",0.1);
-    double mu = current_density_dk.get<double>("resistivity",1e-5);
+    double mu = current_density_dk.get<double>("resistivity",0.0);
 
 
     // create distribution for vorticity 

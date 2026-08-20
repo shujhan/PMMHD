@@ -116,6 +116,8 @@ struct AMRStructure {
     std::vector<double> vorticity_laplacian;
     std::vector<double> j_laplacian;
 
+    std::vector<double> rhs_plus, rhs_minus;   // full q± source: ±S + dissipation
+
 
     // scalar potentials: phis = stream function (lap phi = omega, u = grad^perp phi)
     //                    psis = magnetic flux function (lap psi = j, B = grad^perp psi)
@@ -264,7 +266,7 @@ struct AMRStructure {
 
         int  compute_source(std::vector<double>& xs_in, std::vector<double>& ys_in,
                             std::vector<double>& w0s_in, std::vector<double>& j0s_in,
-                            double t_in, std::vector<double>& S_out);
+                            double t_in);
 
         // AMR-aware nodal gradient of `field` on a leaf panel's 9 points.
         void leaf_field_gradient(const std::vector<double>& field, const Panel* panel,
