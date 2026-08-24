@@ -13,11 +13,18 @@ void w0_uniform::print() {
 
 
 // ---- w0_current_sheet ----
-w0_current_sheet::w0_current_sheet(double kx, double amp):
-    kx(kx), amp(amp) {}
+w0_current_sheet::w0_current_sheet(double kx, double amp, double thickness):
+    kx(kx), amp(amp), a(thickness){}
 
 double w0_current_sheet::operator()(double x, double y) {
-    return amp * cos(kx * x);;
+    // return amp * cos(kx * x);
+    double xi = y / a;
+    double T  = std::tanh(xi);
+    double s  = 1.0 / (std::cosh(xi) * std::cosh(xi));
+    double E  = std::exp(-xi * xi);
+    double F   = T * E;
+    double Fpp = E * (-2.0*s*T - 4.0*xi*s + (4.0*xi*xi - 2.0)*T);
+    return amp * std::sin(kx * x) * (Fpp / (a * a * kx) - kx * F);
 }
 
 void w0_current_sheet::print() {

@@ -20,11 +20,12 @@ class w0_uniform : public distribution {
 
 class w0_current_sheet : public distribution {
     public:
-        w0_current_sheet(double kx, double amp);
+        w0_current_sheet(double kx, double amp, double thickness);
         double operator() (double x, double y);
         void print();
     double kx;
     double amp;
+    double a;
 };
 
 class w0_alfven : public distribution {

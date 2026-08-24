@@ -124,7 +124,7 @@ int main(int argc, char** argv) {
     switch (ics_type_vorticity)
     {
         case 1: // for vorticity 
-            w0 = new w0_current_sheet(kx_vorticity, amp_vorticity);
+            w0 = new w0_current_sheet(kx_vorticity, amp_vorticity, thickness);
             break;
         case 2: 
             w0 = new w0_alfven(kx_vorticity, amp_vorticity);

@@ -486,7 +486,17 @@ void AMRStructure::refine_panels_refine_v(std::function<double (double,double)> 
                     child_0_right_nbr->left_nbr_ind = num_new_panels;
                     Panel* child_1_right_nbr = &(panels[child_1_right_nbr_ind]);
                     child_1_right_nbr->left_nbr_ind = num_new_panels + 1;
-                    if (panel->is_right_bdry && bcs==periodic_bcs) {
+                    // x is ALWAYS periodic in PMMHD (bcs only selects the y BC:
+                    // 0 = doubly periodic, 1 = open in y).  In FARSIGHT `bcs`
+                    // selected the *x* BC, so its guard read
+                    //     panel->is_right_bdry && bcs == periodic_bcs
+                    // Carrying that guard over unchanged makes this branch false
+                    // whenever bcs == 1, so the right-boundary panels reuse the
+                    // wrapped x_min column instead of creating their own x_max
+                    // column -- the rightmost column of y-refinement nodes is
+                    // never generated.  Match the left-neighbor branch above and
+                    // test the boundary flag only.
+                    if (panel->is_right_bdry) {
                         point_13_ind = new_vert_ind++;
                         point_14_ind = new_vert_ind++;
                         new_xs.push_back(subpanel_xs[4]); new_xs.push_back(subpanel_xs[4]);
