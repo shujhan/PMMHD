@@ -18,11 +18,13 @@ class w0_uniform : public distribution {
         void print();
 };
 
-class w0_zero : public distribution {
+class w0_current_sheet : public distribution {
     public:
-        w0_zero();
+        w0_current_sheet(double kx, double amp);
         double operator() (double x, double y);
         void print();
+    double kx;
+    double amp;
 };
 
 class w0_alfven : public distribution {

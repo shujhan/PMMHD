@@ -256,7 +256,7 @@ int AMRStructure::rk4() {
         if (stage == 0) {
             // stage-1 displaced positions coincide with the grid; read directly
             for (int i = 0; i < N; ++i) {
-                kx_p[i] = u1s[i] - b1s[i];  ky_p[i] = u2s[i] - b2s[i];  kq_p[i] = rhs_plus[i];;
+                kx_p[i] = u1s[i] - b1s[i];  ky_p[i] = u2s[i] - b2s[i];  kq_p[i] = rhs_plus[i];
                 kx_m[i] = u1s[i] + b1s[i];  ky_m[i] = u2s[i] + b2s[i];  kq_m[i] = rhs_minus[i];
             }
         } else {

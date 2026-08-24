@@ -12,16 +12,21 @@ void w0_uniform::print() {
 }
 
 
-// ---- w0_zero ----
-w0_zero::w0_zero() {}
+// ---- w0_current_sheet ----
+w0_current_sheet::w0_current_sheet(double kx, double amp):
+    kx(kx), amp(amp) {}
 
-double w0_zero::operator()(double x, double y) {
-    return 0.0;
+double w0_current_sheet::operator()(double x, double y) {
+    return amp * cos(kx * x);;
 }
 
-void w0_zero::print() {
-    std::cout << "w0_zero distribution: 0s" << std::endl;
+void w0_current_sheet::print() {
+    std::cout << "w0_current_sheet distribution: amp * cos(kx * x) " << std::endl;
 }
+
+
+
+
 
 // ---- w0_alfven----
 w0_alfven::w0_alfven(double kx_w, double amp_w):
