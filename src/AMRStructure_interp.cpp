@@ -27,7 +27,7 @@ void AMRStructure::interpolate_to_initial_xys(
                 y_temp += Ly;
                 ineq_bottom = (x_br - x_bl) * (y_temp - y_bl) >= (y_br - y_bl) * (x - x_bl);
                 counter++;
-                if (counter > 10) {
+                if (counter > 20) {
                     throw std::runtime_error("too many y shifts at bottom!");
                 }
             }
@@ -38,7 +38,7 @@ void AMRStructure::interpolate_to_initial_xys(
                 y_temp -= Ly;
                 ineq_top = (x_tr - x_tl) * (y_temp - y_tl) <= (y_tr - y_tl) * (x - x_tl);
                 counter++;
-                if (counter > 10) {
+                if (counter > 20) {
                     throw std::runtime_error("too many y shifts at top!");
                 }
             }
@@ -232,7 +232,7 @@ void AMRStructure::shift_xs(std::vector<double>& shifted_xs, const std::vector<d
                 cout << "post shift x= (" << x_temp << ", ineq_00_left, " << ineq_00_left << endl; 
             }
             counter++;
-            if (counter > 10) {
+            if (counter > 20) {
                 throw std::runtime_error("too many shifts!");
             }
         }
@@ -248,7 +248,7 @@ void AMRStructure::shift_xs(std::vector<double>& shifted_xs, const std::vector<d
                 cout << "post shift x= (" << x_temp << ", ineq_00_right, " << ineq_00_right << endl; 
             }
             counter++;
-            if (counter > 10) {
+            if (counter > 20) {
                 throw std::runtime_error("too many shifts!");
             }
         }
@@ -862,14 +862,14 @@ void AMRStructure::interpolate_q_scattered(std::vector<double>& q0s) {
             while (!ineq_bottom) {
                 yt += Ly;
                 ineq_bottom = (x_br - x_bl) * (yt - y_bl) >= (y_br - y_bl) * (x - x_bl);
-                if (++counter > 10) { throw std::runtime_error("too many y shifts at bottom (scattered)!"); }
+                if (++counter > 20) { throw std::runtime_error("too many y shifts at bottom (scattered)!"); }
             }
             bool ineq_top = (x_tr - x_tl) * (yt - y_tl) <= (y_tr - y_tl) * (x - x_tl);
             counter = 0;
             while (!ineq_top) {
                 yt -= Ly;
                 ineq_top = (x_tr - x_tl) * (yt - y_tl) <= (y_tr - y_tl) * (x - x_tl);
-                if (++counter > 10) { throw std::runtime_error("too many y shifts at top (scattered)!"); }
+                if (++counter > 20) { throw std::runtime_error("too many y shifts at top (scattered)!"); }
             }
             shifted_ys[ii] = yt;
         }
@@ -944,7 +944,7 @@ double AMRStructure::interpolate_from_mesh(double x, double y, bool verbose) {
         while (!ineq_bottom) {
             shifted_y += Ly;
             ineq_bottom = (x_br - x_bl) * (shifted_y - y_bl) >= (y_br - y_bl) * (shifted_x - x_bl);
-            if (++counter > 10) {
+            if (++counter > 20) {
                 throw std::runtime_error("too many y shifts at bottom (interpolate_from_mesh)!");
             }
         }
@@ -954,7 +954,7 @@ double AMRStructure::interpolate_from_mesh(double x, double y, bool verbose) {
         while (!ineq_top) {
             shifted_y -= Ly;
             ineq_top = (x_tr - x_tl) * (shifted_y - y_tl) <= (y_tr - y_tl) * (shifted_x - x_tl);
-            if (++counter > 10) {
+            if (++counter > 20) {
                 throw std::runtime_error("too many y shifts at top (interpolate_from_mesh)!");
             }
         }

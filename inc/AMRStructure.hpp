@@ -42,6 +42,8 @@ struct MHDDiagnostics {
     double E_mag;   // 0.5 * sum w_i (b1^2 + b2^2)
     double E_tot;   // E_kin + E_mag
     double H_C;     // cross helicity: sum w_i (u1 b1 + u2 b2)
+    double I_j;     // sum w_i j_i   (conserved to round-off; boundary flux ~ mu d_y j at |y|=20a)
+    double I_w;     // sum w_i w_i
 };
 
 
