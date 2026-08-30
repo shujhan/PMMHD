@@ -50,7 +50,8 @@ AMRStructure::AMRStructure(std::string sim_dir, distribution* w0, distribution* 
 
     
     bool is_initial_step = true;
-    generate_mesh([&](double x, double y) { return (*w0)(x,y); }, [&](double x, double y) { return (*j0)(x,y); },do_adaptively_refine_vorticity, do_adaptively_refine_j, is_initial_step);
+    // f_plus / f_minus give q+ = w0 + j0 and q- = w0 - j0 at a new AMR point
+    generate_mesh([&](double x, double y) { return (*w0)(x,y) + (*j0)(x,y); }, [&](double x, double y) { return (*w0)(x,y) - (*j0)(x,y); },do_adaptively_refine_vorticity, do_adaptively_refine_j, is_initial_step);
     // w0_beyond_boundary = *std::min_element(w0s.begin(), w0s.end() );
     // cout << "w0 extrapolating value is " << w0_beyond_boundary << endl;
     // j0_beyond_boundary = *std::min_element(j0s.begin(), j0s.end() );
@@ -75,4 +76,3 @@ std::string AMRStructure::get_sim_dir() const { return sim_dir; }
 //     num_operations[prof_type] ++;
 //     time_operations[prof_type] += op_time;
 // }
-

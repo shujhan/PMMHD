@@ -166,8 +166,8 @@ struct AMRStructure {
 
     // private functions
     int create_prerefined_mesh(bool is_initial_step);
-    void refine_panels(std::function<double (double,double)> f, bool do_adaptive_refine, bool is_initial_step);
-    void refine_panels_refine_v(std::function<double (double,double)> f, bool do_adaptive_refine,  bool is_initial_step);
+    void refine_panels(std::function<double (double,double)> q_plus, std::function<double (double,double)> q_minus, bool do_adaptive_refine, bool is_initial_step);
+    void refine_panels_refine_v(std::function<double (double,double)> q_plus, std::function<double (double,double)> q_minus, bool do_adaptive_refine,  bool is_initial_step);
     void test_panel(int panel_ind, bool verbose);
 
     int write_particles_to_file();
@@ -197,8 +197,8 @@ struct AMRStructure {
         // end getters
 
         // amr
-        void generate_mesh(std::function<double (double,double)> f0, 
-                            std::function<double (double,double)> f1, 
+        void generate_mesh(std::function<double (double,double)> f_plus, 
+                            std::function<double (double,double)> f_minus, 
                             bool do_adaptively_refine_vorticity, bool do_adaptively_refine_j, bool is_initial_step);
         void set_leaves_weights();
         void recursively_set_leaves_weights(int panel_ind);
@@ -216,9 +216,6 @@ struct AMRStructure {
         int find_leaf_containing_point_from_neighbor(double& tx, double& ty, bool& beyond_boundary, int leaf_ind, std::set<int>& history);
         // // int find_leaf_containing();
         void interpolate_to_initial_xys(std::vector<double>& q0s, std::vector<double>& xs, std::vector<double>& ys, int nx, int ny);
-        // Robust remesh of the full (scattered) current mesh from the deformed
-        // source (old_xs/old_ys/old_q0s/old_panels) using the neighbor-walk search.
-        void interpolate_q_scattered(std::vector<double>& q0s);
         double interpolate_from_mesh(double x, double y, bool verbose);
         // void interpolate_from_mesh(std::vector<double> &values, std::vector<double>& x, std::vector<double>& v, bool verbose);
         // void interpolate_from_mesh_slow(std::vector<double> &values, std::vector<double>& x, std::vector<double>& v, bool verbose);

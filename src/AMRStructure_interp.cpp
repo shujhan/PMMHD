@@ -127,52 +127,6 @@ cout << "Done sorting" << endl;
     }    
 
 
-    // Repair neighbor-walk failures before depositing points into panels.
-    // find_leaf_containing_point_from_neighbor can terminate on a cycle (history
-    // hit, line ~655) and return a leaf that does NOT contain the target point.
-    // This happens where the source mesh is sheared/folded (current sheets) or
-    // mixed-level (coarse-fine interface under AMR). That point would then be
-    // interpolated from the wrong panel and evaluated far outside its node
-    // range -> an isolated outlier; RK4 feeds those back into the stage slopes,
-    // so the specks compound step over step. For any point not inside its
-    // assigned leaf, redo the search with a recursive descent from the root
-    // (the same method that seeds the first point), which always returns a
-    // containing leaf (or flags beyond_boundary).
-    auto point_in_old_leaf = [&](double tx, double ty, int pl) -> bool {
-        const Panel& P = old_panels[pl];
-        double x_bl=old_xs[P.point_inds[0]], y_bl=old_ys[P.point_inds[0]];
-        double x_tl=old_xs[P.point_inds[2]], y_tl=old_ys[P.point_inds[2]];
-        double x_mid=old_xs[P.point_inds[4]], y_mid=old_ys[P.point_inds[4]];
-        double x_br=old_xs[P.point_inds[6]], y_br=old_ys[P.point_inds[6]];
-        double x_tr=old_xs[P.point_inds[8]], y_tr=old_ys[P.point_inds[8]];
-        if (tx - x_mid >= Lx/2) tx -= Lx;
-        if (tx - x_mid < -Lx/2) tx += Lx;
-        if (bcs == periodic_bcs) {
-            if (ty - y_mid >= Ly/2) ty -= Ly;
-            if (ty - y_mid < -Ly/2) ty += Ly;
-        }
-        bool r =(x_tr-x_br)*(ty-y_br) >= (y_tr-y_br)*(tx-x_br);
-        bool l =(x_tl-x_bl)*(ty-y_bl) <= (y_tl-y_bl)*(tx-x_bl);
-        bool tp=(x_tr-x_tl)*(ty-y_tl) <= (y_tr-y_tl)*(tx-x_tl);
-        bool bt=(x_br-x_bl)*(ty-y_bl) >= (y_br-y_bl)*(tx-x_bl);
-        return r && l && tp && bt;
-    };
-    for (int ii = 0; ii < (int)leaf_panel_of_points.size(); ++ii) {
-        // pl<=0 is a point intentionally flagged beyond the boundary; leave it.
-        if (leaf_panel_of_points[ii] <= 0) continue;
-        if (!point_in_old_leaf(sortxs[ii], sortys[ii], leaf_panel_of_points[ii])) {
-            bool bb = false;
-            double rx = sortxs[ii], ry = sortys[ii];
-            int rl = find_leaf_containing_xy_recursively(rx, ry, bb, 0);
-            if (!bb && rl > 0 && rl < (int)old_panels.size()) {
-                leaf_panel_of_points[ii] = rl;
-            }
-        }
-    }
-
-
-
-
     for (int ii = 0; ii < leaf_panel_of_points.size(); ++ii) {
         point_in_leaf_panels_by_inds[leaf_panel_of_points[ii]].push_back(ii);
     }
@@ -731,7 +685,7 @@ void AMRStructure::interpolate_from_panel_to_points(
             // lives in (e.g. an x_max-column target shifted to ~-0 while its
             // panel sits at the right edge); evaluating the biquadratic with
             // the raw offset then extrapolates across the whole domain and
-            // deposits an O(1) defect. Same fold as point_in_old_leaf.
+            // deposits an O(1) defect.
             if (tx - panel_xs[4] >= Lx / 2) { tx -= Lx; }
             if (tx - panel_xs[4] < -Lx / 2) { tx += Lx; }
             if (bcs == periodic_bcs) {
@@ -795,33 +749,8 @@ void AMRStructure::interpolate_from_panel_to_points(
 
         Eigen::Matrix<double, Dynamic,1> interp_vals_q0 = Dx * c_q0;
 
-        // Extrapolation backstop. A target that lands outside this panel's node
-        // extent is being extrapolated, and the biquadratic's high-order terms
-        // (dx^2 dy^2, ...) can diverge there -> an isolated outlier (the late-
-        // time salt-and-pepper). Bound any extrapolated value to the range
-        // spanned by the panel's 9 nodes (widened by extrap_margin*range so a
-        // legitimate gradient continuing just past the panel edge is not
-        // flattened). Interior targets are left at full accuracy. This cannot
-        // create a new extremum from outside the panel, so it cannot inject the
-        // spurious energy seen at t~1.0.
-        const double extrap_margin = 0.5;
-        double hx = 0.0, hy = 0.0, qlo = panel_q0s[0], qhi = panel_q0s[0];
-        for (int ii = 0; ii < 9; ++ii) {
-            if (fabs(panel_dx[ii]) > hx) hx = fabs(panel_dx[ii]);
-            if (fabs(panel_dy[ii]) > hy) hy = fabs(panel_dy[ii]);
-            if (panel_q0s[ii] < qlo) qlo = panel_q0s[ii];
-            if (panel_q0s[ii] > qhi) qhi = panel_q0s[ii];
-        }
-        double pad = extrap_margin * (qhi - qlo);
-        double qlo_b = qlo - pad, qhi_b = qhi + pad;
-
         for (int ii = 0; ii < point_inds.size(); ++ii) {
-            double v = interp_vals_q0(ii);
-            if (fabs(dxs[ii]) > hx || fabs(dys[ii]) > hy) {   // extrapolating
-                if (v < qlo_b) v = qlo_b;
-                if (v > qhi_b) v = qhi_b;
-            }
-            values_q0[point_inds[ii]] = v;
+            values_q0[point_inds[ii]] = interp_vals_q0(ii);
         }
 
         if (use_limiter) {
@@ -833,91 +762,6 @@ void AMRStructure::interpolate_from_panel_to_points(
     }
 }
 
-
-// Robust remesh of the entire current mesh (base grid + AMR-refined points) from
-// the deformed source copy. Mirrors interpolate_to_initial_xys: shift into the
-// principal periodic strip, sort by (y,x), bootstrap the first point with the
-// recursive search, then resolve every subsequent point by the neighbor-walk
-// search seeded from the previous (spatially adjacent) point. The neighbor-walk
-// re-centers the periodic image relative to the local leaf in BOTH x and y, so it
-// resolves the doubly-periodic, sheared corners that the per-point recursive
-// descent misroutes -- which is what produced the corner speckle on q+/q-.
-void AMRStructure::interpolate_q_scattered(std::vector<double>& q0s) {
-    int n = xs.size();
-
-    std::vector<double> shifted_xs(n);
-    shift_xs(shifted_xs, xs, ys);
-    std::vector<double> shifted_ys(ys);
-
-    if (bcs == periodic_bcs) {
-        double x_bl = old_xs[0], y_bl = old_ys[0];
-        double x_tl = old_xs[2], y_tl = old_ys[2];
-        double x_br = old_xs[6], y_br = old_ys[6];
-        double x_tr = old_xs[8], y_tr = old_ys[8];
-        for (int ii = 0; ii < n; ++ii) {
-            double x = shifted_xs[ii];
-            double yt = shifted_ys[ii];
-            bool ineq_bottom = (x_br - x_bl) * (yt - y_bl) >= (y_br - y_bl) * (x - x_bl);
-            int counter = 0;
-            while (!ineq_bottom) {
-                yt += Ly;
-                ineq_bottom = (x_br - x_bl) * (yt - y_bl) >= (y_br - y_bl) * (x - x_bl);
-                if (++counter > 20) { throw std::runtime_error("too many y shifts at bottom (scattered)!"); }
-            }
-            bool ineq_top = (x_tr - x_tl) * (yt - y_tl) <= (y_tr - y_tl) * (x - x_tl);
-            counter = 0;
-            while (!ineq_top) {
-                yt -= Ly;
-                ineq_top = (x_tr - x_tl) * (yt - y_tl) <= (y_tr - y_tl) * (x - x_tl);
-                if (++counter > 20) { throw std::runtime_error("too many y shifts at top (scattered)!"); }
-            }
-            shifted_ys[ii] = yt;
-        }
-    }
-
-    std::vector<int> sort_indices(n);
-    for (int ii = 0; ii < n; ++ii) { sort_indices[ii] = ii; }
-    double sort_threshold = initial_dy / 10.0;
-    std::sort(sort_indices.begin(), sort_indices.end(),
-        [&](int a, int b) {
-            if (fabs(shifted_ys[a] - shifted_ys[b]) >= sort_threshold) { return shifted_ys[a] < shifted_ys[b]; }
-            return shifted_xs[a] < shifted_xs[b];
-        });
-
-    std::vector<double> sortxs(n), sortys(n), sortq0s(n);
-    for (int ii = 0; ii < n; ++ii) { sortxs[ii] = shifted_xs[sort_indices[ii]]; sortys[ii] = shifted_ys[sort_indices[ii]]; }
-
-    std::vector<int> leaf_of(n);
-    bool beyond_boundary = false;
-    int leaf = find_leaf_containing_xy_recursively(sortxs[0], sortys[0], beyond_boundary, 0);
-    leaf_of[0] = beyond_boundary ? 0 : leaf;
-
-    for (int ii = 1; ii < n; ++ii) {
-        beyond_boundary = false;
-        int seed = leaf_of[ii-1];
-        if (seed <= 0) {
-            // previous point fell back to root: re-bootstrap with the recursive search
-            int lf = find_leaf_containing_xy_recursively(sortxs[ii], sortys[ii], beyond_boundary, 0);
-            leaf_of[ii] = beyond_boundary ? 0 : lf;
-        } else {
-            std::set<int> history;
-            history.emplace(seed);
-            int lf = find_leaf_containing_point_from_neighbor(sortxs[ii], sortys[ii], beyond_boundary, seed, history);
-            leaf_of[ii] = beyond_boundary ? 0 : lf;
-        }
-    }
-
-    std::vector<std::vector<int> > point_in_leaf_panels_by_inds(old_panels.size());
-    for (int ii = 0; ii < n; ++ii) { point_in_leaf_panels_by_inds[leaf_of[ii]].push_back(ii); }
-
-    for (int panel_ind = 0; panel_ind < (int)old_panels.size(); ++panel_ind) {
-        if (point_in_leaf_panels_by_inds[panel_ind].size() > 0) {
-            interpolate_from_panel_to_points(sortq0s, sortxs, sortys,
-                point_in_leaf_panels_by_inds[panel_ind], panel_ind, use_limiter, limit_val);
-        }
-    }
-    for (int ii = 0; ii < n; ++ii) { q0s[sort_indices[ii]] = sortq0s[ii]; }
-}
 
 double AMRStructure::interpolate_from_mesh(double x, double y, bool verbose) {
 
@@ -979,7 +823,7 @@ double AMRStructure::interpolate_from_mesh(double x, double y, bool verbose) {
 
 
 double AMRStructure::interpolate_from_panel(double x, double y, int panel_ind, bool verbose) {
-    if (panel_ind == 0) { return w0_beyond_boundary; }
+    if (panel_ind == 0) { return q0_beyond_boundary; }
     else {
         Panel* panel = &(old_panels[panel_ind]);
         const int* point_inds = panel->point_inds;
@@ -1063,23 +907,6 @@ double AMRStructure::interpolate_from_panel(double x, double y, int panel_ind, b
         double val = c(0) + c(1)*dx + c(2) * dx*dy + c(3) * dy +
                 c(4) * dx*dx + c(5) * dx*dx*dy + c(6) * dx*dx*dy*dy +
                 c(7) * dx*dy*dy + c(8) * dy*dy;
-
-        // Extrapolation backstop (mirrors interpolate_from_panel_to_points):
-        // bound an extrapolated target to the panel's 9-node range so a
-        // misrouted / far-outside point cannot diverge into an outlier.
-        const double extrap_margin = 0.5;
-        double hx = 0.0, hy = 0.0, qlo = panel_q0s[0], qhi = panel_q0s[0];
-        for (int ii = 0; ii < 9; ++ii) {
-            if (fabs(panel_dx[ii]) > hx) hx = fabs(panel_dx[ii]);
-            if (fabs(panel_dy[ii]) > hy) hy = fabs(panel_dy[ii]);
-            if (panel_q0s[ii] < qlo) qlo = panel_q0s[ii];
-            if (panel_q0s[ii] > qhi) qhi = panel_q0s[ii];
-        }
-        if (fabs(dx) > hx || fabs(dy) > hy) {   // extrapolating
-            double pad = extrap_margin * (qhi - qlo);
-            if (val < qlo - pad) val = qlo - pad;
-            if (val > qhi + pad) val = qhi + pad;
-        }
 
         if (verbose) { cout << "Result = " << val << endl; }
         return val;
