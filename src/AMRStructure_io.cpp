@@ -47,6 +47,7 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
     // consistent if this dump happens outside that path.
     if (phis.size() != xs.size()) { phis.assign(xs.size(), 0.0); }
     if (psis.size() != xs.size()) { psis.assign(xs.size(), 0.0); }
+    if (source_S.size() != xs.size()) { source_S.assign(xs.size(), 0.0); }
 
     std::cout << "#xs " << xs.size() << std::endl;
     std::cout << "#ys " << ys.size() << std::endl;
@@ -83,7 +84,7 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
         double b2 = b2s[ii];
         double phi = phis[ii];
         double psi = psis[ii];
-        double source_S =source_S[ii];
+        double S_val = source_S[ii];
         xs_file.write((char *) &x, sizeof(double));
         ys_file.write((char *) &y, sizeof(double));
         w0s_file.write((char *) &w0, sizeof(double));
@@ -97,7 +98,7 @@ int AMRStructure::write_particles_to_file(bool pre_remesh) {
         b2s_file.write((char *) &b2, sizeof(double));
         phis_file.write((char *) &phi, sizeof(double));
         psis_file.write((char *) &psi, sizeof(double));
-        source_file.write((char *) &source_S, sizeof(double));
+        source_file.write((char *) &S_val, sizeof(double));
     }
 
     if (!xs_file.good() | !ys_file.good() | !w0s_file.good() | !j0s_file.good() 

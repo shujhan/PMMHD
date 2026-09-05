@@ -15,6 +15,7 @@ int AMRStructure::run() {
 
 int AMRStructure::step() {
     if (iter_num % n_steps_diag == 0) {
+        compute_source(xs, ys, w0s, j0s, t);   // fills source_S on the current mesh
         evaluate_potential(phis, xs, ys, u_weights, t);
         evaluate_potential(psis, xs, ys, b_weights, t);
         write_to_file();
@@ -259,7 +260,6 @@ int AMRStructure::rk4() {
             for (int i = 0; i < N; ++i) {
                 kx_p[i] = u1s[i] - b1s[i];  ky_p[i] = u2s[i] - b2s[i];  kq_p[i] = rhs_plus[i];
                 kx_m[i] = u1s[i] + b1s[i];  ky_m[i] = u2s[i] + b2s[i];  kq_m[i] = rhs_minus[i];
-                source_S[i] = kq_p[i];
             }
         } else {
             old_panels = panels;  old_xs = xs;  old_ys = ys;   // source = regular base grid
@@ -604,8 +604,9 @@ int AMRStructure::compute_source( std::vector<double>& xs_in, std::vector<double
         }
     }
 
+    source_S = rhs_plus;   // S + dissipation, i.e. the full q+ rhs
+
 
 
     return 0;
 }
-
