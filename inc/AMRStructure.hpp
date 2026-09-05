@@ -44,6 +44,8 @@ struct MHDDiagnostics {
     double H_C;     // cross helicity: sum w_i (u1 b1 + u2 b2)
     double I_j;     // sum w_i j_i   (conserved to round-off; boundary flux ~ mu d_y j at |y|=20a)
     double I_w;     // sum w_i w_i
+    double Psi_rec; // reconnected flux: max psi - min psi along y = 0, psi from int b2 dx
+    double Psi_res; // closure residual: int_{x_min}^{x_max} b2 dx along y = 0, should be 0
 };
 
 

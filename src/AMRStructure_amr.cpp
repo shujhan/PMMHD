@@ -1,8 +1,8 @@
 #include "AMRStructure.hpp"
 
 
-void AMRStructure::generate_mesh(std::function<double (double,double)> q_plus, 
-                                std::function<double (double,double)> q_minus, 
+void AMRStructure::generate_mesh(std::function<double (double,double)> f_plus, 
+                                std::function<double (double,double)> f_minus, 
                                  bool do_adaptively_refine_vorticity, bool do_adaptively_refine_j, bool is_initial_step) 
 {
     bool verbose=false;
@@ -62,7 +62,7 @@ void AMRStructure::generate_mesh(std::function<double (double,double)> q_plus,
         while (need_further_refinement) {
             need_further_refinement = false;
             // auto amr_start = high_resolution_clock::now();
-            refine_panels(q_plus, q_minus, true, is_initial_step);
+            refine_panels(f_plus, f_minus, true, is_initial_step);
             // auto amr_stop = high_resolution_clock::now();
             // add_time(amr_refine_time, duration_cast<duration<double>>(amr_stop-amr_start) );
 
@@ -213,7 +213,7 @@ int AMRStructure::create_prerefined_mesh(bool is_initial_step) {
 }
 
 
-void AMRStructure::refine_panels_refine_v(std::function<double (double,double)> q_plus, std::function<double (double,double)> q_minus, bool do_adaptive_refine, bool is_initial_step) {
+void AMRStructure::refine_panels_refine_v(std::function<double (double,double)> f_plus, std::function<double (double,double)> f_minus, bool do_adaptive_refine, bool is_initial_step) {
 
     // Note: this assumes that we are refining in v uniformly before any xp refinement;
     // No compatibility with xp refined panels is guaranteed
@@ -538,13 +538,13 @@ void AMRStructure::refine_panels_refine_v(std::function<double (double,double)> 
         old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
     }
     for (int ii = 0; ii < new_xs.size(); ++ii) {
-        new_q_plus.push_back( q_plus(new_xs.at(ii), new_ys.at(ii)) );
+        new_q_plus.push_back( f_plus(new_xs.at(ii), new_ys.at(ii)) );
     }
     if (do_adaptive_refine && !is_initial_step) {
         old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
     }
     for (int ii = 0; ii < new_xs.size(); ++ii) {
-        new_q_minus.push_back( q_minus(new_xs.at(ii), new_ys.at(ii)) );
+        new_q_minus.push_back( f_minus(new_xs.at(ii), new_ys.at(ii)) );
     }
     for (int ii = 0; ii < new_xs.size(); ++ii) {
         new_w0s.push_back( 0.5 * (new_q_plus[ii] + new_q_minus[ii]) );
@@ -570,7 +570,7 @@ void AMRStructure::refine_panels_refine_v(std::function<double (double,double)> 
 
 
 
-void AMRStructure::refine_panels(std::function<double (double,double)> q_plus, std::function<double (double,double)> q_minus, bool do_adaptive_refine, bool is_initial_step) {
+void AMRStructure::refine_panels(std::function<double (double,double)> f_plus, std::function<double (double,double)> f_minus, bool do_adaptive_refine, bool is_initial_step) {
     std::vector <double> new_xs;
     std::vector <double> new_ys;
     std::vector <double> new_w0s;
@@ -926,13 +926,13 @@ void AMRStructure::refine_panels(std::function<double (double,double)> q_plus, s
         old_xs = old_xs_plus;  old_ys = old_ys_plus;  old_q0s = old_q_plus;
     }
     for (int ii = 0; ii < new_xs.size(); ++ii) {
-        new_q_plus.push_back( q_plus(new_xs.at(ii), new_ys.at(ii)) );
+        new_q_plus.push_back( f_plus(new_xs.at(ii), new_ys.at(ii)) );
     }
     if (do_adaptive_refine && !is_initial_step) {
         old_xs = old_xs_minus; old_ys = old_ys_minus; old_q0s = old_q_minus;
     }
     for (int ii = 0; ii < new_xs.size(); ++ii) {
-        new_q_minus.push_back( q_minus(new_xs.at(ii), new_ys.at(ii)) );
+        new_q_minus.push_back( f_minus(new_xs.at(ii), new_ys.at(ii)) );
     }
     for (int ii = 0; ii < new_xs.size(); ++ii) {
         new_w0s.push_back( 0.5 * (new_q_plus[ii] + new_q_minus[ii]) );
