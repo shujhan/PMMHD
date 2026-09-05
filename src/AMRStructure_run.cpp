@@ -46,6 +46,7 @@ int AMRStructure::init_fields() {
     u2s.assign(xs.size(), 0.0);
     b1s.assign(xs.size(), 0.0);
     b2s.assign(xs.size(), 0.0);
+    source_S.assign(xs.size(), 0.0);
     evaluate_u_field(u1s, u2s, xs, ys, u_weights, t);
     evaluate_b_field(b1s, b2s, xs, ys, b_weights, t);
 
@@ -258,6 +259,7 @@ int AMRStructure::rk4() {
             for (int i = 0; i < N; ++i) {
                 kx_p[i] = u1s[i] - b1s[i];  ky_p[i] = u2s[i] - b2s[i];  kq_p[i] = rhs_plus[i];
                 kx_m[i] = u1s[i] + b1s[i];  ky_m[i] = u2s[i] + b2s[i];  kq_m[i] = rhs_minus[i];
+                source_S[i] = kq_p[i];
             }
         } else {
             old_panels = panels;  old_xs = xs;  old_ys = ys;   // source = regular base grid
