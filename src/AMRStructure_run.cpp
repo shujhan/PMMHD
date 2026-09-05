@@ -1,4 +1,5 @@
 #include "AMRStructure.hpp"
+#include <limits>
 #include <iomanip>
 
 int AMRStructure::run() {
@@ -15,12 +16,22 @@ int AMRStructure::run() {
 
 int AMRStructure::step() {
     if (iter_num % n_steps_diag == 0) {
+        compute_acceleration();                // uses the state saved last step
         compute_source(xs, ys, w0s, j0s, t);   // fills source_S on the current mesh
         evaluate_potential(phis, xs, ys, u_weights, t);
         evaluate_potential(psis, xs, ys, b_weights, t);
         write_to_file();
         write_diagnostics(compute_diagnostics());   // <-- conservative 
     }
+
+    // Save the CURRENT state whenever the next step will dump, so that
+    // compute_acceleration() there differences over exactly one dt. Doing this
+    // only on the step before a dump costs one copy per dump interval instead
+    // of one per step.
+    if ((iter_num + 1) % n_steps_diag == 0) {
+        save_prev_state();
+    }
+
     iter_num += 1;
     std::cout << "step " << iter_num << std::endl;
 
@@ -36,6 +47,70 @@ int AMRStructure::step() {
     remesh();
     init_fields();
 
+    return 0;
+}
+
+
+int AMRStructure::save_prev_state() {
+    // Only the prerefined block is kept. Those points exist at the same index at
+    // every step, so the difference below needs no matching, and on an AMR run
+    // this is a much smaller copy than the whole mesh.
+    const size_t n = std::min(n_prerefined, xs.size());
+    prev_xs.assign(xs.begin(),  xs.begin()  + n);
+    prev_ys.assign(ys.begin(),  ys.begin()  + n);
+    prev_u1s.assign(u1s.begin(), u1s.begin() + n);
+    prev_u2s.assign(u2s.begin(), u2s.begin() + n);
+    prev_valid = true;
+    return 0;
+}
+
+
+int AMRStructure::compute_acceleration() {
+    // a = [u(t) - u(t-dt)] / dt on the prerefined mesh.
+    //
+    // The points are post-remesh grid positions, not tracked parcels, so this is
+    // the partial time derivative and not the material derivative Du/Dt.
+    //
+    // create_prerefined_mesh() rebuilds xs[0 .. n_prerefined) from initial_height
+    // and y_height alone, with no reference to the solution, and adaptive
+    // refinement only ever appends past that. So index i in the base block is the
+    // same physical point at every step and the difference is a plain
+    // subtraction, with no mesh matching however the refinement moves. Points
+    // above the block are adaptive and come and go, so they are left undefined.
+    a1s.assign(xs.size(), std::numeric_limits<double>::quiet_NaN());
+    a2s.assign(xs.size(), std::numeric_limits<double>::quiet_NaN());
+
+    if (!prev_valid && iter_num > 0) {
+        std::cout << "[accel] no previous state yet (iter " << iter_num
+                  << "); acceleration left undefined" << std::endl;
+        return 1;
+    }
+
+    const size_t n = std::min(prev_xs.size(), std::min(n_prerefined, xs.size()));
+    if (n == 0) {
+        std::cout << "[accel] empty prerefined block; acceleration left undefined"
+                  << std::endl;
+        return 1;
+    }
+
+    // the base block should be bit-identical step to step; check rather than assume
+    for (size_t i = 0; i < n; ++i) {
+        if (prev_xs[i] != xs[i] || prev_ys[i] != ys[i]) {
+            std::cout << "[accel] prerefined block moved at point " << i
+                      << "; acceleration left undefined" << std::endl;
+            return 1;
+        }
+    }
+
+    double amax = 0.0;
+    for (size_t i = 0; i < n; ++i) {
+        a1s[i] = (u1s[i] - prev_u1s[i]) / dt;
+        a2s[i] = (u2s[i] - prev_u2s[i]) / dt;
+        amax = std::max(amax, std::sqrt(a1s[i]*a1s[i] + a2s[i]*a2s[i]));
+    }
+    std::cout << "[accel] backward difference over dt = " << dt
+              << " on " << n << " prerefined points of " << xs.size()
+              << ", max |du/dt| = " << amax << std::endl;
     return 0;
 }
 

@@ -46,6 +46,8 @@ struct MHDDiagnostics {
     double I_w;     // sum w_i w_i
     double Psi_rec; // reconnected flux: max psi - min psi along y = 0, psi from int b2 dx
     double Psi_res; // closure residual: int_{x_min}^{x_max} b2 dx along y = 0, should be 0
+    double w_max;   // max |vorticity| over the mesh
+    double j_max;   // max |current density| over the mesh
 };
 
 
@@ -97,6 +99,17 @@ struct AMRStructure {
     std::vector<double> xs_plus, ys_plus;         // advected positions of the q+ copy
     std::vector<double> xs_minus, ys_minus;       // advected positions of the q− copy
     std::vector<double> source_S;                 // the S term at mesh points
+
+    // Eulerian acceleration du/dt, backward difference over ONE timestep.
+    // prev_* is the state saved at the step before a dump, so the difference
+    // spans dt rather than the dump interval n_steps_diag*dt.
+    std::vector<double> a1s, a2s;
+    std::vector<double> prev_xs, prev_ys, prev_u1s, prev_u2s;
+    bool prev_valid = false;
+    // number of points laid down by create_prerefined_mesh(). Those occupy
+    // xs[0 .. n_prerefined) at every step: the prerefined block is built from
+    // initial_height / y_height alone, and adaptive refinement only appends.
+    size_t n_prerefined = 0;
 
     // the two deformed Lagrangian copies saved for remeshing
     // (both reuse old_panels connectivity — only coordinates differ)
@@ -168,8 +181,8 @@ struct AMRStructure {
 
     // private functions
     int create_prerefined_mesh(bool is_initial_step);
-    void refine_panels(std::function<double (double,double)> q_plus, std::function<double (double,double)> q_minus, bool do_adaptive_refine, bool is_initial_step);
-    void refine_panels_refine_v(std::function<double (double,double)> q_plus, std::function<double (double,double)> q_minus, bool do_adaptive_refine,  bool is_initial_step);
+    void refine_panels(std::function<double (double,double)> q_plus_fn, std::function<double (double,double)> q_minus_fn, bool do_adaptive_refine, bool is_initial_step);
+    void refine_panels_refine_v(std::function<double (double,double)> q_plus_fn, std::function<double (double,double)> q_minus_fn, bool do_adaptive_refine,  bool is_initial_step);
     void test_panel(int panel_ind, bool verbose);
 
     int write_particles_to_file();
@@ -258,6 +271,8 @@ struct AMRStructure {
         // run step functions, all in run.cpp
         int run();
         int step();
+        int  save_prev_state();
+        int  compute_acceleration();
         int euler();
         // void step(bool get_4th_e);
         int rk4();
