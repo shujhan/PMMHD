@@ -110,6 +110,9 @@ struct AMRStructure {
     // xs[0 .. n_prerefined) at every step: the prerefined block is built from
     // initial_height / y_height alone, and adaptive refinement only appends.
     size_t n_prerefined = 0;
+    // iteration prev_* was captured at; the difference is only valid when it is
+    // exactly one step behind, which the final dump in run() is not
+    int prev_iter = -1;
 
     // the two deformed Lagrangian copies saved for remeshing
     // (both reuse old_panels connectivity — only coordinates differ)

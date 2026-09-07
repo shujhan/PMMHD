@@ -6,7 +6,8 @@ int AMRStructure::run() {
     while (iter_num < num_steps) {
         step();
     }
-
+    // compute_acceleration();
+    compute_source(xs, ys, w0s, j0s, t);
     evaluate_potential(phis, xs, ys, u_weights, t);
     evaluate_potential(psis, xs, ys, b_weights, t);
     write_to_file();
@@ -61,6 +62,7 @@ int AMRStructure::save_prev_state() {
     prev_u1s.assign(u1s.begin(), u1s.begin() + n);
     prev_u2s.assign(u2s.begin(), u2s.begin() + n);
     prev_valid = true;
+    prev_iter = iter_num;
     return 0;
 }
 
@@ -80,37 +82,39 @@ int AMRStructure::compute_acceleration() {
     a1s.assign(xs.size(), std::numeric_limits<double>::quiet_NaN());
     a2s.assign(xs.size(), std::numeric_limits<double>::quiet_NaN());
 
-    if (!prev_valid && iter_num > 0) {
-        std::cout << "[accel] no previous state yet (iter " << iter_num
-                  << "); acceleration left undefined" << std::endl;
-        return 1;
-    }
-
-    const size_t n = std::min(prev_xs.size(), std::min(n_prerefined, xs.size()));
-    if (n == 0) {
-        std::cout << "[accel] empty prerefined block; acceleration left undefined"
-                  << std::endl;
-        return 1;
-    }
-
-    // the base block should be bit-identical step to step; check rather than assume
-    for (size_t i = 0; i < n; ++i) {
-        if (prev_xs[i] != xs[i] || prev_ys[i] != ys[i]) {
-            std::cout << "[accel] prerefined block moved at point " << i
-                      << "; acceleration left undefined" << std::endl;
+    if (iter_num != 0) {
+        if (!prev_valid) {
+            std::cout << "[accel] no previous state yet (iter " << iter_num
+                    << "); acceleration left undefined" << std::endl;
             return 1;
         }
-    }
 
-    double amax = 0.0;
-    for (size_t i = 0; i < n; ++i) {
-        a1s[i] = (u1s[i] - prev_u1s[i]) / dt;
-        a2s[i] = (u2s[i] - prev_u2s[i]) / dt;
-        amax = std::max(amax, std::sqrt(a1s[i]*a1s[i] + a2s[i]*a2s[i]));
+        const size_t n = std::min(prev_xs.size(), std::min(n_prerefined, xs.size()));
+        if (n == 0) {
+            std::cout << "[accel] empty prerefined block; acceleration left undefined"
+                    << std::endl;
+            return 1;
+        }
+
+        // the base block should be bit-identical step to step; check rather than assume
+        for (size_t i = 0; i < n; ++i) {
+            if (prev_xs[i] != xs[i] || prev_ys[i] != ys[i]) {
+                std::cout << "[accel] prerefined block moved at point " << i
+                        << "; acceleration left undefined" << std::endl;
+                return 1;
+            }
+        }
+
+        double amax = 0.0;
+        for (size_t i = 0; i < n; ++i) {
+            a1s[i] = (u1s[i] - prev_u1s[i]) / dt;
+            a2s[i] = (u2s[i] - prev_u2s[i]) / dt;
+            amax = std::max(amax, std::sqrt(a1s[i]*a1s[i] + a2s[i]*a2s[i]));
+        }
+        std::cout << "[accel] backward difference over dt = " << dt
+                << " on " << n << " prerefined points of " << xs.size()
+                << ", max |du/dt| = " << amax << std::endl;
     }
-    std::cout << "[accel] backward difference over dt = " << dt
-              << " on " << n << " prerefined points of " << xs.size()
-              << ", max |du/dt| = " << amax << std::endl;
     return 0;
 }
 

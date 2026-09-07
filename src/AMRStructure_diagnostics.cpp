@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iomanip>
 #include <algorithm>
+#include <cmath>
 
 // Reconnected flux on the midplane y = 0.
 //
@@ -81,8 +82,10 @@ MHDDiagnostics AMRStructure::compute_diagnostics() {
     const size_t N = weights.size();
     double E_kin = 0.0, E_mag = 0.0, H_C = 0.0;
     double I_j = 0.0, I_w = 0.0;
+    double w_max = 0.0, j_max = 0.0;
 
-    #pragma omp parallel for reduction(+:E_kin, E_mag, H_C, I_j, I_w)
+    #pragma omp parallel for reduction(+:E_kin, E_mag, H_C, I_j, I_w) \
+                             reduction(max:w_max, j_max)
     for (size_t i = 0; i < N; ++i) {
         const double wi = weights[i];
         E_kin += 0.5 * wi * (u1s[i]*u1s[i] + u2s[i]*u2s[i]);
@@ -90,6 +93,10 @@ MHDDiagnostics AMRStructure::compute_diagnostics() {
         H_C   +=       wi * (u1s[i]*b1s[i] + u2s[i]*b2s[i]);
         I_j   +=       wi * j0s[i];
         I_w   +=       wi * w0s[i];
+        // peak amplitudes: unweighted, so these are nodal maxima rather than
+        // quadrature sums and stay comparable between uniform and AMR meshes
+        w_max = std::max(w_max, std::abs(w0s[i]));
+        j_max = std::max(j_max, std::abs(j0s[i]));
     }
 
     d.E_kin = E_kin;
@@ -98,6 +105,8 @@ MHDDiagnostics AMRStructure::compute_diagnostics() {
     d.H_C   = H_C;
     d.I_j   = I_j;
     d.I_w   = I_w;
+    d.w_max = w_max;
+    d.j_max = j_max;
 
     midplane_flux(xs, ys, b2s, Lx, Ly, d.Psi_rec, d.Psi_res);
     return d;
@@ -110,7 +119,7 @@ int AMRStructure::write_diagnostics(const MHDDiagnostics& d) {
     std::ofstream f;
     if (!header_written) {
         f.open(path, std::ios::out | std::ios::trunc);
-        f << "iter,t,E_kin,E_mag,E_tot,H_C,I_j,I_w,Psi_rec,Psi_res\n";
+        f << "iter,t,E_kin,E_mag,E_tot,H_C,I_j,I_w,Psi_rec,Psi_res,w_max,j_max\n";
         header_written = true;
     } else {
         f.open(path, std::ios::out | std::ios::app);
@@ -125,6 +134,7 @@ int AMRStructure::write_diagnostics(const MHDDiagnostics& d) {
     f << d.iter << "," << d.t << ","
       << d.E_kin << "," << d.E_mag << "," << d.E_tot << ","
       << d.H_C << "," << d.I_j << "," << d.I_w << ","
-      << d.Psi_rec << "," << d.Psi_res << "\n";
+      << d.Psi_rec << "," << d.Psi_res << ","
+      << d.w_max << "," << d.j_max << "\n";
     return 0;
 }
