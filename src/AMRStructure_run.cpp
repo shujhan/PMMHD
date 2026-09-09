@@ -284,7 +284,14 @@ int AMRStructure::rk4() {
     // never remeshes between stages. Here S needs U/B gradients from grid FD,
     // so each stage state is formed like a full euler step: push the two copies
     // off the base grid, remesh them back onto the (fixed) grid via
-    // interpolate_to_initial_xys, recover w/j and weights, refresh U/B fields.
+    // interpolate_from_mesh, recover w/j and weights, refresh U/B fields.
+    //
+    // All sampling here goes through interpolate_from_mesh (one tree descent per
+    // point), NOT interpolate_to_initial_xys. The latter walks its targets as a
+    // structured nx-by-ny list, which only holds for the freshly built
+    // prerefined block in generate_mesh. Here the grid carries the AMR points
+    // too, so xs.size() > (2*npanels_x+1)*(2*npanels_y+1) and every target past
+    // index nx*ny would be left at leaf 0 and silently set to q0_beyond_boundary.
     // The stage SLOPES are then sampled at the displaced stage positions by
     // biquadratic interpolation from the regular base grid (k_j = v at
     // X + c_j*dt*k_{j-1}, the classical RK4 evaluation point); sampling at the
@@ -297,8 +304,6 @@ int AMRStructure::rk4() {
     // and make the k1..k4 combine ill-defined. With AMR off the fixed grid is
     // just the uniform grid, so the same path serves both cases.
     const int N = (int)xs.size();
-    const int nx_points = 2 * npanels_x + 1;
-    const int ny_points = 2 * npanels_y + 1;
     xs_plus = xs;  ys_plus = ys;  xs_minus = xs;  ys_minus = ys;
 
     // base q+/q- at the fixed grid (held fixed; every stage state branches off these)
@@ -331,8 +336,8 @@ int AMRStructure::rk4() {
         // from the trajectory expansion and degrades the whole scheme to 1st
         // order. S is sampled the same way: dq/dt = +/-S is accumulated along
         // the trajectory, not at the start point. The source mesh for this
-        // sampling is the REGULAR base grid, so the neighbor-walk leaf search is
-        // robust (the sheared-mesh failure mode does not apply here).
+        // sampling is the REGULAR base grid; interpolate_from_mesh descends the
+        // tree per point, so sheared and adaptively refined meshes are both fine.
         compute_source(xs, ys, w0s, j0s, t + stage_c[stage] * dt);
         if (stage == 0) {
             // stage-1 displaced positions coincide with the grid; read directly
@@ -345,21 +350,21 @@ int AMRStructure::rk4() {
 
             for (int i = 0; i < N; ++i) { field_tmp[i] = u1s[i] - b1s[i]; }
             old_q0s = field_tmp;
-            interpolate_to_initial_xys(kx_p, xs_plus, ys_plus, nx_points, ny_points);
+            for (int i = 0; i < N; ++i) { kx_p[i] = interpolate_from_mesh(xs_plus[i], ys_plus[i], false); }
             for (int i = 0; i < N; ++i) { field_tmp[i] = u2s[i] - b2s[i]; }
             old_q0s = field_tmp;
-            interpolate_to_initial_xys(ky_p, xs_plus, ys_plus, nx_points, ny_points);
+            for (int i = 0; i < N; ++i) { ky_p[i] = interpolate_from_mesh(xs_plus[i], ys_plus[i], false); }
             old_q0s = rhs_plus;
-            interpolate_to_initial_xys(kq_p, xs_plus, ys_plus, nx_points, ny_points);
+            for (int i = 0; i < N; ++i) { kq_p[i] = interpolate_from_mesh(xs_plus[i], ys_plus[i], false); }
 
             for (int i = 0; i < N; ++i) { field_tmp[i] = u1s[i] + b1s[i]; }
             old_q0s = field_tmp;
-            interpolate_to_initial_xys(kx_m, xs_minus, ys_minus, nx_points, ny_points);
+            for (int i = 0; i < N; ++i) { kx_m[i] = interpolate_from_mesh(xs_minus[i], ys_minus[i], false); }
             for (int i = 0; i < N; ++i) { field_tmp[i] = u2s[i] + b2s[i]; }
             old_q0s = field_tmp;
-            interpolate_to_initial_xys(ky_m, xs_minus, ys_minus, nx_points, ny_points);
+            for (int i = 0; i < N; ++i) { ky_m[i] = interpolate_from_mesh(xs_minus[i], ys_minus[i], false); }
             old_q0s = rhs_minus;
-            interpolate_to_initial_xys(kq_m, xs_minus, ys_minus, nx_points, ny_points);
+            for (int i = 0; i < N; ++i) { kq_m[i] = interpolate_from_mesh(xs_minus[i], ys_minus[i], false); }
         }
 
         // accumulate this stage into the RK4 sum
@@ -384,9 +389,9 @@ int AMRStructure::rk4() {
 
             old_panels = panels;
             old_xs = xs_plus;  old_ys = ys_plus;  old_q0s = q_plus;
-            interpolate_to_initial_xys(q_plus, xs, ys, nx_points, ny_points);
+            for (int i = 0; i < N; ++i) { q_plus[i] = interpolate_from_mesh(xs[i], ys[i], false); }
             old_xs = xs_minus; old_ys = ys_minus; old_q0s = q_minus;
-            interpolate_to_initial_xys(q_minus, xs, ys, nx_points, ny_points);
+            for (int i = 0; i < N; ++i) { q_minus[i] = interpolate_from_mesh(xs[i], ys[i], false); }
 
             for (int i = 0; i < N; ++i) {
                 w0s[i] = 0.5 * (q_plus[i] + q_minus[i]);
