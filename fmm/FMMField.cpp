@@ -8,8 +8,8 @@
 #include "tree_construction.hpp"
 #include "interaction_list.hpp"
 #include "upward_pass.hpp"
-#include "downward_pass.hpp"
 #include "fmm_kernels_2d.hpp"
+#include "fmm_downward_2d.hpp"
 
 #include "FMMField.hpp"
 
@@ -103,7 +103,7 @@ void U_FMM::operator()(double* e1s, double* e2s,
     view_interact_host cc_interactions ("cc interactions", run_config.fmm_cc_count);
     split_interactions(interaction_list, pp_interactions, pc_interactions, cp_interactions, cc_interactions);
 
-    cout << "FMM: targets " << nx << ", sources " << ny
+    cout << "FMM (" << Kokkos::DefaultExecutionSpace::name() << "): targets " << nx << ", sources " << ny
          << ", target panels " << tree_info_target.panel_count << ", source panels " << tree_info_source.panel_count
          << ", interactions pp/pc/cp/cc " << run_config.fmm_pp_count << "/" << run_config.fmm_pc_count
          << "/" << run_config.fmm_cp_count << "/" << run_config.fmm_cc_count << endl;
@@ -160,9 +160,9 @@ void U_FMM::operator()(double* e1s, double* e2s,
                                         proxy_target_weights_x, proxy_target_weights_y,
                                         d_pp_ints, d_pc_ints, d_cp_ints, d_cc_ints, d_blfmm_panels_source, d_blfmm_panels_target);
         // downward pass once per component
-        downward_pass_2d(run_config, tree_info_target, d_x_co_t, d_y_co_t, d_sol_x, d_blfmm_panels_target,
+        fmm_downward_pass_2d(run_config, tree_info_target, d_x_co_t, d_y_co_t, d_sol_x, d_blfmm_panels_target,
                          proxy_target_weights_x, d_panel_points_inside_target);
-        downward_pass_2d(run_config, tree_info_target, d_x_co_t, d_y_co_t, d_sol_y, d_blfmm_panels_target,
+        fmm_downward_pass_2d(run_config, tree_info_target, d_x_co_t, d_y_co_t, d_sol_y, d_blfmm_panels_target,
                          proxy_target_weights_y, d_panel_points_inside_target);
     }
     else {
@@ -171,7 +171,7 @@ void U_FMM::operator()(double* e1s, double* e2s,
                                     d_panel_points_inside_source, d_panel_points_inside_target, proxy_source_weights,
                                     proxy_target_weights_x, d_pp_ints, d_pc_ints, d_cp_ints, d_cc_ints,
                                     d_blfmm_panels_source, d_blfmm_panels_target);
-        downward_pass_2d(run_config, tree_info_target, d_x_co_t, d_y_co_t, d_sol_x, d_blfmm_panels_target,
+        fmm_downward_pass_2d(run_config, tree_info_target, d_x_co_t, d_y_co_t, d_sol_x, d_blfmm_panels_target,
                          proxy_target_weights_x, d_panel_points_inside_target);
     }
     Kokkos::fence();

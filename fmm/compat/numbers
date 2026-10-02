@@ -1,0 +1,13 @@
+// Minimal <numbers> for C++17 builds (nvcc from CUDA 11.x has no -std=c++20).
+// BarytreeK only uses std::numbers::pi_v. With C++20 the real header is used.
+#pragma once
+#if __cplusplus > 201703L
+#include_next <numbers>
+#else
+namespace std {
+namespace numbers {
+template <class T> inline constexpr T pi_v = static_cast<T>(3.141592653589793238462643383279502884L);
+inline constexpr double pi = pi_v<double>;
+}
+}
+#endif

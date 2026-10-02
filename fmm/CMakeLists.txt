@@ -6,12 +6,14 @@
 #         -DCMAKE_INSTALL_PREFIX=/path/to/fmm_install
 #   cmake --build build_fmm -j && cmake --install build_fmm
 #
-# CUDA backend: configure with -DCMAKE_CXX_COMPILER=${Kokkos_ROOT}/bin/nvcc_wrapper
+# GPU (Kokkos CUDA backend): configure with -DCMAKE_CXX_COMPILER=${Kokkos_ROOT}/bin/nvcc_wrapper.
+# Default standard is C++17 (CUDA 11.x nvcc); compat/numbers supplies std::numbers::pi_v.
 
 cmake_minimum_required(VERSION 3.16)
 project(PMMHD_FMM LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(FMM_CXX_STANDARD 17 CACHE STRING "C++ standard for the FMM library (17 or 20)")
+set(CMAKE_CXX_STANDARD ${FMM_CXX_STANDARD})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -35,9 +37,9 @@ add_library(FMMField STATIC
     FMMField.cpp
     ${BARYTREEK_DIR}/src/tree_construction.cpp
     ${BARYTREEK_DIR}/src/interaction_list.cpp
-    ${BARYTREEK_DIR}/src/upward_pass.cpp
-    ${BARYTREEK_DIR}/src/downward_pass.cpp)
+    ${BARYTREEK_DIR}/src/upward_pass.cpp)
 
+target_include_directories(FMMField BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/compat)
 target_include_directories(FMMField PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
