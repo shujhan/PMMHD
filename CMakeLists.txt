@@ -30,6 +30,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
 
 option(ENABLE_GPU_BUILD "build OpenACC GPU version"             ON)
+option(ENABLE_FMM "link the BarytreeK FMM field solver (build fmm/ first)" OFF)
 
 
 # Enable OpenMP, this is from chatgpt 
@@ -66,6 +67,24 @@ target_link_libraries     (PMMHD_cpu PUBLIC   OpenMP::OpenMP_CXX
 target_include_directories(PMMHD_cpu PUBLIC ${INCLUDE_HEADERS})
 target_include_directories(PMMHD_cpu PUBLIC   inc)
 
+# FMM field solver (use_treecode = 2): link the prebuilt libFMMField.a and the
+# Kokkos libraries only, so no Kokkos compile flags reach the PMMHD sources.
+if(ENABLE_FMM)
+    set(FMM_LIB_DIR "" CACHE PATH "directory containing libFMMField.a")
+    find_library(FMM_LIB FMMField HINTS ${FMM_LIB_DIR} PATH_SUFFIXES lib)
+    if(NOT FMM_LIB)
+        message(FATAL_ERROR "libFMMField.a not found, set -DFMM_LIB_DIR")
+    endif()
+    find_package(Kokkos REQUIRED CONFIG)
+    set(FMM_LINK_LIBS ${FMM_LIB} $<TARGET_FILE:Kokkos::kokkoscore> ${CMAKE_DL_LIBS})
+    if(Kokkos_ENABLE_CUDA)
+        find_package(CUDAToolkit REQUIRED)
+        list(APPEND FMM_LINK_LIBS CUDA::cudart)
+    endif()
+    target_link_libraries(PMMHD_cpu PUBLIC ${FMM_LINK_LIBS})
+    target_compile_definitions(PMMHD_cpu PUBLIC FMM_ENABLED)
+endif()
+
 install(TARGETS PMMHD_cpu  RUNTIME DESTINATION bin
                                 LIBRARY DESTINATION lib
                             ARCHIVE DESTINATION lib)
@@ -101,6 +120,10 @@ if (ENABLE_GPU_BUILD)
     target_include_directories(PMMHD_gpu PUBLIC ${INCLUDE_HEADERS})
     target_include_directories(PMMHD_gpu PUBLIC   inc)
     target_compile_definitions(PMMHD_gpu PUBLIC OPENACC_ENABLED)
+    if(ENABLE_FMM)
+        target_link_libraries(PMMHD_gpu PUBLIC ${FMM_LINK_LIBS})
+        target_compile_definitions(PMMHD_gpu PUBLIC FMM_ENABLED)
+    endif()
 
     install(TARGETS PMMHD_gpu RUNTIME DESTINATION bin
                                 LIBRARY DESTINATION lib

@@ -26,6 +26,9 @@ namespace pt = boost::property_tree;
 
 // #include "Panel.hpp"
 #include "AMRStructure.hpp"
+#ifdef FMM_ENABLED
+#include "FMMField.hpp"
+#endif
 // #include "initial_distributions.hpp"
 
 // #define DEBUG // for debugging purposes
@@ -58,6 +61,10 @@ int main(int argc, char** argv) {
         cout << "unable to open input deck" << endl;
         return 1;
     }
+
+#ifdef FMM_ENABLED
+    fmm_initialize(argc, argv);
+#endif
 
     // Get simulation box parameters 
     std::string project_name = deck.get<std::string>("project_name", "no_name_found");
@@ -192,7 +199,17 @@ int main(int argc, char** argv) {
     Field* calculate_field;
     if (bcs == 0) { // periodic in xy 
         KernelMode m = periodic_xy;
-        if (use_treecode > 0) {
+        if (use_treecode == 2) {
+#ifdef FMM_ENABLED
+            calculate_field = new U_FMM(greens_epsilon, mac, degree, max_source);
+            calculate_field->set_mode(m);
+            cout << "using FMM: periodic in x and y" << endl;
+#else
+            cout << "use_treecode = 2 needs a build with -DENABLE_FMM=ON" << endl;
+            return 1;
+#endif
+        }
+        else if (use_treecode > 0) {
             calculate_field = new U_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
             calculate_field->set_mode(m);
             cout << "using treecode: periodic in x and y" << endl;
@@ -264,7 +281,9 @@ int main(int argc, char** argv) {
     cout << "Taking " << num_steps << " steps with dt = " << dt << endl;
     cout << "Remesh every " << n_steps_remesh << " step(s), diagnostic dump every " << n_steps_diag << " step(s)" << endl;
 
-    if (use_treecode > 0) { 
+    if (use_treecode == 2) {
+        cout << "Using FMM with mac " << mac << " and degree " << degree << endl;
+    } else if (use_treecode > 0) { 
         cout << "Using treecode with mac " << mac << " and degree " << degree << endl;
     } else {
         cout << "using direct sum" << endl;
@@ -324,5 +343,8 @@ int main(int argc, char** argv) {
     delete j0;
     delete calculate_field;
     delete periodizer;
+#ifdef FMM_ENABLED
+    fmm_finalize();
+#endif
     return 0;
 }
