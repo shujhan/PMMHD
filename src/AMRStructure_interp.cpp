@@ -141,10 +141,6 @@ cout << "Done sorting" << endl;
     for (int ii = 0; ii < q0s.size(); ii++) {
         q0s[sort_indices[ii]] = sortq0s[ii];
     }
-
-
-
-
 }
 
 
