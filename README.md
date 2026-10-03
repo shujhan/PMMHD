@@ -10,3 +10,6 @@ Use Texas notes as reference: https://farside.ph.utexas.edu/teaching/plasma/lect
 
 Work started in Oct 23, 2024
 Coding started in Dec 10, 2025
+
+cmake .. -DENABLE_FMM=ON -DFMM_LIB_DIR=$HOME/fmm_install_cuda -DKokkos_ROOT=$HOME/kokkos_cuda -DCUDAToolkit_ROOT=$CUDA_HOME
+make -j 8
