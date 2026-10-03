@@ -13,7 +13,10 @@ enum KernelMode {
     // laplacian  vorticity_laplacian, j_laplacian
     original, periodic_xy,
     original_potentials, periodic_xy_potentials,
-    u1_grad, u2_grad, vorticity_grad, laplacian
+    u1_grad, u2_grad, vorticity_grad, laplacian,
+    // aliases: periodic_xy(_potentials) is the free-space regularized kernel;
+    // the doubly-periodic case adds images + Periodizer on top of it
+    free_xy = periodic_xy, free_xy_potentials = periodic_xy_potentials
 };
 
 class Field {

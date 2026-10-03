@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
     std::string project_name = deck.get<std::string>("project_name", "no_name_found");
     double x_min = deck.get<double>("xmin", 0.0), x_max = deck.get<double>("xmax", 1.0);
     double y_min = deck.get<double>("ymin", 0.0), y_max = deck.get<double>("ymax", 1.0);
-    int bcs = deck.get<int>("bcs",0); // 0 for periodic_xy, 1 for periodic in x, open in y 
+    int bcs = deck.get<int>("bcs",0); // 0 for periodic_xy, 1 for periodic in x, open in y, 2 for free (open in x and y)
     double Lx = x_max - x_min;
     double Ly = y_max - y_min;
     int quad = deck.get<int>("quadrature",0); // 0 for trap rule 
@@ -220,6 +220,29 @@ int main(int argc, char** argv) {
             cout << "using direct sum: periodic in x and y" << endl;
         }
     }
+    else if (bcs == 2) { // free: open in x and y
+        KernelMode m = free_xy;
+        if (use_treecode == 2) {
+#ifdef FMM_ENABLED
+            calculate_field = new U_FMM(greens_epsilon, mac, degree, max_source);
+            calculate_field->set_mode(m);
+            cout << "using FMM: open in x and y" << endl;
+#else
+            cout << "use_treecode = 2 needs a build with -DENABLE_FMM=ON" << endl;
+            return 1;
+#endif
+        }
+        else if (use_treecode > 0) {
+            calculate_field = new U_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
+            calculate_field->set_mode(m);
+            cout << "using treecode: open in x and y" << endl;
+        }
+        else {
+            calculate_field = new U_DirectSum(Lx, greens_epsilon);
+            calculate_field->set_mode(m);
+            cout << "using direct sum: open in x and y" << endl;
+        }
+    }
     else {
         KernelMode m = original;
         if (use_treecode > 0) {
@@ -252,6 +275,8 @@ int main(int argc, char** argv) {
     cout << y_min << " <= y <= " << y_max << endl;
     switch (bcs) {
         case 1 : cout << "Using periodic in x, open in y boundary conditions" << endl;
+            break;
+        case 2 : cout << "Using free (open in x and y) boundary conditions" << endl;
             break;
         default : // periodic
             cout << "Using periodic_xy boundary conditions" << endl;

@@ -32,6 +32,9 @@ U_FMM::U_FMM(double epsilon, double mac, int degree, int max_source)
     : epsilon(epsilon), mac(mac), degree(degree), max_source(max_source), mode(periodic_xy) {}
 U_FMM::~U_FMM() = default;
 
+void* U_FMM::operator new(size_t size) { return ::operator new(size); }
+void U_FMM::operator delete(void* p) { ::operator delete(p); }
+
 void U_FMM::print_field_obj() {
     cout << "[U_FMM]" << endl;
     cout << "  epsilon=" << epsilon << " theta=" << mac << " degree=" << degree

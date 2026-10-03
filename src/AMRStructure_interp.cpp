@@ -151,6 +151,12 @@ cout << "Done sorting" << endl;
 void AMRStructure::shift_xs(std::vector<double>& shifted_xs, const std::vector<double>& xs, const std::vector<double>& ys) {
     bool verbose = false;
 
+    // x is not periodic for free bcs: no shift
+    if (bcs == free_bcs) {
+        for (int ii = 0; ii < xs.size(); ++ii) { shifted_xs[ii] = xs[ii]; }
+        return;
+    }
+
     double x_bl, x_tl, x_br, x_tr;
     double y_bl, y_tl, y_br, y_tr;
     x_bl = this->old_xs[0]; y_bl = this->old_ys[0];
@@ -436,14 +442,14 @@ int AMRStructure::find_leaf_containing_point_from_neighbor(double& tx, double& t
         //     cout << "(x,y)_br = (" << x_br << ", " << y_br << ")" << endl;
         //     cout << "(x,y)_tr = (" << x_tr << ", " << y_tr << ")" << endl;
         // }
-        // need to correct periodic distance
-        if (tx - x_mid >= Lx/2) { 
+        // need to correct periodic distance (x is periodic unless free bcs)
+        if (tx - x_mid >= Lx/2 && bcs != free_bcs) { 
             tx -= Lx; 
             // if (verbose) {
             //     cout << "shifting across boundary, tx= " << tx << endl;
             // }
         }
-        if (tx - x_mid < -Lx/2) { 
+        if (tx - x_mid < -Lx/2 && bcs != free_bcs) { 
             tx += Lx; 
             // if (verbose) {
             //     cout << "shifting across boundary, tx= " << tx << endl;
@@ -686,8 +692,10 @@ void AMRStructure::interpolate_from_panel_to_points(
             // panel sits at the right edge); evaluating the biquadratic with
             // the raw offset then extrapolates across the whole domain and
             // deposits an O(1) defect.
-            if (tx - panel_xs[4] >= Lx / 2) { tx -= Lx; }
-            if (tx - panel_xs[4] < -Lx / 2) { tx += Lx; }
+            if (bcs != free_bcs) {
+                if (tx - panel_xs[4] >= Lx / 2) { tx -= Lx; }
+                if (tx - panel_xs[4] < -Lx / 2) { tx += Lx; }
+            }
             if (bcs == periodic_bcs) {
                 if (ty - panel_ys[4] >= Ly / 2) { ty -= Ly; }
                 if (ty - panel_ys[4] < -Ly / 2) { ty += Ly; }

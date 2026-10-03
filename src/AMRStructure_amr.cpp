@@ -169,6 +169,18 @@ int AMRStructure::create_prerefined_mesh(bool is_initial_step) {
         panels.push_back(Panel{4, 1, 0, 3, 2, 3, 2,3});
         panels[4].is_right_bdry = true;
         panels[4].is_top_bdry = true;
+    } else if (bcs == 2) { // free: open in x and y, every outer side is -2
+        panels.push_back(Panel{});
+        panels[0].is_left_bdry = true;
+        panels[0].is_right_bdry = true;
+        panels.push_back(Panel{1, 1, 0, 0, -2, 2, 3, -2});
+        panels[1].is_left_bdry = true;
+        panels.push_back(Panel{2, 1, 0, 1, -2, -2, 4, 1});
+        panels[2].is_left_bdry = true;
+        panels.push_back(Panel{3, 1, 0, 2, 1, 4, -2, -2});
+        panels[3].is_right_bdry = true;
+        panels.push_back(Panel{4, 1, 0, 3, 2, -2, -2, 3});
+        panels[4].is_right_bdry = true;
     }
 
     panels[1].set_point_inds(0,9,1,11,12,13,3,16,4);

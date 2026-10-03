@@ -29,8 +29,9 @@ using namespace Eigen;
 #include "Periodizer.hpp"
 
 // named values for the integer `bcs` and `quad` members
-// (bcs == 0 is doubly-periodic, bcs == 1 is open-in-y; quad 0 = trap, 1 = simpsons)
-enum BCType   { periodic_bcs = 0, open_bcs = 1 };
+// (bcs == 0 is doubly-periodic, bcs == 1 is open-in-y, bcs == 2 is free (open in x and y);
+//  quad 0 = trap, 1 = simpsons)
+enum BCType   { periodic_bcs = 0, open_bcs = 1, free_bcs = 2 };
 enum QuadType { trap = 0, simpsons = 1 };
 
 

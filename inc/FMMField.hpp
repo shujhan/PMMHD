@@ -1,6 +1,7 @@
 #ifndef FMM_FIELD_HPP
 #define FMM_FIELD_HPP
 
+#include <cstddef>
 #include "FieldStructure.hpp"
 
 // BarytreeK (Kokkos) field solver behind the Field interface.
@@ -25,6 +26,12 @@ class U_FMM : public Field {
         void print_field_obj();
         void set_mode(KernelMode m) override;
         ~U_FMM();
+
+        // allocate and free U_FMM inside the FMM library, so `new U_FMM` in nvc++
+        // code (-gpu=managed) and the delete from the nvcc-compiled destructor use
+        // the same allocator
+        static void* operator new(size_t size);
+        static void operator delete(void* p);
 
     private:
         double epsilon;

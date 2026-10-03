@@ -79,7 +79,7 @@ if(ENABLE_FMM)
     set(FMM_LINK_LIBS ${FMM_LIB} $<TARGET_FILE:Kokkos::kokkoscore> ${CMAKE_DL_LIBS})
     if(Kokkos_ENABLE_CUDA)   # GPU FMM: Kokkos built with the CUDA backend
         find_package(CUDAToolkit REQUIRED)
-        list(APPEND FMM_LINK_LIBS CUDA::cudart CUDA::cuda_driver)
+        list(APPEND FMM_LINK_LIBS CUDA::cudart "-L${CUDAToolkit_LIBRARY_DIR}/stubs" cuda)
     endif()
     target_link_libraries(PMMHD_cpu PUBLIC ${FMM_LINK_LIBS})
     target_compile_definitions(PMMHD_cpu PUBLIC FMM_ENABLED)

@@ -133,6 +133,20 @@ int AMRStructure::evaluate_u_field(std::vector<double>& u1s_local, std::vector<d
             }
         }
     }
+    else if (bcs == free_bcs) {
+        // free case (open x and y): free-space kernel, sources = targets = particles.
+        // No images, no Periodizer, no zero-mean projection (the free-space field
+        // is unique: it decays at infinity).
+        std::vector<double> xtmp(xs_local), ytmp(ys_local), wtmp(ws_local);
+        std::vector<double> u1tmp(n_local, 0.0), u2tmp(n_local, 0.0);
+        KernelMode km = free_xy;
+        calculate_e->set_mode(km);
+        (*calculate_e)(u1tmp.data(), u2tmp.data(),
+                       xtmp.data(), n_local,
+                       ytmp.data(), wtmp.data(), n_local);
+        u1s_local = u1tmp;
+        u2s_local = u2tmp;
+    }
     else {
         // channel case (periodic x, open y): unchanged, use analytic channel kernel
         std::vector<double> u1tmp(n_local, 0.0), u2tmp(n_local, 0.0);
@@ -252,6 +266,18 @@ int AMRStructure::evaluate_b_field(std::vector<double>& b1s_local, std::vector<d
                 }
             }
         }
+    }
+    else if (bcs == free_bcs) {
+        // free case (open x and y): free-space kernel, no images / Periodizer / gauge
+        std::vector<double> xtmp(xs_local), ytmp(ys_local), wtmp(ws_local);
+        std::vector<double> b1tmp(n_local, 0.0), b2tmp(n_local, 0.0);
+        KernelMode km = free_xy;
+        calculate_e->set_mode(km);
+        (*calculate_e)(b1tmp.data(), b2tmp.data(),
+                       xtmp.data(), n_local,
+                       ytmp.data(), wtmp.data(), n_local);
+        b1s_local = b1tmp;
+        b2s_local = b2tmp;
     }
     else {
         // channel case (periodic x, open y): unchanged
@@ -374,6 +400,17 @@ int AMRStructure::evaluate_potential(std::vector<double>& potentials_local,
         //         }
         //     }
         // }
+    }
+    else if (bcs == free_bcs) {
+        // free case (open x and y): free-space log kernel, no images
+        std::vector<double> xtmp(xs_local), ytmp(ys_local), wtmp(ws_local);
+        std::vector<double> potentialtmp(n_local, 0.0), b2tmp(n_local, 0.0);
+        KernelMode km = free_xy_potentials;
+        calculate_e->set_mode(km);
+        (*calculate_e)(potentialtmp.data(), b2tmp.data(),
+                       xtmp.data(), n_local,
+                       ytmp.data(), wtmp.data(), n_local);
+        potentials_local = potentialtmp;
     }
     else {
         // channel case (periodic x, open y): unchanged
