@@ -18,14 +18,21 @@ class w0_uniform : public distribution {
         void print();
 };
 
+// smooth hat along x for a finite current sheet:
+//   h(x) = 0.5 * [ tanh((x - xc + b0)/w) - tanh((x - xc - b0)/w) ]
+// b0 = half length, w = edge width, xc = center. b0 <= 0 gives h = 1 (infinite sheet).
+double sheet_hat(double x, double xc, double b0, double w);
+
 class w0_current_sheet : public distribution {
     public:
-        w0_current_sheet(double kx, double amp, double thickness);
+        w0_current_sheet(double kx, double amp, double thickness,
+                         double xc = 0.0, double b0 = 0.0, double w = 0.1);
         double operator() (double x, double y);
         void print();
     double kx;
     double amp;
     double a;
+    double xc, b0, w;   // hat along x (b0 <= 0: off)
 };
 
 class w0_alfven : public distribution {
@@ -106,13 +113,15 @@ class j0_uniform : public distribution {
 
 class j0_current_sheet: public distribution {
     public:
-        j0_current_sheet(double kx_j, double amp_j, double thickness);
+        j0_current_sheet(double kx_j, double amp_j, double thickness,
+                         double xc = 0.0, double b0 = 0.0, double w = 0.1);
 
         double operator() (double x, double y);
         void print();
     double kx;
     double amp;
     double a;
+    double xc, b0, w;   // hat along x (b0 <= 0: off)
 };
 
 

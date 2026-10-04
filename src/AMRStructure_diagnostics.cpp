@@ -74,6 +74,61 @@ static void midplane_flux(const std::vector<double>& xs,
             - *std::min_element(psi.begin(), psi.end());
 }
 
+// Half width at half maximum of f along one mesh line (coordinate s), e.g. the
+// column x = x_center or the row y = 0. The line is picked out by |t - t0| < tol
+// (t = the other coordinate); shared panel nodes are merged as in midplane_flux.
+// Walks out from the maximum to the first crossings of f_max/2, linear in between.
+// Returns 0 if the line has fewer than 3 nodes.
+static double line_hwhm(const std::vector<double>& s_all,
+                        const std::vector<double>& t_all,
+                        const std::vector<double>& f_all,
+                        double t0, double tol_t, double tol_s)
+{
+    std::vector<std::pair<double,double>> line;
+    for (size_t i = 0; i < s_all.size(); ++i) {
+        if (std::abs(t_all[i] - t0) < tol_t) {
+            line.push_back(std::make_pair(s_all[i], f_all[i]));
+        }
+    }
+    if (line.size() < 3) { return 0.0; }
+    std::sort(line.begin(), line.end());
+
+    std::vector<double> s, f;
+    size_t i = 0;
+    while (i < line.size()) {
+        size_t k = i;
+        double sum = 0.0;
+        while (k < line.size() && line[k].first - line[i].first < tol_s) {
+            sum += line[k].second;
+            ++k;
+        }
+        s.push_back(line[i].first);
+        f.push_back(sum / (double)(k - i));
+        i = k;
+    }
+
+    const size_t M = s.size();
+    size_t im = 0;
+    for (size_t k = 1; k < M; ++k) { if (f[k] > f[im]) { im = k; } }
+    const double half = 0.5 * f[im];
+    if (half <= 0.0) { return 0.0; }
+
+    double s_lo = s[0], s_hi = s[M-1];
+    for (size_t k = im; k > 0; --k) {
+        if (f[k-1] < half) {
+            s_lo = s[k-1] + (half - f[k-1]) * (s[k] - s[k-1]) / (f[k] - f[k-1]);
+            break;
+        }
+    }
+    for (size_t k = im; k + 1 < M; ++k) {
+        if (f[k+1] < half) {
+            s_hi = s[k] + (f[k] - half) * (s[k+1] - s[k]) / (f[k] - f[k+1]);
+            break;
+        }
+    }
+    return 0.5 * (s_hi - s_lo);
+}
+
 MHDDiagnostics AMRStructure::compute_diagnostics() {
     MHDDiagnostics d{};
     d.iter = iter_num;
@@ -88,9 +143,13 @@ MHDDiagnostics AMRStructure::compute_diagnostics() {
                              reduction(max:w_max, j_max)
     for (size_t i = 0; i < N; ++i) {
         const double wi = weights[i];
-        E_kin += 0.5 * wi * (u1s[i]*u1s[i] + u2s[i]*u2s[i]);
+        // self-consistent flow only: the external stagnation flow (if any) has
+        // box-size-dependent energy and is not part of the dynamics' budget
+        const double v1 = u1s[i] - u_ext_x(xs[i]);
+        const double v2 = u2s[i] - u_ext_y(ys[i]);
+        E_kin += 0.5 * wi * (v1*v1 + v2*v2);
         E_mag += 0.5 * wi * (b1s[i]*b1s[i] + b2s[i]*b2s[i]);
-        H_C   +=       wi * (u1s[i]*b1s[i] + u2s[i]*b2s[i]);
+        H_C   +=       wi * (v1*b1s[i] + v2*b2s[i]);
         I_j   +=       wi * j0s[i];
         I_w   +=       wi * w0s[i];
         // peak amplitudes: unweighted, so these are nodal maxima rather than
@@ -108,7 +167,18 @@ MHDDiagnostics AMRStructure::compute_diagnostics() {
     d.w_max = w_max;
     d.j_max = j_max;
 
-    midplane_flux(xs, ys, b2s, Lx, Ly, d.Psi_rec, d.Psi_res);
+    if (bcs == free_bcs) {
+        // midplane_flux assumes periodic x; not meaningful on a free line
+        d.Psi_rec = std::nan("");
+        d.Psi_res = std::nan("");
+    } else {
+        midplane_flux(xs, ys, b2s, Lx, Ly, d.Psi_rec, d.Psi_res);
+    }
+
+    // sheet size from j: half thickness along the center column, half length along y = 0
+    const double x_c = 0.5 * (x_min + x_max);
+    d.sheet_a = 2 * line_hwhm(ys, xs, j0s, x_c, 1e-9 * Lx, 1e-9 * Ly) / std::acosh(std::sqrt(2.0));
+    d.sheet_b = 2 * line_hwhm(xs, ys, j0s, 0.0, 1e-9 * Ly, 1e-9 * Lx);
     return d;
 }
 
@@ -119,7 +189,7 @@ int AMRStructure::write_diagnostics(const MHDDiagnostics& d) {
     std::ofstream f;
     if (!header_written) {
         f.open(path, std::ios::out | std::ios::trunc);
-        f << "iter,t,E_kin,E_mag,E_tot,H_C,I_j,I_w,Psi_rec,Psi_res,w_max,j_max\n";
+        f << "iter,t,E_kin,E_mag,E_tot,H_C,I_j,I_w,Psi_rec,Psi_res,w_max,j_max,sheet_a,sheet_b\n";
         header_written = true;
     } else {
         f.open(path, std::ios::out | std::ios::app);
@@ -135,6 +205,7 @@ int AMRStructure::write_diagnostics(const MHDDiagnostics& d) {
       << d.E_kin << "," << d.E_mag << "," << d.E_tot << ","
       << d.H_C << "," << d.I_j << "," << d.I_w << ","
       << d.Psi_rec << "," << d.Psi_res << ","
-      << d.w_max << "," << d.j_max << "\n";
+      << d.w_max << "," << d.j_max << ","
+      << d.sheet_a << "," << d.sheet_b << "\n";
     return 0;
 }

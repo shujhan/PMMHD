@@ -99,6 +99,13 @@ int main(int argc, char** argv) {
     double B0x = deck.get<double> ("B0x", 0.0);
     double B0y = deck.get<double> ("B0y", 0.0);
 
+    // external stagnation flow u_ext = A (x - xc, -y); free bcs only (default 0.1 there, 0 otherwise)
+    double stagnation_A = deck.get<double> ("stagnation_A", bcs == 2 ? 0.1 : 0.0);
+    if (bcs != 2 && stagnation_A != 0.0) {
+        cout << "stagnation_A needs bcs = 2 (free); u_ext is not periodic" << endl;
+        return 1;
+    }
+
     
     // get vorticity and current density distribution parameters 
     pt::ptree &initial_list_deck = deck.get_child("initial_list");
@@ -120,6 +127,10 @@ int main(int argc, char** argv) {
     double ky_j = 2.0 * M_PI / Ly * current_density_dk.get<double>("normalized_wavenumber_y",1.0);
     double amp_j = current_density_dk.get<double>("amp", 0.0);
     double thickness = current_density_dk.get<double>("thickness", 1.0);
+    // finite sheet: hat along x centered in the box (free bcs default b0 = 1, otherwise off)
+    double sheet_half_length = current_density_dk.get<double>("sheet_half_length", bcs == 2 ? 1.0 : 0.0);
+    double hat_width = current_density_dk.get<double>("hat_width", 0.1);
+    double sheet_xc = 0.5 * (x_min + x_max);
     int ics_type_j = current_density_dk.get<int>("ics_type", 1);
     bool do_adaptively_refine_j = current_density_dk.get<bool> ("adaptively_refine", false);
     double amr_epsilons_j = current_density_dk.get<double>("amr_epsilons",0.1);
@@ -131,7 +142,7 @@ int main(int argc, char** argv) {
     switch (ics_type_vorticity)
     {
         case 1: // for vorticity 
-            w0 = new w0_current_sheet(kx_vorticity, amp_vorticity, thickness);
+            w0 = new w0_current_sheet(kx_vorticity, amp_vorticity, thickness, sheet_xc, sheet_half_length, hat_width);
             break;
         case 2: 
             w0 = new w0_alfven(kx_vorticity, amp_vorticity);
@@ -164,7 +175,7 @@ int main(int argc, char** argv) {
     switch (ics_type_j)
     {
         case 1: // for current density
-            j0 = new j0_current_sheet(kx_j, amp_j, thickness);
+            j0 = new j0_current_sheet(kx_j, amp_j, thickness, sheet_xc, sheet_half_length, hat_width);
             break;
 
         case 2: 
@@ -319,6 +330,9 @@ int main(int argc, char** argv) {
     cout << "viscosity = " << nu << ", resistivity = " << mu <<  endl;
 
     cout << "uniform background B0x = " << B0x << ", B0x = " << B0x <<  endl;
+    if (stagnation_A != 0.0) {
+        cout << "external stagnation flow u_ext = A (x - xc, -y), A = " << stagnation_A << ", xc = " << sheet_xc << endl;
+    }
 
     if (do_adaptively_refine_vorticity) {
         cout << "Adaptively refining for vorticity, to height at most " << max_height << endl;
@@ -340,7 +354,7 @@ int main(int argc, char** argv) {
                 initial_height, y_height, max_height,
                 x_min, x_max, y_min, y_max, bcs,
                 calculate_field, quad, num_steps, dt, method,
-                B0x, B0y,
+                B0x, B0y, stagnation_A,
                 n_steps_remesh, n_steps_diag,
                 do_adaptively_refine_vorticity, amr_epsilons_vorticity,
                 do_adaptively_refine_j, amr_epsilons_j,greens_epsilon};

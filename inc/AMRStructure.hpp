@@ -47,8 +47,11 @@ struct MHDDiagnostics {
     double I_w;     // sum w_i w_i
     double Psi_rec; // reconnected flux: max psi - min psi along y = 0, psi from int b2 dx
     double Psi_res; // closure residual: int_{x_min}^{x_max} b2 dx along y = 0, should be 0
+                    // (Psi_rec, Psi_res assume periodic x: NaN for free bcs)
     double w_max;   // max |vorticity| over the mesh
     double j_max;   // max |current density| over the mesh
+    double sheet_a; // sheet half thickness: HWHM of j along x = x_center, / acosh(sqrt 2) (= a for sech^2)
+    double sheet_b; // sheet half length:    HWHM of j along y = y_center (= b0 for the hat)
 };
 
 
@@ -122,6 +125,11 @@ struct AMRStructure {
     std::vector<double> old_xs_plus, old_ys_plus, old_q_plus;
     std::vector<double> old_xs_minus, old_ys_minus, old_q_minus;
     double B0x = 0.0, B0y = 0.0;        // optional uniform guide field
+    // external stagnation flow u_ext = A (x - xc, -y), xc = box center in x, free bcs only;
+    // stagnation point at the sheet center (xc, 0), same center as the sheet hat
+    double stagnation_A = 0.0;
+    double u_ext_x(double x) const { return  stagnation_A * (x - 0.5 * (x_min + x_max)); }
+    double u_ext_y(double y) const { return -stagnation_A * y; }
     Periodizer* periodizer = nullptr;   
 
 
@@ -201,7 +209,7 @@ struct AMRStructure {
                 double x_min, double x_max, double y_min, double y_max, 
                 int bcs, Field* calculate_e,
                 int quad, int num_steps, double dt, int method,
-                double B0x, double B0y,
+                double B0x, double B0y, double stagnation_A,
                 int n_steps_remesh,
                 int n_steps_diag,
                 bool do_adaptively_refine_vorticity, double amr_epsilons_vorticity,

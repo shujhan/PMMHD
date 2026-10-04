@@ -134,6 +134,14 @@ int AMRStructure::init_fields() {
         b1s[i] += B0x;
         b2s[i] += B0y;
     }
+    // external stagnation flow (curl- and divergence-free): only advects and
+    // enters S through grad u in compute_source; never seen by the field solve
+    if (stagnation_A != 0.0) {
+        for (size_t i = 0; i < xs.size(); ++i) {
+            u1s[i] += u_ext_x(xs[i]);
+            u2s[i] += u_ext_y(ys[i]);
+        }
+    }
     return 0;
 }
 
@@ -348,23 +356,33 @@ int AMRStructure::rk4() {
         } else {
             old_panels = panels;  old_xs = xs;  old_ys = ys;   // source = regular base grid
 
-            for (int i = 0; i < N; ++i) { field_tmp[i] = u1s[i] - b1s[i]; }
+            // free bcs: stage points of the outermost columns sit just outside the
+            // box (|dx| ~ dt*|u|); extrapolate the grid fields there instead of
+            // returning q0_beyond_boundary = 0. The external flow is linear, so it
+            // is removed before interpolation and added back exactly at the stage
+            // point (u_ext = 0 unless stagnation_A is set).
+            const bool extrap_saved = allow_boundary_extrapolation;
+            if (bcs == free_bcs) { allow_boundary_extrapolation = true; }
+
+            for (int i = 0; i < N; ++i) { field_tmp[i] = u1s[i] - u_ext_x(xs[i]) - b1s[i]; }
             old_q0s = field_tmp;
-            for (int i = 0; i < N; ++i) { kx_p[i] = interpolate_from_mesh(xs_plus[i], ys_plus[i], false); }
-            for (int i = 0; i < N; ++i) { field_tmp[i] = u2s[i] - b2s[i]; }
+            for (int i = 0; i < N; ++i) { kx_p[i] = interpolate_from_mesh(xs_plus[i], ys_plus[i], false) + u_ext_x(xs_plus[i]); }
+            for (int i = 0; i < N; ++i) { field_tmp[i] = u2s[i] - u_ext_y(ys[i]) - b2s[i]; }
             old_q0s = field_tmp;
-            for (int i = 0; i < N; ++i) { ky_p[i] = interpolate_from_mesh(xs_plus[i], ys_plus[i], false); }
+            for (int i = 0; i < N; ++i) { ky_p[i] = interpolate_from_mesh(xs_plus[i], ys_plus[i], false) + u_ext_y(ys_plus[i]); }
             old_q0s = rhs_plus;
             for (int i = 0; i < N; ++i) { kq_p[i] = interpolate_from_mesh(xs_plus[i], ys_plus[i], false); }
 
-            for (int i = 0; i < N; ++i) { field_tmp[i] = u1s[i] + b1s[i]; }
+            for (int i = 0; i < N; ++i) { field_tmp[i] = u1s[i] - u_ext_x(xs[i]) + b1s[i]; }
             old_q0s = field_tmp;
-            for (int i = 0; i < N; ++i) { kx_m[i] = interpolate_from_mesh(xs_minus[i], ys_minus[i], false); }
-            for (int i = 0; i < N; ++i) { field_tmp[i] = u2s[i] + b2s[i]; }
+            for (int i = 0; i < N; ++i) { kx_m[i] = interpolate_from_mesh(xs_minus[i], ys_minus[i], false) + u_ext_x(xs_minus[i]); }
+            for (int i = 0; i < N; ++i) { field_tmp[i] = u2s[i] - u_ext_y(ys[i]) + b2s[i]; }
             old_q0s = field_tmp;
-            for (int i = 0; i < N; ++i) { ky_m[i] = interpolate_from_mesh(xs_minus[i], ys_minus[i], false); }
+            for (int i = 0; i < N; ++i) { ky_m[i] = interpolate_from_mesh(xs_minus[i], ys_minus[i], false) + u_ext_y(ys_minus[i]); }
             old_q0s = rhs_minus;
             for (int i = 0; i < N; ++i) { kq_m[i] = interpolate_from_mesh(xs_minus[i], ys_minus[i], false); }
+
+            allow_boundary_extrapolation = extrap_saved;
         }
 
         // accumulate this stage into the RK4 sum

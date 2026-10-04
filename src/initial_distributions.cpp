@@ -12,23 +12,33 @@ void w0_uniform::print() {
 }
 
 
+// ---- hat along x for a finite current sheet ----
+double sheet_hat(double x, double xc, double b0, double w) {
+    if (b0 <= 0.0) { return 1.0; }
+    return 0.5 * (std::tanh((x - xc + b0) / w) - std::tanh((x - xc - b0) / w));
+}
+
 // ---- w0_current_sheet ----
-w0_current_sheet::w0_current_sheet(double kx, double amp, double thickness):
-    kx(kx), amp(amp), a(thickness){}
+w0_current_sheet::w0_current_sheet(double kx, double amp, double thickness,
+                                   double xc, double b0, double w):
+    kx(kx), amp(amp), a(thickness), xc(xc), b0(b0), w(w) {}
 
 double w0_current_sheet::operator()(double x, double y) {
-    // return amp * cos(kx * x);
-    double xi = y / a;
-    double T  = std::tanh(xi);
-    double s  = 1.0 / (std::cosh(xi) * std::cosh(xi));
-    double E  = std::exp(-xi * xi);
-    double F   = T * E;
-    double Fpp = E * (-2.0*s*T - 4.0*xi*s + (4.0*xi*xi - 2.0)*T);
-    return amp * std::sin(kx * x) * (Fpp / (a * a * kx) - kx * F);
+    return amp * cos(kx * x) * sheet_hat(x, xc, b0, w);
+    // double xi = y / a;
+    // double T  = std::tanh(xi);
+    // double s  = 1.0 / (std::cosh(xi) * std::cosh(xi));
+    // double E  = std::exp(-xi * xi);
+    // double F   = T * E;
+    // double Fpp = E * (-2.0*s*T - 4.0*xi*s + (4.0*xi*xi - 2.0)*T);
+    // return amp * std::sin(kx * x) * (Fpp / (a * a * kx) - kx * F) * sheet_hat(x, xc, b0, w);
 }
 
 void w0_current_sheet::print() {
     std::cout << "w0_current_sheet distribution: amp * cos(kx * x) " << std::endl;
+    if (b0 > 0.0) {
+        std::cout << "  times hat in x: center " << xc << ", half length " << b0 << ", width " << w << std::endl;
+    }
 }
 
 
@@ -134,16 +144,20 @@ void j0_uniform::print() {
 }
 
 // ---- current sheet ----
-j0_current_sheet::j0_current_sheet(double kx_j, double amp_j, double thickness):
-    kx(kx_j), amp(amp_j) , a(thickness){}
+j0_current_sheet::j0_current_sheet(double kx_j, double amp_j, double thickness,
+                                   double xc, double b0, double w):
+    kx(kx_j), amp(amp_j) , a(thickness), xc(xc), b0(b0), w(w) {}
 
 double j0_current_sheet::operator()(double x, double y) {
-    return 1.0 / a / (std::cosh(y/a) * std::cosh(y/a)) * ( 1 + amp * cos(kx * x));
+    return 1.0 / a / (std::cosh(y/a) * std::cosh(y/a)) * ( 1 + amp * cos(kx * x)) * sheet_hat(x, xc, b0, w);
 }
 
 
 void j0_current_sheet::print() {
     std::cout << "j0_current_sheet distribution: 1.0 / a / (cosh(y/a))^2 * ( 1 + amp * cos(kx * x))" << std::endl;
+    if (b0 > 0.0) {
+        std::cout << "  times hat in x: center " << xc << ", half length " << b0 << ", width " << w << std::endl;
+    }
 }
 
 
