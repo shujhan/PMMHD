@@ -189,7 +189,7 @@ int AMRStructure::write_diagnostics(const MHDDiagnostics& d) {
     std::ofstream f;
     if (!header_written) {
         f.open(path, std::ios::out | std::ios::trunc);
-        f << "iter,t,E_kin,E_mag,E_tot,H_C,I_j,I_w,Psi_rec,Psi_res,w_max,j_max,sheet_a,sheet_b\n";
+        f << "iter,t,E_kin,E_mag,E_tot,H_C,I_j,I_w,Psi_rec,Psi_res,w_max,j_max,sheet_width,sheet_length\n";
         header_written = true;
     } else {
         f.open(path, std::ios::out | std::ios::app);

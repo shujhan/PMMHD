@@ -55,7 +55,10 @@ struct potential_pp_interaction_2d {
 				i_s = panel_points_inside_source(source_panel,k);
 				sx = xcos_s(i_s);
 				sy = ycos_s(i_s);
-				gfv = gfc*Kokkos::log((tx-sx)*(tx-sx)+(ty-sy)*(ty-sy)+eps*eps);
+				// skip coincident target/source: log(0) = -inf with eps = 0
+				real r2 = (tx-sx)*(tx-sx)+(ty-sy)*(ty-sy)+eps*eps;
+				if (r2 < 1e-14) continue;
+				gfv = gfc*Kokkos::log(r2);
 				Kokkos::atomic_add(&soln(i_t), gfv*charges(i_s));
 			}
 		}
@@ -275,7 +278,11 @@ struct velocity_pp_interaction_2d {
 				i_s = panel_points_inside_source(source_panel,k);
 				sx = xcos_s(i_s);
 				sy = ycos_s(i_s);
-				gfv = gfc*charges(i_s)/((tx-sx)*(tx-sx)+(ty-sy)*(ty-sy)+eps*eps);
+				// skip coincident target/source (self term): with eps = 0 it is 0/0 = NaN.
+				// same guard as U_DirectSum / U_Treecode (r2 < 1e-14 -> continue)
+				real r2 = (tx-sx)*(tx-sx)+(ty-sy)*(ty-sy)+eps*eps;
+				if (r2 < 1e-14) continue;
+				gfv = gfc*charges(i_s)/r2;
 				ux -= (ty-sy)*gfv;
 				uy += (tx-sx)*gfv;
 			}

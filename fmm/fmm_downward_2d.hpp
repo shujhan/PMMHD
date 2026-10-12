@@ -2,9 +2,11 @@
 #define PMMHD_FMM_DOWNWARD_2D_HPP
 
 // BarytreeK's 2d downward pass (downward_pass.cpp / downward_pass_impl.hpp),
-// copied unchanged except that the unreachable `throw` in the child switch is
-// Kokkos::abort, because device code cannot throw. This lets the FMM run on
-// the CUDA backend without modifying BarytreeK.
+// copied with two changes:
+//  - the unreachable `throw` in the child switch is Kokkos::abort, because
+//    device code cannot throw (CUDA backend);
+//  - adaptive trees: parent_to_child skips leaves, and leaf_to_point visits the
+//    leaves on every level (BarytreeK assumed all leaves on the deepest level).
 
 #include <Kokkos_Core.hpp>
 #include "barytreek-config.h"
@@ -22,6 +24,10 @@ struct fmm_parent_to_child_2d {
 	KOKKOS_INLINE_FUNCTION
 	void operator()(const int i, const int j) const {
 		// interpolates proxy target weights of panel i to child panels
+		// PMMHD: the tree is adaptive (AMR meshes), so a level can contain leaves.
+		// A leaf has child1..4 = -1; indexing proxy_target_weights(-1, .) writes
+		// outside the view (heap corruption). Leaves are handled in leaf_to_point.
+		if (blfmm_panels(i).is_leaf) return;
 		int child;
 		switch (j) {
 			case 0:
@@ -86,6 +92,7 @@ struct fmm_leaf_to_point_2d {
 
 	KOKKOS_INLINE_FUNCTION
 	void operator()(const int i) const {
+		if (!blfmm_panels(i).is_leaf) return;   // PMMHD: leaves can sit on any level
 		int target_count = blfmm_panels(i).point_count;
 		real min_x = blfmm_panels(i).min_x;
 		real max_x = blfmm_panels(i).max_x;
@@ -118,8 +125,11 @@ inline void fmm_downward_pass_2d(const RunConfig& run_config, const TreeInfo& tr
 		ub = tree_info.level_start[i+1];
 		Kokkos::parallel_for(Kokkos::MDRangePolicy({lb, 0},{ub, 4}), fmm_parent_to_child_2d(blfmm_panels, proxy_target_weights, run_config.interp_degree));
 	}
-	lb = tree_info.level_start[tree_info.levels-1];
-	ub = tree_info.level_start[tree_info.levels];
+	// PMMHD: BarytreeK only evaluated leaves on the deepest level, which assumes a
+	// uniform-depth tree. On an adaptive tree the shallower leaves never received
+	// their far-field (pc/cc) contribution. Visit every panel; non-leaves return.
+	lb = 0;
+	ub = tree_info.panel_count;
 	Kokkos::parallel_for(Kokkos::RangePolicy(lb, ub), fmm_leaf_to_point_2d(xcos, ycos, soln, proxy_target_weights, blfmm_panels, panel_points_inside, run_config.interp_degree));
 }
 

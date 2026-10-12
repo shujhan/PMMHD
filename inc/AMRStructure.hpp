@@ -50,8 +50,8 @@ struct MHDDiagnostics {
                     // (Psi_rec, Psi_res assume periodic x: NaN for free bcs)
     double w_max;   // max |vorticity| over the mesh
     double j_max;   // max |current density| over the mesh
-    double sheet_a; // sheet half thickness: HWHM of j along x = x_center, / acosh(sqrt 2) (= a for sech^2)
-    double sheet_b; // sheet half length:    HWHM of j along y = y_center (= b0 for the hat)
+    double sheet_a; // sheet thickness: HWHM of j along x = x_center, / acosh(sqrt 2) (= a for sech^2)
+    double sheet_b; // sheet length:    HWHM of j along y = y_center (= b0 for the hat)
 };
 
 
