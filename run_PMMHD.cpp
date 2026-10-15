@@ -212,7 +212,7 @@ int main(int argc, char** argv) {
         KernelMode m = periodic_xy;
         if (use_treecode == 2) {
 #ifdef FMM_ENABLED
-            calculate_field = new U_FMM(greens_epsilon, mac, degree, max_source);
+            calculate_field = new U_FMM(x_min, Lx, greens_epsilon, mac, degree, max_source);
             calculate_field->set_mode(m);
             cout << "using FMM: periodic in x and y" << endl;
 #else
@@ -235,7 +235,7 @@ int main(int argc, char** argv) {
         KernelMode m = free_xy;
         if (use_treecode == 2) {
 #ifdef FMM_ENABLED
-            calculate_field = new U_FMM(greens_epsilon, mac, degree, max_source);
+            calculate_field = new U_FMM(x_min, Lx, greens_epsilon, mac, degree, max_source);
             calculate_field->set_mode(m);
             cout << "using FMM: open in x and y" << endl;
 #else
@@ -256,7 +256,17 @@ int main(int argc, char** argv) {
     }
     else {
         KernelMode m = original;
-        if (use_treecode > 0) {
+        if (use_treecode == 2) {
+#ifdef FMM_ENABLED
+            calculate_field = new U_FMM(x_min, Lx, greens_epsilon, mac, degree, max_source);
+            calculate_field->set_mode(m);
+            cout << "using FMM: periodic in x and open in y" << endl;
+#else
+            cout << "use_treecode = 2 needs a build with -DENABLE_FMM=ON" << endl;
+            return 1;
+#endif
+        }
+        else if (use_treecode > 0) {
             calculate_field = new U_Treecode(Lx, greens_epsilon, mac, degree, max_source, max_target);
             calculate_field->set_mode(m);
             cout << "using treecode: periodic in x and open in y" << endl;

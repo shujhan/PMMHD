@@ -11,8 +11,14 @@
 //
 // Same call convention as U_Treecode: the ny entries of x_vals/y_vals/q_ws are
 // the sources, the first nx of them are the targets.
-// Supported modes: periodic_xy (free-space Biot-Savart, u1/u2) and
-// periodic_xy_potentials (free-space log potential, e1s only).
+// Supported modes:
+//   periodic_xy / periodic_xy_potentials (= free_xy / free_xy_potentials):
+//       free-space Biot-Savart (u1/u2) and log potential (e1s only);
+//       used for bcs 0 (with images + Periodizer) and bcs 2 (free)
+//   original / original_potentials:
+//       channel kernel, periodic in x with period L, open in y (bcs 1);
+//       x is wrapped into [x_min, x_min + L) and the MAC uses the closest
+//       periodic image in x
 
 void fmm_initialize(int& argc, char** argv);   // wraps Kokkos::initialize
 void fmm_finalize();                           // wraps Kokkos::finalize
@@ -20,7 +26,7 @@ void fmm_finalize();                           // wraps Kokkos::finalize
 class U_FMM : public Field {
     public:
         U_FMM();
-        U_FMM(double epsilon, double mac, int degree, int max_source);
+        U_FMM(double x_min, double L, double epsilon, double mac, int degree, int max_source);
         void operator() (double* e1s, double* e2s, double* x_vals, int nx,
                         double* y_vals, double* q_ws, int ny);
         void print_field_obj();
@@ -34,6 +40,8 @@ class U_FMM : public Field {
         static void operator delete(void* p);
 
     private:
+        double x_min;     // left end of the x period (channel kernel)
+        double L;         // x period Lx (channel kernel)
         double epsilon;
         double mac;       // MAC theta, (r_t + r_s) / R < mac
         int degree;       // Chebyshev interpolation degree (<= 10)
