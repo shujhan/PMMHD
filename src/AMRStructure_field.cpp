@@ -329,77 +329,92 @@ int AMRStructure::evaluate_potential(std::vector<double>& potentials_local,
             potentials_local[i] = potentialtmp[i];
         }
 
-        // // ---------- Step B: same near sum at the 4m wall collocation targets ----------
-        // const std::vector<double>& wxs = periodizer->get_wall_xs();
-        // const std::vector<double>& wys = periodizer->get_wall_ys();
-        // const int mm = periodizer->get_m();
-        // const int nw = 4 * mm;
+        // ---------- Step B: near sum at the 4m wall collocation targets ----------
+        // Field (for the proxy fit, as in evaluate_b_field) and potential (for
+        // the linear-gauge fix in Step F), from the same 3x3 image list.
+        const std::vector<double>& wxs = periodizer->get_wall_xs();
+        const std::vector<double>& wys = periodizer->get_wall_ys();
+        const int mm = periodizer->get_m();
+        const int nw = 4 * mm;
 
-        // std::vector<double> near_walls_b1(nw, 0.0);
-        // std::vector<double> near_walls_b2(nw, 0.0);
+        std::vector<double> near_walls_f1(nw, 0.0);
+        std::vector<double> near_walls_f2(nw, 0.0);
+        std::vector<double> walls_pot(nw, 0.0);
 
-        // const double pi = 3.14159265358979323846;
-        // const double eps = greens_epsilon;
+        const double pi = 3.14159265358979323846;
+        const double eps = greens_epsilon;
 
-        // #pragma omp parallel for
-        // for (int i = 0; i < nw; ++i) {
-        //     double tx = wxs[i];
-        //     double ty = wys[i];
-        //     double s1 = 0.0, s2 = 0.0;
-        //     for (int k = 0; k < n9; ++k) {
-        //         double dx = tx - xtmp[k];
-        //         double dy = ty - ytmp[k];
-        //         // was: if (x_diff == 0.0 && y_diff == 0.0) continue;
-        //         // if (dx*dx + dy*dy < 1e-16) continue;   // skip self + coincident periodic images
-        //         double r2 = dx * dx + dy * dy + eps * eps;
-        //         s1 -= (1.0 / (2.0 * pi)) * dy / r2 * wtmp[k];
-        //         s2 += (1.0 / (2.0 * pi)) * dx / r2 * wtmp[k];
-        //     }
-        //     near_walls_b1[i] = s1;
-        //     near_walls_b2[i] = s2;
-        // }
+        #pragma omp parallel for
+        for (int i = 0; i < nw; ++i) {
+            double tx = wxs[i];
+            double ty = wys[i];
+            double s1 = 0.0, s2 = 0.0, sp = 0.0;
+            for (int k = 0; k < n9; ++k) {
+                double dx = tx - xtmp[k];
+                double dy = ty - ytmp[k];
+                double r2 = dx * dx + dy * dy + eps * eps;
+                if (r2 < 1e-16) continue;   // skip coincident points, as in the field solve
+                s1 -= (1.0 / (2.0 * pi)) * dy / r2 * wtmp[k];
+                s2 += (1.0 / (2.0 * pi)) * dx / r2 * wtmp[k];
+                sp += (0.25 / pi) * std::log(r2) * wtmp[k];
+            }
+            near_walls_f1[i] = s1;
+            near_walls_f2[i] = s2;
+            walls_pot[i] = sp;
+        }
 
-        // // ---------- Step C: pack 8m vector for Periodizer ----------
-        // std::vector<double> near_b_on_walls(8 * mm);
-        // for (int i = 0; i < mm; ++i) {
-        //     near_b_on_walls[          i] = near_walls_b1[         i];  // L b1
-        //     near_b_on_walls[   mm  + i] = near_walls_b2[         i];  // L b2
-        //     near_b_on_walls[ 2*mm  + i] = near_walls_b1[  mm   + i];  // D b1
-        //     near_b_on_walls[ 3*mm  + i] = near_walls_b2[  mm   + i];  // D b2
-        //     near_b_on_walls[ 4*mm  + i] = near_walls_b1[2*mm   + i];  // R b1
-        //     near_b_on_walls[ 5*mm  + i] = near_walls_b2[2*mm   + i];  // R b2
-        //     near_b_on_walls[ 6*mm  + i] = near_walls_b1[3*mm   + i];  // U b1
-        //     near_b_on_walls[ 7*mm  + i] = near_walls_b2[3*mm   + i];  // U b2
-        // }
+        // ---------- Step C: pack 8m vector for Periodizer ----------
+        std::vector<double> near_f_on_walls(8 * mm);
+        for (int i = 0; i < mm; ++i) {
+            near_f_on_walls[          i] = near_walls_f1[         i];  // L f1
+            near_f_on_walls[   mm  + i] = near_walls_f2[         i];  // L f2
+            near_f_on_walls[ 2*mm  + i] = near_walls_f1[  mm   + i];  // D f1
+            near_f_on_walls[ 3*mm  + i] = near_walls_f2[  mm   + i];  // D f2
+            near_f_on_walls[ 4*mm  + i] = near_walls_f1[2*mm   + i];  // R f1
+            near_f_on_walls[ 5*mm  + i] = near_walls_f2[2*mm   + i];  // R f2
+            near_f_on_walls[ 6*mm  + i] = near_walls_f1[3*mm   + i];  // U f1
+            near_f_on_walls[ 7*mm  + i] = near_walls_f2[3*mm   + i];  // U f2
+        }
 
-        // // ---------- Step D: solve Q xi = g for proxy coefficients (for B) ----------
-        // periodizer->compute_xi(near_b_on_walls);
+        // ---------- Step D: proxy coefficients from the field jumps ----------
+        // Same fit as evaluate_u_field / evaluate_b_field for these weights.
+        // Overwrites the periodizer's xi; every field solve recomputes its own.
+        periodizer->compute_xi(near_f_on_walls);
 
-        // // ---------- Step E: add proxy correction at the particles ----------
-        // periodizer->add_correction(xs_local, ys_local, b1s_local, b2s_local);
+        // ---------- Step E: proxy potential at the particles and the walls ----------
+        periodizer->add_correction_potential(xs_local, ys_local, potentials_local);
+        periodizer->add_correction_potential(wxs, wys, walls_pot);
 
-        // // ---------- Step F: project onto the zero-mean gauge ----------
-        // // Same fix as in evaluate_u_field: remove the spurious mean left by the
-        // // near-sum truncation. This zeroes the mean of the Biot-Savart part of B;
-        // // the physical background field B0x/B0y is added by the caller afterward,
-        // // so the total mean B is exactly (B0x, B0y) as intended.
-        // {
-        //     const bool use_w = ((int)weights.size() == n_local);
-        //     double m1 = 0.0, m2 = 0.0, wsum = 0.0;
-        //     for (int i = 0; i < n_local; ++i) {
-        //         const double wq = use_w ? weights[i] : 1.0;
-        //         m1 += wq * b1s_local[i];
-        //         m2 += wq * b2s_local[i];
-        //         wsum += wq;
-        //     }
-        //     if (wsum != 0.0) {
-        //         m1 /= wsum; m2 /= wsum;
-        //         for (int i = 0; i < n_local; ++i) {
-        //             b1s_local[i] -= m1;
-        //             b2s_local[i] -= m2;
-        //         }
-        //     }
-        // }
+        // ---------- Step F: remove the linear part, then the mean ----------
+        // With the field jumps cancelled, grad(potential) is periodic, so the
+        // potential is periodic up to c_x (x-xc)/Lx + c_y (y-yc)/Ly with
+        // c_x = <pot(R) - pot(L)>, c_y = <pot(U) - pot(D)> over the wall pairs.
+        // Removing it is the zero-mean-field gauge of the field solve (Step F
+        // there). The constant is then fixed by a zero quadrature-weighted mean,
+        // as in a spectral solve (k = 0 mode dropped).
+        {
+            double c_x = 0.0, c_y = 0.0;
+            for (int i = 0; i < mm; ++i) {
+                c_x += walls_pot[2*mm + i] - walls_pot[       i];   // R - L
+                c_y += walls_pot[3*mm + i] - walls_pot[  mm + i];   // U - D
+            }
+            c_x /= mm; c_y /= mm;
+            const double xc = 0.5 * (x_min + x_max), yc = 0.5 * (y_min + y_max);
+
+            const bool use_w = ((int)weights.size() == n_local);
+            double mean = 0.0, wsum = 0.0;
+            for (int i = 0; i < n_local; ++i) {
+                potentials_local[i] -= c_x * (xs_local[i] - xc) / Lx
+                                     + c_y * (ys_local[i] - yc) / Ly;
+                const double wq = use_w ? weights[i] : 1.0;
+                mean += wq * potentials_local[i];
+                wsum += wq;
+            }
+            if (wsum != 0.0) {
+                mean /= wsum;
+                for (int i = 0; i < n_local; ++i) { potentials_local[i] -= mean; }
+            }
+        }
     }
     else if (bcs == free_bcs) {
         // free case (open x and y): free-space log kernel, no images

@@ -163,6 +163,10 @@ int main(int argc, char** argv) {
             w0 = new w0_coalescence(kx_vorticity, ky_vorticity, amp_vorticity);
             break;
 
+        case 7: // Loureiro et al. 2005: no initial flow
+            w0 = new w0_zero();
+            break;
+
         
         default:
             cout << "Using default initial conditions, all 1s" << endl;
@@ -196,6 +200,14 @@ int main(int argc, char** argv) {
 
         case 6:
             j0 = new j0_coalescence(kx_j, ky_j, amp_j);
+            break;
+
+        case 7: // Loureiro et al. 2005: psi_hat sech^2(y) sheet, needs bcs 0
+            if (bcs != 0) {
+                cout << "ics_type 7 (Loureiro) needs bcs = 0 (doubly periodic)" << endl;
+                return 1;
+            }
+            j0 = new j0_loureiro(kx_j, amp_j, y_min, y_max);
             break;
 
 

@@ -242,3 +242,44 @@ double j0_coalescence::operator()(double x, double y) {
 void j0_coalescence::print() {
     std::cout << "j0_coalescence: amp * sin(kx*x) * sin(ky*y)" << std::endl;
 }
+
+// ---- w0_zero ----
+w0_zero::w0_zero() {}
+
+double w0_zero::operator()(double x, double y) {
+    return 0.0;
+}
+
+void w0_zero::print() {
+    std::cout << "w0_zero distribution: 0" << std::endl;
+}
+
+
+// ---- j0_loureiro ----
+static double loureiro_dpsi0(double psi_hat, double y) {
+    // psi_0'(y) for psi_0 = psi_hat sech^2(y)
+    const double s = 1.0 / std::cosh(y);
+    return -2.0 * psi_hat * s * s * std::tanh(y);
+}
+
+j0_loureiro::j0_loureiro(double kx_j, double amp_j, double y_min, double y_max):
+    kx(kx_j), amp(amp_j) {
+    psi_hat = 3.0 * std::sqrt(3.0) / 4.0;
+    j_mean = (loureiro_dpsi0(psi_hat, y_max) - loureiro_dpsi0(psi_hat, y_min)) / (y_max - y_min);
+}
+
+double j0_loureiro::operator()(double x, double y) {
+    const double s2 = 1.0 / (std::cosh(y) * std::cosh(y));
+    return psi_hat * (4.0 * s2 - 6.0 * s2 * s2) * (1.0 + amp * std::cos(kx * x)) - j_mean;
+}
+
+void j0_loureiro::print() {
+    std::cout << "j0_loureiro distribution: psi_hat (4 sech^2 y - 6 sech^4 y) (1 + amp cos(kx x)) - <j_0>" << std::endl;
+    std::cout << "  psi_hat = " << psi_hat << ", kx = " << kx << ", amp = " << amp
+              << ", <j_0> = " << j_mean << std::endl;
+    if (amp > 0.0) {
+        std::cout << "  amp > 0: O-point at x = 0, X-point at x = +-pi/kx" << std::endl;
+    } else if (amp < 0.0) {
+        std::cout << "  amp < 0: X-point at x = 0, O-point at x = +-pi/kx" << std::endl;
+    }
+}

@@ -102,6 +102,15 @@ class w0_coalescence : public distribution {
 
 
 
+// Zero vorticity (no initial flow).
+class w0_zero : public distribution {
+    public:
+        w0_zero();
+        double operator() (double x, double y);
+        void print();
+};
+
+
 class j0_uniform : public distribution {
     public:
         j0_uniform();
@@ -187,6 +196,26 @@ class j0_coalescence : public distribution {
     double kx;
     double ky;
     double amp;
+};
+
+// Loureiro, Cowley, Dorland, Haines & Schekochihin, PRL 95, 235003 (2005),
+// with the paper's x and y swapped (sheet along x here):
+//   psi_0 = psi_hat sech^2(y),  psi_hat = 3 sqrt(3)/4  =>  max |B_x| = 1
+//   j     = lap psi_0 * (1 + amp cos(kx x)) - <j_0>
+//         = psi_hat (4 sech^2 y - 6 sech^4 y) (1 + amp cos(kx x)) - <j_0>
+// <j_0> = [psi_0'(y_max) - psi_0'(y_min)] / Ly is the y-mean of lap psi_0
+// (-0.0061 on [-pi, pi]); subtracting it makes the source zero-mean, as the
+// doubly-periodic solve requires. The cos term averages to zero when Lx is one
+// wavelength. amp > 0 puts the O-point at x = 0, amp < 0 puts the X-point there.
+class j0_loureiro : public distribution {
+    public:
+        j0_loureiro(double kx_j, double amp_j, double y_min, double y_max);
+        double operator() (double x, double y);
+        void print();
+    double kx;
+    double amp;
+    double psi_hat;
+    double j_mean;
 };
 
 #endif

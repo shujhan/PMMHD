@@ -197,6 +197,31 @@ void Periodizer::add_correction(const std::vector<double>& tx,
     }
 }
 
+// -----------------------------------------------------------------------
+// add_correction_potential
+// -----------------------------------------------------------------------
+// Potential of the same proxy sources: G = (1/4pi) log(r^2 + eps^2), so that
+// z x grad(xi G) is exactly the field correction of add_correction.
+void Periodizer::add_correction_potential(const std::vector<double>& tx,
+                                          const std::vector<double>& ty,
+                                          std::vector<double>& pot) const
+{
+    const double pi = 3.14159265358979323846;
+    const int N = (int)tx.size();
+
+    #pragma omp parallel for
+    for (int i = 0; i < N; ++i) {
+        double s = 0.0;
+        for (int j = 0; j < M; ++j) {
+            double dx = tx[i] - proxy_x[j];
+            double dy = ty[i] - proxy_y[j];
+            double r2 = dx * dx + dy * dy + eps * eps;
+            s += xi[j] * (0.25 / pi) * std::log(r2);
+        }
+        pot[i] += s;
+    }
+}
+
 // void Periodizer::add_correction_grad_u1(const std::vector<double>& tx,
 //                                         const std::vector<double>& ty,
 //                                         std::vector<double>& du1_dx,

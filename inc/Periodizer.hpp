@@ -28,6 +28,13 @@ public:
                         std::vector<double>& u1,
                         std::vector<double>& u2) const;
 
+    // Add xi * G_proxy to a potential (stream / flux function) at target points,
+    // G = (1/4pi) log(r^2 + eps^2): the potential whose perp-gradient is the
+    // field correction above, with the xi of the last compute_xi call.
+    void add_correction_potential(const std::vector<double>& tx,
+                                  const std::vector<double>& ty,
+                                  std::vector<double>& pot) const;
+
     // // Add the gradient of the proxy correction at target points.
     // // Outputs the (x,y) components of grad(u1) and grad(u2).
     // void add_correction_grad_u1(const std::vector<double>& tx,
