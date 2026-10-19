@@ -45,16 +45,13 @@ struct MHDDiagnostics {
     double H_C;     // cross helicity: sum w_i (u1 b1 + u2 b2)
     double I_j;     // sum w_i j_i   (conserved to round-off; boundary flux ~ mu d_y j at |y|=20a)
     double I_w;     // sum w_i w_i
-    double Psi_rec; // reconnected flux at the X-point (x_center, 0), Loureiro et al. 2005:
-                    //   Psi = psi_eq(X) - psi(X), gauge fixed by the x-mean of psi on y = y_min
-    double Psi_res; // closure residual: int_{x_min}^{x_max} b2 dx along y = 0, should be 0
-                    // (Psi_rec, Psi_res assume periodic x: NaN for free bcs)
-    double w_max;   // max |vorticity| over the mesh
-    double j_max;   // max |current density| over the mesh
-    double sheet_a; // sheet thickness: FWHM of |j| along x = x_center, / acosh(sqrt 2) (= a for sech^2)
-    double sheet_b; // sheet length:    FWHM of |j| along y = 0 (= L_CS of Loureiro et al. 2005)
-    double delta_cs;// sheet width:     FWHM of |j| along x = x_center (= delta_CS of Loureiro et al. 2005)
-    double W;       // island width W = 4 sqrt(Psi_rec / |j(X, t=0)|), Loureiro Eq. (3) (|j(X,0)| = |psi_0''(0)|)
+    double w_max;   // max |vorticity| over mesh nodes (unweighted: comparable between uniform and AMR meshes)
+    double j_max;   // max |current density| over mesh nodes
+    double Psi;       // reconnected flux, Loureiro et al. 2005: Psi = psi_0 - psi(t, X), psi_0 = psi_eq(X)
+                      // (periodic x only: NaN for free bcs)
+    double W;         // island width W = 4 sqrt(Psi / |psi_0''(0)|), Loureiro Eq. (3), |psi_0''(0)| = |j_eq(0)|
+    double gamma_eff; // effective growth rate d ln Psi / dt, backward difference over one diag interval
+    double delta_cs;  // sheet width: FWHM of |j| along the column through the X-point (placeholder)
 };
 
 
@@ -156,12 +153,14 @@ struct AMRStructure {
     // computed only at diagnostic dumps; contours of psis are field lines.
     std::vector<double> phis, psis;
 
-    // reconnected-flux reference, fixed on the first diagnostic call (t = 0):
-    //   Psi_rec(t) = psiL_sgn * (psiL_ref - D(t)),  D = psi(X) - <psi(., y_min)>_x
-    bool   psiL_ref_set = false;
-    double psiL_ref = 0.0;
-    double psiL_sgn = 1.0;   // -sign(j at X, t = 0): Psi_rec > 0 as flux reconnects
-    double psiL_jX0 = 0.0;   // |j at X, t = 0|
+    // reconnected-flux reference, fixed on the first diagnostic call (t = 0), see compute_diagnostics
+    bool   rec_ref_set = false;
+    double rec_sgn  = 1.0;   // -sign(j_eq(0)): Psi > 0 as flux reconnects
+    double rec_psi0 = 0.0;   // psi_eq at the X-point (zero-mean gauge of psis)
+    double rec_d2   = 0.0;   // |psi_0''(0)| = |j_eq(0)|
+    double rec_xX   = 0.0;   // x of the X-point node on y = 0
+    double rec_Psi_prev = std::nan("");   // Psi at the previous dump, for gamma_eff
+    double rec_t_prev   = 0.0;
 
 
 

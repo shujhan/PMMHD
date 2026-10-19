@@ -110,9 +110,13 @@ void Periodizer::precompute_Q()
         }
     }
 
-    // Pivoted QR — handles the expected ill-conditioning in Q correctly.
-    // Eigen's ColPivHouseholderQR is the direct analogue of LAPACK's dgeqp3
-    // and gives a min-norm LS solution when the system is rank-deficient.
+    // Q is numerically rank-deficient (proxy circle, smooth kernel). Pivoted QR
+    // (ColPivHouseholderQR) returns a BASIC solution there, not the min-norm one:
+    // |xi| ~ 1e11, the correction is a cancellation of ~1e10 terms (noise ~1e-4)
+    // and the column pivot order breaks the x/y reflection symmetry.
+    // Complete orthogonal decomposition with a truncation threshold gives the
+    // unique min-norm solution, which inherits the symmetry of the geometry.
+    Q_solver.setThreshold(1e-6);
     Q_solver.compute(Q_matrix);
 
     std::cout << "[Periodizer] Q matrix rank: "

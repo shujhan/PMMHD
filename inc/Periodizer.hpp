@@ -63,7 +63,7 @@ private:
     std::vector<double> wall_xs_4m, wall_ys_4m;  // size 4m
 
     Eigen::MatrixXd Q_matrix;                                   // 4m x M
-    Eigen::ColPivHouseholderQR<Eigen::MatrixXd> Q_solver;       // factorization
+    Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXd> Q_solver;  // min-norm LS (rank-revealing)
 
     std::vector<double> xi;   // size M, updated each compute_xi call
 };
