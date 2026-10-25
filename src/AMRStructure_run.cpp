@@ -1,6 +1,7 @@
 #include "AMRStructure.hpp"
 #include <limits>
 #include <iomanip>
+#include <cmath>
 
 int AMRStructure::run() {
     while (iter_num < num_steps) {
@@ -693,6 +694,33 @@ int AMRStructure::compute_source( std::vector<double>& xs_in, std::vector<double
     for (int i = 0; i < xs.size(); ++i) {
         rhs_plus[i] = 2.0 * (b1s_grad_x[i]*u2s_grad_x[i] + b2s_grad_x[i]*u2s_grad_y[i])
                  - 2.0 * (b1s_grad_y[i]*u1s_grad_x[i] + b2s_grad_y[i]*u1s_grad_y[i]);
+    }
+
+    // Conservative correction of S.
+    // Continuous: int S dA = boundary flux ~ 0, so S cannot create net current.
+    // The discrete product form gives sum_i w_i S_i != 0 (truncation error), which
+    // accumulates as fake net current, shifts the far field B_inf = I_j / (2 Lx),
+    // and injects magnetic energy. Remove that net part where the current is:
+    //   S_i <- S_i - c |j_i|,   c = sum_i w_i S_i / sum_i w_i |j_i|
+    // so that sum_i w_i S_i = 0 exactly. c = O(h^2): order of accuracy unchanged.
+    // Applied for bcs 0 (doubly periodic: int S dA = 0 exactly) and bcs 1 (periodic
+    // in x, fields decayed at the y walls). Not for free bcs (2): with external
+    // inflow, current can genuinely cross the boundary and int S dA != 0.
+    if (bcs != free_bcs) {
+        double intS = 0.0, intAbsJ = 0.0;
+        for (int i = 0; i < xs.size(); ++i) {
+            intS    += weights[i] * rhs_plus[i];
+            intAbsJ += weights[i] * std::abs(j0s[i]);
+        }
+        if (intAbsJ > 0.0) {
+            const double c = intS / intAbsJ;
+            for (int i = 0; i < xs.size(); ++i) {
+                rhs_plus[i] -= c * std::abs(j0s[i]);
+            }
+        }
+    }
+
+    for (int i = 0; i < xs.size(); ++i) {
         rhs_minus[i] = -1 * rhs_plus[i];
     }
 
